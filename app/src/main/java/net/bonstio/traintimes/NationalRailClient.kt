@@ -1,0 +1,265 @@
+package net.bonstio.traintimes
+
+import android.util.Log
+import io.ktor.client.*
+import io.ktor.client.engine.android.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserFactory
+import java.io.StringReader
+
+/**
+ * Client for interacting with the National Rail Darwin OpenLDBWS API.
+ * It fetches train departure information using SOAP requests.
+ *
+ * @property apiKey The API key for authentication with the National Rail API.
+ */
+class NationalRailClient(private val apiKey: String) {
+
+    // FIX: Switched from CIO to Android engine for better DNS/Network handling on devices
+    private val client = HttpClient(Android) {
+        engine {
+            connectTimeout = 10_000
+            socketTimeout = 10_000
+        }
+        expectSuccess = true // Throws exception on non-2xx responses (e.g. SOAP Faults)
+    }
+
+    /**
+     * Fetches the next train services between two stations.
+     *
+     * @param fromStation The CRS code of the departure station.
+     * @param toStation The CRS code of the arrival station.
+     * @param timeOffset An offset in minutes to apply to the current time for the query.
+     * @param numRows The number of services to retrieve.
+     * @return A list of [TrainService] objects representing the departures.
+     * @throws Exception If the network request fails or parsing errors occur.
+     */
+    suspend fun getNextTrain(
+        fromStation: String,
+        toStation: String,
+        timeOffset: Int = 0,
+        numRows: Int = 4
+    ): List<TrainService> {
+        val requestBody = """
+            <x:Envelope xmlns:x="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ldb="http://thalesgroup.com/RTTI/2017-10-01/ldb/" xmlns:typ4="http://thalesgroup.com/RTTI/2013-11-28/Token/types">
+                <x:Header>
+                    <typ4:AccessToken><typ4:TokenValue>$apiKey</typ4:TokenValue></typ4:AccessToken>
+                </x:Header>
+                <x:Body>
+                    <ldb:GetDepBoardWithDetailsRequest>
+                        <ldb:numRows>$numRows</ldb:numRows>
+                        <ldb:crs>$fromStation</ldb:crs>
+                        <ldb:timeOffset>$timeOffset</ldb:timeOffset>
+                        <ldb:filterCrs>$toStation</ldb:filterCrs>
+                        <ldb:filterType>to</ldb:filterType>
+                        <ldb:timeWindow>120</ldb:timeWindow>
+                    </ldb:GetDepBoardWithDetailsRequest>
+                </x:Body>
+            </x:Envelope>
+        """.trimIndent()
+
+        Log.d("NationalRailClient", "Request Body: $requestBody")
+
+        val response: HttpResponse =
+            client.post("https://lite.realtime.nationalrail.co.uk/OpenLDBWS/ldb11.asmx") {
+                contentType(ContentType.Text.Xml.withParameter("charset", "utf-8"))
+                setBody(requestBody)
+            }
+
+        val responseBody = response.bodyAsText()
+        Log.d("NationalRailClient", "Response Status: ${response.status}")
+        Log.d("NationalRailClient", "Response Body: $responseBody")
+
+        return parseTrainServices(responseBody)
+    }
+
+    /**
+     * Parses the XML response from the National Rail API.
+     *
+     * @param xml The XML response string.
+     * @return A list of parsed [TrainService] objects.
+     */
+    private fun parseTrainServices(xml: String): List<TrainService> {
+        val services = mutableListOf<TrainService>()
+        val factory = XmlPullParserFactory.newInstance()
+        factory.isNamespaceAware = true
+        val parser = factory.newPullParser()
+        parser.setInput(StringReader(xml))
+
+        var eventType = parser.eventType
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            if (eventType == XmlPullParser.START_TAG && parser.name == "service") {
+                readService(parser)?.let { services.add(it) }
+            }
+            eventType = parser.next()
+        }
+        return services
+    }
+
+    /**
+     * Parses a single service element from the XML.
+     *
+     * @param parser The XMLPullParser positioned at the "service" tag.
+     * @return A [TrainService] object or null if parsing fails or critical data is missing.
+     */
+    private fun readService(parser: XmlPullParser): TrainService? {
+        parser.require(XmlPullParser.START_TAG, null, "service")
+        var std: String? = null
+        var destination: String? = null
+        var platform: String? = null
+        var etd: String? = null
+        var isCancelled = false
+        val callingPoints = mutableListOf<String>()
+
+        while (parser.next() != XmlPullParser.END_TAG) {
+            if (parser.eventType != XmlPullParser.START_TAG) {
+                continue
+            }
+            when (parser.name) {
+                "std" -> std = readText(parser, "std")
+                "etd" -> etd = readText(parser, "etd")
+                "platform" -> platform = readText(parser, "platform")
+                "isCancelled" ->
+                    isCancelled = readText(parser, "isCancelled")?.toBoolean() ?: false
+
+                "destination" -> destination = readDestination(parser)
+                "subsequentCallingPoints" -> callingPoints.addAll(readCallingPoints(parser))
+                else -> skip(parser)
+            }
+        }
+
+        return if (std != null && destination != null) {
+            val status = when {
+                isCancelled -> "Cancelled"
+                etd != null && etd != "On time" && etd != std -> "Exp $etd"
+                else -> "On time"
+            }
+            TrainService(std, destination, platform, status, callingPoints)
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Parses the destination element to extract the location name.
+     *
+     * @param parser The XMLPullParser positioned at the "destination" tag.
+     * @return The name of the destination location.
+     */
+    private fun readDestination(parser: XmlPullParser): String? {
+        parser.require(XmlPullParser.START_TAG, null, "destination")
+        var locationName: String? = null
+        while (parser.next() != XmlPullParser.END_TAG) {
+            if (parser.eventType != XmlPullParser.START_TAG) {
+                continue
+            }
+            if (parser.name == "location") {
+                while (parser.next() != XmlPullParser.END_TAG) {
+                    if (parser.eventType != XmlPullParser.START_TAG) {
+                        continue
+                    }
+                    if (parser.name == "locationName") {
+                        locationName = readText(parser, "locationName")
+                    } else {
+                        skip(parser)
+                    }
+                }
+            } else {
+                skip(parser)
+            }
+        }
+        return locationName
+    }
+
+    /**
+     * Parses the subsequent calling points list.
+     *
+     * @param parser The XMLPullParser positioned at the "subsequentCallingPoints" tag.
+     * @return A list of calling point names.
+     */
+    private fun readCallingPoints(parser: XmlPullParser): List<String> {
+        val callingPoints = mutableListOf<String>()
+        parser.require(XmlPullParser.START_TAG, null, "subsequentCallingPoints")
+        while (parser.next() != XmlPullParser.END_TAG) {
+            if (parser.eventType != XmlPullParser.START_TAG) {
+                continue
+            }
+            if (parser.name == "callingPointList") {
+                while (parser.next() != XmlPullParser.END_TAG) {
+                    if (parser.eventType != XmlPullParser.START_TAG) {
+                        continue
+                    }
+                    if (parser.name == "callingPoint") {
+                        readCallingPoint(parser)?.let { callingPoints.add(it) }
+                    } else {
+                        skip(parser)
+                    }
+                }
+            } else {
+                skip(parser)
+            }
+        }
+        return callingPoints
+    }
+
+    /**
+     * Parses a single calling point to extract the location name.
+     *
+     * @param parser The XMLPullParser positioned at the "callingPoint" tag.
+     * @return The name of the calling point location.
+     */
+    private fun readCallingPoint(parser: XmlPullParser): String? {
+        parser.require(XmlPullParser.START_TAG, null, "callingPoint")
+        var locationName: String? = null
+        while (parser.next() != XmlPullParser.END_TAG) {
+            if (parser.eventType != XmlPullParser.START_TAG) {
+                continue
+            }
+            if (parser.name == "locationName") {
+                locationName = readText(parser, "locationName")
+            } else {
+                skip(parser)
+            }
+        }
+        return locationName
+    }
+
+    /**
+     * Reads the text content of a tag.
+     *
+     * @param parser The XMLPullParser.
+     * @param tagName The name of the tag expected.
+     * @return The text content of the tag.
+     */
+    private fun readText(parser: XmlPullParser, tagName: String): String? {
+        parser.require(XmlPullParser.START_TAG, null, tagName)
+        var result: String? = null
+        if (parser.next() == XmlPullParser.TEXT) {
+            result = parser.text
+            parser.nextTag()
+        }
+        parser.require(XmlPullParser.END_TAG, null, tagName)
+        return result
+    }
+
+    /**
+     * Skips the current tag and its children.
+     *
+     * @param parser The XMLPullParser.
+     */
+    private fun skip(parser: XmlPullParser) {
+        if (parser.eventType != XmlPullParser.START_TAG) {
+            throw IllegalStateException()
+        }
+        var depth = 1
+        while (depth != 0) {
+            when (parser.next()) {
+                XmlPullParser.END_TAG -> depth--
+                XmlPullParser.START_TAG -> depth++
+            }
+        }
+    }
+}

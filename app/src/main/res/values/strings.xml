@@ -1,0 +1,187 @@
+<resources>
+    <!-- Name of the application. Length: 15 chars. -->
+    <string name="app_name">Train times</string>
+
+    <!-- Title of the widget configuration screen. Length: 25 chars. -->
+    <string name="configuration_title">Widget configuration</string>
+
+    <!-- Error message displayed in the widget when loading fails. Length: 35 chars. -->
+    <string name="widget_error">Failed to load train times. Tap to retry.</string>
+
+    <!-- Generic Done button label. Length: 10 chars. -->
+    <string name="done">Done</string>
+
+    <!-- Label for background opacity setting. Length: 25 chars. -->
+    <string name="background_opacity">Background opacity</string>
+
+    <!-- Generic Setup label. Length: 10 chars. -->
+    <string name="setup">Setup</string>
+
+    <!-- Label for selecting the text color in configuration. Length: 15 chars. -->
+    <string name="text_color">Text Color</string>
+
+    <!-- Label for Hue color slider. Length: 10 chars. -->
+    <string name="hue">Hue</string>
+
+    <!-- Generic From label. Length: 10 chars. -->
+    <string name="from">From</string>
+
+    <!-- Content description for the button that swaps station inputs. Length: 20 chars. -->
+    <string name="swap_stations">Swap stations</string>
+
+    <!-- Generic To label. Length: 10 chars. -->
+    <string name="to">To</string>
+
+    <!-- Button text to finish widget configuration and add it. Length: 10 chars. -->
+    <string name="add_widget">Done</string>
+
+    <!-- Hint text for the custom widget title input field. Length: 20 chars. -->
+    <string name="widget_title_hint">Custom title</string>
+
+    <!-- Label for the title alignment setting. Length: 15 chars. -->
+    <string name="title_alignment">Alignment</string>
+
+    <!-- Option for left alignment. Length: 10 chars. -->
+    <string name="alignment_left">Left</string>
+
+    <!-- Option for center alignment. Length: 10 chars. -->
+    <string name="alignment_center">Center</string>
+
+    <!-- Option for right alignment. Length: 10 chars. -->
+    <string name="alignment_right">Right</string>
+
+    <!-- Hint for time input fields indicating start time. Length: 15 chars. -->
+    <string name="shown_from">Shown from</string>
+
+    <!-- Label for automatic title option (legacy/unused). Length: 20 chars. -->
+    <string name="automatic_title">Automatic title</string>
+
+    <!-- Header text for the route selection section. Length: 20 chars. -->
+    <string name="route_options">Train stations</string>
+
+    <!-- Label for checkbox to show/hide the train icon. Length: 15 chars. -->
+    <string name="show_icon">Show icon</string>
+
+    <!-- Label for title style selection. Length: 10 chars. -->
+    <string name="title_style">Style</string>
+
+    <!-- Option for long title style (e.g., full station names). Length: 10 chars. -->
+    <string name="title_style_long">Long</string>
+
+    <!-- Option for short title style (e.g., station codes). Length: 10 chars. -->
+    <string name="title_style_short">Short</string>
+
+    <!-- Option for custom title style. Length: 10 chars. -->
+    <string name="title_style_custom">Custom</string>
+
+    <!-- Label for checkbox to show/hide intermediate stops. Length: 25 chars. -->
+    <string name="show_stops">Show station stops</string>
+
+    <!-- Button text to cancel configuration. Length: 10 chars. -->
+    <string name="cancel">Cancel</string>
+
+    <!-- Content description for clearing an input field. Length: 10 chars. -->
+    <string name="clear">Clear</string>
+
+    <!-- Message displayed in the widget when no trains are found. Length: 20 chars. -->
+    <string name="no_trains_found">No trains found</string>
+
+    <!-- Title for the Route tab. Length: 10 chars. -->
+    <string name="tab_route">Route</string>
+
+    <!-- Title for the Layout tab. Length: 10 chars. -->
+    <string name="tab_layout">Layout</string>
+
+    <!-- Title for the Colors tab. Length: 10 chars. -->
+    <string name="tab_colors">Colors</string>
+
+    <!-- Title for the Advanced tab. Length: 15 chars. -->
+    <string name="tab_advanced">Advanced</string>
+
+    <!-- Hint for the time offset input field in minutes. Length: 20 chars. -->
+    <string name="offset_minutes">Offset (minutes)</string>
+
+    <!-- Hint for the From station input field (required). Length: 10 chars. -->
+    <string name="from_required">From *</string>
+
+    <!-- Hint for the To station input field (required). Length: 10 chars. -->
+    <string name="to_required">To *</string>
+
+    <!-- Text for requesting an API key. Length: 20 chars. -->
+    <string name="request_api_key">Request API key</string>
+
+    <!-- Hint for the number of departures input field. Length: 20 chars. -->
+    <string name="departure_count">Departure count</string>
+
+    <!-- Helper text explaining the departure count setting. Length: 50 chars. -->
+    <string name="departure_count_helper">The number of train departures requested.</string>
+
+    <!-- Header for display options section. Length: 20 chars. -->
+    <string name="display_times_header">Display options</string>
+
+    <!-- Helper text explaining the route reversal based on time feature. Length: 130 chars. -->
+    <string name="display_times_helper">Set start times to automatically reverse the route direction, useful for return journeys. Leave blank to disable.</string>
+
+    <!-- Header for the title settings section. Length: 15 chars. -->
+    <string name="title_section_header">Heading</string>
+
+    <!-- Header for the visibility settings section. Length: 15 chars. -->
+    <string name="visibility_section_header">Visibility</string>
+
+    <!-- Label for the widget icon checkbox. Length: 15 chars. -->
+    <string name="widget_icon">Widget icon</string>
+
+    <!-- Helper text for the show stops option. Length: 35 chars. -->
+    <string name="show_stops_helper">Affects only the first row.</string>
+
+    <!-- Button text on widget to setup the API key. Length: 20 chars. -->
+    <string name="setup_api_key">Setup API key</string>
+
+    <!-- Label for Saturation color slider. Length: 15 chars. -->
+    <string name="saturation">Saturation</string>
+
+    <!-- Label for Value (brightness) color slider. Length: 10 chars. -->
+    <string name="value">Value</string>
+
+    <!-- Label for selecting the background color. Length: 20 chars. -->
+    <string name="background_color">Background Color</string>
+
+    <!-- Option to use system theme colors. Length: 15 chars. -->
+    <string name="color_source_system">From system</string>
+
+    <!-- Option to use custom user-picked colors. Length: 15 chars. -->
+    <string name="color_source_custom">Pick a color</string>
+
+    <!-- Helper text explaining custom title variables. Length: 55 chars. -->
+    <string name="widget_title_helper">Use $f/$t for codes, $F/$T for full names.</string>
+
+    <!-- Default text for custom title input. Length: 20 chars. -->
+    <string name="default_custom_title">Heading to $T</string>
+
+    <!-- Label for Alpha (transparency) slider. Length: 10 chars. -->
+    <string name="alpha">Alpha</string>
+
+    <!-- Hint text for Hex color code input. Length: 15 chars. -->
+    <string name="hex_color_hint">Hex Color</string>
+
+    <!-- Format string for displaying platform number. %s is the platform. Length: 15 chars. -->
+    <string name="platform_prefix">Platform %s</string>
+
+    <!-- Format string for displaying calling points. %s is the list of stations. Length: 20 chars. -->
+    <string name="calling_at_prefix">Calling at %s</string>
+
+    <!-- Header for the font size settings section. Length: 15 chars. -->
+    <string name="font_size_section_header">Font size</string>
+
+    <!-- Option for small font size. Length: 10 chars. -->
+    <string name="font_size_small">Small</string>
+
+    <!-- Option for regular font size. Length: 10 chars. -->
+    <string name="font_size_regular">Regular</string>
+
+    <!-- Option for large font size. Length: 10 chars. -->
+    <string name="font_size_large">Large</string>
+
+    <!-- Instruction to tap the widget to retry loading. Length: 15 chars. -->
+    <string name="tap_to_retry">Tap to retry</string>
+</resources>
