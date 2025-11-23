@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="320dp"
-    android:minHeight="40dp"
+    android:minHeight="72dp"
     android:targetCellWidth="4"
-    android:targetCellHeight="1"
-    android:updatePeriodMillis="600000"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_layout"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:previewImage="@drawable/train_24px"
+    android:previewImage="@drawable/widget_preview_selectable"
     android:configure="net.bonstio.traintimes.TrainTimesWidgetConfigureActivity"
     android:widgetFeatures="reconfigurable">
 </appwidget-provider>

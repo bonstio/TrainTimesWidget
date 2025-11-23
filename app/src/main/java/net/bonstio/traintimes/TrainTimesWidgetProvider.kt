@@ -3,9 +3,11 @@ package net.bonstio.traintimes
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.util.Log
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
@@ -16,54 +18,87 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 /**
  * AppWidgetProvider implementation for the Train Times widget.
- * This class handles the widget updates and user interactions.
+ * Refactored to reduce UI duplication and handle async updates safely.
  */
 class TrainTimesWidgetProvider : AppWidgetProvider() {
 
-    /**
-     * Called when the widget instances are deleted.
-     * Cleans up the configuration associated with the deleted widgets.
-     *
-     * @param context The Context in which this receiver is running.
-     * @param appWidgetIds The appWidgetIds that have been deleted.
-     */
+    companion object {
+        private const val TAG = "TrainWidget"
+        const val ACTION_TOGGLE_EXPAND = "net.bonstio.traintimes.ACTION_TOGGLE_EXPAND"
+        const val EXTRA_SERVICE_INDEX = "service_index"
+        private const val PREF_CACHE_PREFIX = "cache_"
+
+        // Define widget schemes for unique PendingIntents
+        private const val SCHEME_TOGGLE = "trainwidget://toggle"
+    }
+
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
         for (appWidgetId in appWidgetIds) {
             WidgetConfigurationStorage.deleteConfiguration(context, appWidgetId)
+            prefs.remove(PREF_IS_EXPANDED + appWidgetId) // Legacy cleanup
+            // Clean up potential indexed expansion states
+            for (i in 0..99) {
+                prefs.remove("${PREF_IS_EXPANDED}${appWidgetId}_$i")
+            }
+            prefs.remove(PREF_CACHE_PREFIX + appWidgetId)
+        }
+        prefs.apply()
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        Log.d(TAG, "onReceive received intent with action: ${intent.action}")
+        super.onReceive(context, intent)
+
+        if (intent.action == WidgetUpdateScheduler.ACTION_AUTO_UPDATE) {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val thisAppWidget = ComponentName(context.packageName, TrainTimesWidgetProvider::class.java.name)
+            val appWidgetIds = appWidgetManager.getAppWidgetIds(thisAppWidget)
+            if (appWidgetIds.isNotEmpty()) {
+                onUpdate(context, appWidgetManager, appWidgetIds)
+            }
+        } else if (intent.action == ACTION_TOGGLE_EXPAND) {
+            handleExpandToggle(context, intent)
         }
     }
 
-    /**
-     * Called when the widget receives an Intent.
-     * Logs the received action for debugging purposes.
-     *
-     * @param context The Context in which this receiver is running.
-     * @param intent The Intent being received.
-     */
-    override fun onReceive(context: Context, intent: Intent) {
-        Log.d("TrainWidget", "onReceive received intent with action: ${intent.action}")
-        super.onReceive(context, intent)
+    private fun handleExpandToggle(context: Context, intent: Intent) {
+        val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+        val serviceIndex = intent.getIntExtra(EXTRA_SERVICE_INDEX, -1)
+
+        if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID && serviceIndex != -1) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val key = "${PREF_IS_EXPANDED}${appWidgetId}_$serviceIndex"
+            val current = prefs.getBoolean(key, false)
+            prefs.edit().putBoolean(key, !current).apply()
+
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+
+            // Try to load from cache first to avoid network refresh on simple UI toggle
+            val cachedServices = loadServicesFromCache(context, appWidgetId)
+            if (cachedServices != null) {
+                renderWidget(context, appWidgetManager, appWidgetId, cachedServices)
+            } else {
+                onUpdate(context, appWidgetManager, intArrayOf(appWidgetId))
+            }
+        }
     }
 
-    /**
-     * Called when the widget needs to be updated.
-     * Fetches train times asynchronously and updates the widget UI.
-     *
-     * @param context The Context in which this receiver is running.
-     * @param appWidgetManager The AppWidgetManager to update the widget.
-     * @param appWidgetIds The appWidgetIds that need to be updated.
-     */
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        Log.d("TrainWidget", "onUpdate called")
+        Log.d(TAG, "onUpdate called")
         val pendingResult = goAsync()
 
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -71,140 +106,230 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         val bgColor = prefs.getInt(PREF_BG_COLOR, Color.BLACK)
 
         if (apiKey.isNullOrEmpty()) {
-            Log.w("TrainWidget", "API key not configured.")
+            Log.w(TAG, "API key not configured.")
             for (appWidgetId in appWidgetIds) {
                 updateAppWidgetWithSetupRequest(context, appWidgetManager, appWidgetId, bgColor)
             }
             pendingResult.finish()
             return
         }
+
         val client = NationalRailClient(apiKey)
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 for (appWidgetId in appWidgetIds) {
-                    Log.d("TrainWidget", "Updating widget $appWidgetId")
-                    val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
-
-                    if (config != null) {
-                        val calendar = Calendar.getInstance()
-                        val currentMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-                        val isReversed = isTimeReversed(
-                            currentMinutes,
-                            config.startTimeNormal,
-                            config.startTimeReverse
-                        )
-
-                        val fromStation = if (isReversed) config.toStation else config.fromStation
-                        val toStation = if (isReversed) config.fromStation else config.toStation
-
-                        val displayTitle = when (config.titleStyle) {
-                            "SHORT" -> "${fromStation.uppercase(Locale.getDefault())} -> ${
-                                toStation.uppercase(
-                                    Locale.getDefault()
-                                )
-                            }"
-
-                            "CUSTOM" -> {
-                                var t = config.title
-                                    .replace("\$f", fromStation.uppercase(Locale.getDefault()))
-                                    .replace("\$t", toStation.uppercase(Locale.getDefault()))
-
-                                if (t.contains("\$F") || t.contains("\$T")) {
-                                    val fromName =
-                                        StationRepository.getStationName(context, fromStation)
-                                    val toName = StationRepository.getStationName(context, toStation)
-                                    t = t.replace("\$F", fromName)
-                                        .replace("\$T", toName)
-                                }
-                                t
-                            }
-
-                            else -> {
-                                // LONG or default
-                                val fromName = StationRepository.getStationName(context, fromStation)
-                                val toName = StationRepository.getStationName(context, toStation)
-                                "$fromName -> $toName"
-                            }
-                        }
-
-                        val textColor = if (config.useSystemTextColor) {
-                            resolveColor(
-                                context,
-                                com.google.android.material.R.attr.colorOnSurface
-                            )
-                        } else {
-                            config.textColor
-                        }
-
-                        val widgetBgColor = if (config.useSystemBgColor) {
-                            resolveColor(context, com.google.android.material.R.attr.colorSurface)
-                        } else {
-                            config.bgColor
-                        }
-
-                        val transparency = if (config.useSystemBgColor) 255 else config.transparency
-
-                        try {
-                            val trainServices = client.getNextTrain(
-                                fromStation,
-                                toStation,
-                                config.timeOffset,
-                                config.departureCount
-                            )
-                            withContext(Dispatchers.Main) {
-                                updateAppWidget(
-                                    context, appWidgetManager, appWidgetId, trainServices,
-                                    transparency, textColor, widgetBgColor, displayTitle,
-                                    config.alignment, config.showIcon, config.showStops,
-                                    config.useSystemTextColor, config.useSystemBgColor,
-                                    config.fontSize
-                                )
-                            }
-                        } catch (e: Exception) {
-                            Log.e("TrainWidget", "Failed to update widget $appWidgetId", e)
-                            withContext(Dispatchers.Main) {
-                                updateAppWidgetWithError(
-                                    context, appWidgetManager, appWidgetId,
-                                    transparency, textColor, widgetBgColor, displayTitle,
-                                    config.alignment, config.showIcon,
-                                    config.useSystemTextColor, config.useSystemBgColor,
-                                    config.fontSize
-                                )
-                            }
-                        }
-                    } else {
-                        Log.w("TrainWidget", "Widget $appWidgetId is not configured yet.")
-                    }
+                    updateSingleWidget(context, appWidgetManager, appWidgetId, client)
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Global update error", e)
             } finally {
                 pendingResult.finish()
             }
         }
     }
 
-    /**
-     * Resolves a color attribute from the current theme context.
-     *
-     * @param context The context to use for theme resolution.
-     * @param attr The attribute ID to resolve.
-     * @return The resolved color int.
-     */
+    private suspend fun updateSingleWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        client: NationalRailClient
+    ) {
+        Log.d(TAG, "Updating widget $appWidgetId")
+        val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
+
+        if (config != null) {
+            val (fromStation, toStation) = determineDirection(config)
+            val displayTitle = calculateDisplayTitle(context, config, fromStation, toStation)
+
+            // Prepare Styling Data
+            val styling = resolveWidgetStyling(context, config)
+
+            // Show loading state immediately
+            withContext(Dispatchers.Main) {
+                updateAppWidgetLoading(context, appWidgetManager, appWidgetId, styling, displayTitle, config)
+            }
+
+            try {
+                val trainServices = client.getNextTrain(
+                    fromStation,
+                    toStation,
+                    config.timeOffset,
+                    config.departureCount
+                )
+
+                saveServicesToCache(context, appWidgetId, trainServices)
+
+                withContext(Dispatchers.Main) {
+                    updateAppWidgetSuccess(
+                        context, appWidgetManager, appWidgetId, trainServices,
+                        styling, displayTitle, config, fromStation, toStation
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update widget $appWidgetId", e)
+                withContext(Dispatchers.Main) {
+                    updateAppWidgetWithError(
+                        context, appWidgetManager, appWidgetId,
+                        styling, displayTitle, config, fromStation, toStation, e.message
+                    )
+                }
+            }
+        } else {
+            Log.w(TAG, "Widget $appWidgetId is not configured yet.")
+        }
+    }
+
+    private fun renderWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        services: List<TrainService>
+    ) {
+        // This runs on main thread usually when called from toggle
+        val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
+        val (fromStation, toStation) = determineDirection(config)
+        val displayTitle = calculateDisplayTitle(context, config, fromStation, toStation)
+        val styling = resolveWidgetStyling(context, config)
+
+        updateAppWidgetSuccess(
+            context, appWidgetManager, appWidgetId, services,
+            styling, displayTitle, config, fromStation, toStation
+        )
+    }
+
+    // --- Helper Logic ---
+
+    private fun determineDirection(config: WidgetConfiguration): Pair<String, String> {
+        val calendar = Calendar.getInstance()
+        val currentMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+
+        val isReversed = if (config.toStation.isNotEmpty()) {
+            isTimeReversed(currentMinutes, config.startTimeNormal, config.startTimeReverse)
+        } else {
+            false
+        }
+
+        val fromStation = if (isReversed) config.toStation else config.fromStation
+        val toStation = if (isReversed) config.fromStation else config.toStation
+        return Pair(fromStation, toStation)
+    }
+
+    private fun calculateDisplayTitle(context: Context, config: WidgetConfiguration, fromStation: String, toStation: String): String {
+        return when (config.titleStyle) {
+            "SHORT" -> {
+                if (toStation.isNotEmpty()) {
+                    "${fromStation.uppercase(Locale.getDefault())} -> ${toStation.uppercase(Locale.getDefault())}"
+                } else {
+                    fromStation.uppercase(Locale.getDefault())
+                }
+            }
+            "CUSTOM" -> {
+                var t = config.title
+                    .replace("\$f", fromStation.uppercase(Locale.getDefault()))
+                    .replace("\$t", toStation.uppercase(Locale.getDefault()))
+
+                if (t.contains("\$F") || t.contains("\$T")) {
+                    val fromName = StationRepository.getStationName(context, fromStation)
+                    val toName = if (toStation.isNotEmpty()) StationRepository.getStationName(context, toStation) else ""
+                    t = t.replace("\$F", fromName).replace("\$T", toName)
+                }
+                t
+            }
+            else -> { // LONG or default
+                val fromName = StationRepository.getStationName(context, fromStation)
+                if (toStation.isNotEmpty()) {
+                    val toName = StationRepository.getStationName(context, toStation)
+                    "$fromName -> $toName"
+                } else {
+                    fromName
+                }
+            }
+        }
+    }
+
+    // Data class to hold resolved colors and transparency to pass around easily
+    data class WidgetStyling(
+        val textColor: Int,
+        val bgColor: Int,
+        val transparency: Int,
+        val useSystemTextColor: Boolean,
+        val useSystemBgColor: Boolean
+    )
+
+    private fun resolveWidgetStyling(context: Context, config: WidgetConfiguration): WidgetStyling {
+        val textColor = if (config.useSystemTextColor) {
+            resolveColor(context, com.google.android.material.R.attr.colorOnSurface)
+        } else {
+            config.textColor
+        }
+
+        val widgetBgColor = if (config.useSystemBgColor) {
+            resolveColor(context, com.google.android.material.R.attr.colorSurface)
+        } else {
+            config.bgColor
+        }
+
+        val transparency = if (config.useSystemBgColor) 255 else config.transparency
+
+        return WidgetStyling(textColor, widgetBgColor, transparency, config.useSystemTextColor, config.useSystemBgColor)
+    }
+
     private fun resolveColor(context: Context, attr: Int): Int {
         val wrapper = ContextThemeWrapper(context, R.style.Theme_TrainTimes)
         val typedValue = TypedValue()
         wrapper.theme.resolveAttribute(attr, typedValue, true)
         return typedValue.data
     }
+
+    // --- Caching Logic ---
+
+    private fun saveServicesToCache(context: Context, appWidgetId: Int, services: List<TrainService>) {
+        val jsonArray = JSONArray()
+        for (service in services) {
+            val jsonObj = JSONObject()
+            jsonObj.put("std", service.std)
+            jsonObj.put("destination", service.destination)
+            jsonObj.put("platform", service.platform)
+            jsonObj.put("status", service.status)
+            jsonObj.put("subsequentCallingPoints", JSONArray(service.subsequentCallingPoints))
+            jsonArray.put(jsonObj)
+        }
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(PREF_CACHE_PREFIX + appWidgetId, jsonArray.toString()).apply()
+    }
+
+    private fun loadServicesFromCache(context: Context, appWidgetId: Int): List<TrainService>? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val jsonString = prefs.getString(PREF_CACHE_PREFIX + appWidgetId, null) ?: return null
+        return try {
+            val jsonArray = JSONArray(jsonString)
+            val list = mutableListOf<TrainService>()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val callingPointsJson = obj.getJSONArray("subsequentCallingPoints")
+                val callingPoints = mutableListOf<String>()
+                for (j in 0 until callingPointsJson.length()) {
+                    callingPoints.add(callingPointsJson.getString(j))
+                }
+                list.add(TrainService(
+                    std = obj.getString("std"),
+                    destination = obj.getString("destination"),
+                    platform = if (obj.has("platform") && !obj.isNull("platform")) obj.getString("platform") else null,
+                    status = obj.getString("status"),
+                    subsequentCallingPoints = callingPoints
+                ))
+            }
+            list
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading cache", e)
+            null
+        }
+    }
 }
 
 /**
  * Checks if the current time falls within the reverse direction time range.
- *
- * @param currentMinutes The current time in minutes from midnight.
- * @param startNormal The start time for normal direction in minutes from midnight.
- * @param startReverse The start time for reverse direction in minutes from midnight.
- * @return True if the route should be reversed, false otherwise.
  */
 private fun isTimeReversed(currentMinutes: Int, startNormal: Int, startReverse: Int): Boolean {
     if (startNormal == -1 || startReverse == -1) return false
@@ -216,82 +341,63 @@ private fun isTimeReversed(currentMinutes: Int, startNormal: Int, startReverse: 
     return false
 }
 
+// --- UI Construction Helpers ---
+
 /**
- * Updates the App Widget with the fetched train services.
- *
- * @param context The application context.
- * @param appWidgetManager The AppWidgetManager instance.
- * @param appWidgetId The ID of the widget to update.
- * @param services The list of train services to display.
- * @param transparency The transparency of the background (0-255).
- * @param textColor The color of the text.
- * @param bgColor The background color.
- * @param title The title to display on the widget.
- * @param alignment The alignment of the title (START, CENTER, END).
- * @param showIcon Whether to show the train icon.
- * @param showStops Whether to show intermediate stops for the first train.
- * @param useSystemTextColor Whether to use the system text color.
- * @param useSystemBgColor Whether to use the system background color.
- * @param fontSize The font size setting (0=Small, 1=Regular, 2=Large).
+ * Creates the base RemoteViews object with common styling (bg, title, header buttons).
+ * This eliminates duplication between Loading, Success, and Error states.
  */
-internal fun updateAppWidget(
+internal fun createBaseWidgetView(
     context: Context,
-    appWidgetManager: AppWidgetManager,
     appWidgetId: Int,
-    services: List<TrainService>,
-    transparency: Int,
-    textColor: Int,
-    bgColor: Int,
+    styling: TrainTimesWidgetProvider.WidgetStyling,
     title: String,
-    alignment: String,
-    showIcon: Boolean,
-    showStops: Boolean,
-    useSystemTextColor: Boolean,
-    useSystemBgColor: Boolean,
-    fontSize: Int
-) {
-    Log.d("TrainWidget", "updateAppWidget called for widget $appWidgetId")
+    config: WidgetConfiguration
+): RemoteViews {
     val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
-    if (!useSystemBgColor) {
+    // Background
+    if (!styling.useSystemBgColor) {
         val backgroundColor = Color.argb(
-            transparency,
-            Color.red(bgColor),
-            Color.green(bgColor),
-            Color.blue(bgColor)
+            styling.transparency,
+            Color.red(styling.bgColor),
+            Color.green(styling.bgColor),
+            Color.blue(styling.bgColor)
         )
         views.setInt(R.id.widget_root, "setBackgroundColor", backgroundColor)
     }
 
-    // Determine font sizes
-    // 0=Small, 1=Regular, 2=Large
-    // Regular: Title 16sp, Body 14sp
-    // Small: Title 14sp, Body 12sp
-    // Large: Title 18sp, Body 16sp
-    val titleSize = when (fontSize) {
+    // Font Size Logic
+    val titleSize = when (config.fontSize) {
         0 -> 14f
         2 -> 18f
         else -> 16f
     }
-    val bodySize = when (fontSize) {
-        0 -> 12f
-        2 -> 16f
-        else -> 14f
-    }
 
-    // Ensure content container is visible
+    // Reset visibility of main containers (Clean slate)
     views.setViewVisibility(R.id.content_container, View.VISIBLE)
+    views.setViewVisibility(R.id.loading_container, View.GONE)
+    views.setViewVisibility(R.id.departures_container, View.GONE)
+    views.setViewVisibility(R.id.error_container, View.GONE)
+    views.setViewVisibility(R.id.setup_message, View.GONE)
+    views.setViewVisibility(R.id.last_updated, View.GONE)
+    views.setViewVisibility(R.id.open_in_maps, View.GONE)
 
+    // Title & Header setup
     if (title.isEmpty()) {
         views.setViewVisibility(R.id.widget_title, View.GONE)
         views.setViewVisibility(R.id.widget_icon, View.GONE)
+        views.setViewVisibility(R.id.refresh_button, View.GONE)
+        views.setViewVisibility(R.id.settings_button, View.GONE)
     } else {
         views.setViewVisibility(R.id.widget_title, View.VISIBLE)
         views.setTextViewText(R.id.widget_title, title)
-        if (!useSystemTextColor) {
-            views.setTextColor(R.id.widget_title, textColor)
+
+        if (!styling.useSystemTextColor) {
+            views.setTextColor(R.id.widget_title, styling.textColor)
         }
-        val gravity = when (alignment) {
+
+        val gravity = when (config.alignment) {
             "CENTER" -> Gravity.CENTER_HORIZONTAL
             "END" -> Gravity.END
             else -> Gravity.START
@@ -299,215 +405,275 @@ internal fun updateAppWidget(
         views.setInt(R.id.widget_title, "setGravity", gravity)
         views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, titleSize)
 
-        if (showIcon) {
+        // Icon
+        if (config.showIcon) {
             views.setViewVisibility(R.id.widget_icon, View.VISIBLE)
-            if (!useSystemTextColor) {
-                views.setInt(R.id.widget_icon, "setColorFilter", textColor)
+            if (!styling.useSystemTextColor) {
+                views.setInt(R.id.widget_icon, "setColorFilter", styling.textColor)
             }
         } else {
             views.setViewVisibility(R.id.widget_icon, View.GONE)
         }
-    }
 
-    if (services.isEmpty()) {
-        views.setViewVisibility(R.id.departures_container, View.GONE)
-        views.setViewVisibility(R.id.error_message, View.VISIBLE)
-        views.setTextViewText(R.id.error_message, context.getString(R.string.no_trains_found))
-        if (!useSystemTextColor) {
-            views.setTextColor(R.id.error_message, textColor)
+        // Buttons
+        views.setViewVisibility(R.id.refresh_button, View.VISIBLE)
+        views.setViewVisibility(R.id.settings_button, View.VISIBLE)
+        if (!styling.useSystemTextColor) {
+            views.setInt(R.id.refresh_button, "setColorFilter", styling.textColor)
+            views.setInt(R.id.settings_button, "setColorFilter", styling.textColor)
         }
-        views.setViewVisibility(R.id.setup_message, View.GONE)
-    } else {
-        views.setViewVisibility(R.id.error_message, View.GONE)
-        views.setViewVisibility(R.id.setup_message, View.GONE)
-        views.setViewVisibility(R.id.departures_container, View.VISIBLE)
-        views.removeAllViews(R.id.departures_container)
 
+        // Setup Refresh Intent (Generic implementation for all states)
         val intent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
             action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
         }
         val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            appWidgetId,
-            intent,
+            context, appWidgetId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+        views.setOnClickPendingIntent(R.id.refresh_button, pendingIntent)
 
-        services.forEachIndexed { index, service ->
-            val departureView = RemoteViews(context.packageName, R.layout.departure_layout)
+        // Also bind retry button here, so it's always ready if the error view shows up
+        views.setOnClickPendingIntent(R.id.retry_button, pendingIntent)
 
-            departureView.setTextViewText(R.id.departure_time, service.std)
-            departureView.setTextViewText(R.id.destination, service.destination)
+        // Bind refresh action to the title as well
+        views.setOnClickPendingIntent(R.id.widget_title, pendingIntent)
 
-            val platformText = service.platform?.let { "Platform $it" } ?: ""
-            departureView.setTextViewText(R.id.platform, platformText)
-
-            departureView.setTextViewText(R.id.status, service.status)
-
-            if (!useSystemTextColor) {
-                departureView.setTextColor(R.id.departure_time, textColor)
-                departureView.setTextColor(R.id.destination, textColor)
-                departureView.setTextColor(R.id.platform, textColor)
-                departureView.setTextColor(R.id.status, textColor)
-            }
-
-            // Set font sizes for body text
-            departureView.setTextViewTextSize(
-                R.id.departure_time,
-                TypedValue.COMPLEX_UNIT_SP,
-                bodySize
-            )
-            departureView.setTextViewTextSize(
-                R.id.destination,
-                TypedValue.COMPLEX_UNIT_SP,
-                bodySize
-            )
-            departureView.setTextViewTextSize(
-                R.id.platform,
-                TypedValue.COMPLEX_UNIT_SP,
-                bodySize
-            )
-            departureView.setTextViewTextSize(
-                R.id.status,
-                TypedValue.COMPLEX_UNIT_SP,
-                bodySize
-            )
-
-            if (index == 0 && service.subsequentCallingPoints.isNotEmpty() && showStops) {
-                val callingPointsText =
-                    "Calling at ${service.subsequentCallingPoints.joinToString(", ")}"
-                departureView.setTextViewText(R.id.calling_points, callingPointsText)
-                if (!useSystemTextColor) {
-                    departureView.setTextColor(R.id.calling_points, textColor)
-                }
-                departureView.setTextViewTextSize(
-                    R.id.calling_points,
-                    TypedValue.COMPLEX_UNIT_SP,
-                    bodySize
-                )
-                departureView.setViewVisibility(R.id.calling_points, View.VISIBLE)
-            } else {
-                departureView.setViewVisibility(R.id.calling_points, View.GONE)
-            }
-
-            views.addView(R.id.departures_container, departureView)
+        // Setup Settings Intent
+        val settingsIntent = Intent(context, TrainTimesWidgetConfigureActivity::class.java).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            data = Uri.parse("trainwidget://settings/$appWidgetId") // Unique data ensuring separate PendingIntents per widget
         }
+        val settingsPendingIntent = PendingIntent.getActivity(
+            context,
+            appWidgetId,
+            settingsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.settings_button, settingsPendingIntent)
+    }
+
+    return views
+}
+
+internal fun updateAppWidgetLoading(
+    context: Context,
+    appWidgetManager: AppWidgetManager,
+    appWidgetId: Int,
+    styling: TrainTimesWidgetProvider.WidgetStyling,
+    title: String,
+    config: WidgetConfiguration
+) {
+    val views = createBaseWidgetView(context, appWidgetId, styling, title, config)
+    views.setViewVisibility(R.id.loading_container, View.VISIBLE)
+    appWidgetManager.updateAppWidget(appWidgetId, views)
+}
+
+internal fun updateAppWidgetSuccess(
+    context: Context,
+    appWidgetManager: AppWidgetManager,
+    appWidgetId: Int,
+    services: List<TrainService>,
+    styling: TrainTimesWidgetProvider.WidgetStyling,
+    title: String,
+    config: WidgetConfiguration,
+    fromStation: String,
+    toStation: String
+) {
+    val views = createBaseWidgetView(context, appWidgetId, styling, title, config)
+
+    // Last Updated Text
+    val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+    views.setTextViewText(R.id.last_updated, context.getString(R.string.last_update_format, currentTime))
+    views.setViewVisibility(R.id.last_updated, View.VISIBLE)
+    if (!styling.useSystemTextColor) {
+        views.setTextColor(R.id.last_updated, styling.textColor)
+    }
+
+    // Google Maps Link
+    setupMapsButton(context, views, appWidgetId, fromStation, toStation, styling.textColor, styling.useSystemTextColor)
+
+    if (services.isEmpty()) {
+        views.setViewVisibility(R.id.error_container, View.VISIBLE)
+        views.setTextViewText(R.id.error_message, context.getString(R.string.no_trains_found))
+        views.setViewVisibility(R.id.error_details, View.GONE)
+        if (!styling.useSystemTextColor) {
+            views.setTextColor(R.id.error_message, styling.textColor)
+        }
+    } else {
+        views.setViewVisibility(R.id.departures_container, View.VISIBLE)
+        views.removeAllViews(R.id.departures_container)
+
+        populateDeparturesList(context, views, appWidgetId, services, styling, config)
     }
 
     appWidgetManager.updateAppWidget(appWidgetId, views)
 }
 
-/**
- * Updates the App Widget to display an error message.
- *
- * @param context The application context.
- * @param appWidgetManager The AppWidgetManager instance.
- * @param appWidgetId The ID of the widget to update.
- * @param transparency The transparency of the background (0-255).
- * @param textColor The color of the text.
- * @param bgColor The background color.
- * @param title The title to display on the widget.
- * @param alignment The alignment of the title (START, CENTER, END).
- * @param showIcon Whether to show the train icon.
- * @param useSystemTextColor Whether to use the system text color.
- * @param useSystemBgColor Whether to use the system background color.
- * @param fontSize The font size setting (0=Small, 1=Regular, 2=Large).
- */
 internal fun updateAppWidgetWithError(
     context: Context,
     appWidgetManager: AppWidgetManager,
     appWidgetId: Int,
-    transparency: Int,
-    textColor: Int,
-    bgColor: Int,
+    styling: TrainTimesWidgetProvider.WidgetStyling,
     title: String,
-    alignment: String,
-    showIcon: Boolean,
-    useSystemTextColor: Boolean,
-    useSystemBgColor: Boolean,
-    fontSize: Int
+    config: WidgetConfiguration,
+    fromStation: String,
+    toStation: String,
+    errorMessage: String?
 ) {
-    val views = RemoteViews(context.packageName, R.layout.widget_layout)
+    val views = createBaseWidgetView(context, appWidgetId, styling, title, config)
 
-    if (!useSystemBgColor) {
-        val backgroundColor = Color.argb(
-            transparency,
-            Color.red(bgColor),
-            Color.green(bgColor),
-            Color.blue(bgColor)
-        )
-        views.setInt(R.id.widget_root, "setBackgroundColor", backgroundColor)
-    }
-
-    // Determine font sizes
-    val titleSize = when (fontSize) {
-        0 -> 14f
-        2 -> 18f
-        else -> 16f
-    }
-
-    // Ensure content container is visible
-    views.setViewVisibility(R.id.content_container, View.VISIBLE)
-
-    if (title.isEmpty()) {
-        views.setViewVisibility(R.id.widget_title, View.GONE)
-        views.setViewVisibility(R.id.widget_icon, View.GONE)
-    } else {
-        views.setViewVisibility(R.id.widget_title, View.VISIBLE)
-        views.setTextViewText(R.id.widget_title, title)
-        if (!useSystemTextColor) {
-            views.setTextColor(R.id.widget_title, textColor)
-        }
-        val gravity = when (alignment) {
-            "CENTER" -> Gravity.CENTER_HORIZONTAL
-            "END" -> Gravity.END
-            else -> Gravity.START
-        }
-        views.setInt(R.id.widget_title, "setGravity", gravity)
-        views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, titleSize)
-
-        if (showIcon) {
-            views.setViewVisibility(R.id.widget_icon, View.VISIBLE)
-            if (!useSystemTextColor) {
-                views.setInt(R.id.widget_icon, "setColorFilter", textColor)
-            }
-        } else {
-            views.setViewVisibility(R.id.widget_icon, View.GONE)
-        }
-    }
-
-    views.setViewVisibility(R.id.departures_container, View.GONE)
-    views.setViewVisibility(R.id.error_message, View.VISIBLE)
-    views.setViewVisibility(R.id.setup_message, View.GONE)
+    views.setViewVisibility(R.id.error_container, View.VISIBLE)
     views.setTextViewText(R.id.error_message, context.getString(R.string.widget_error))
-    if (!useSystemTextColor) {
-        views.setTextColor(R.id.error_message, textColor)
+
+    if (errorMessage != null) {
+        views.setTextViewText(R.id.error_details, errorMessage)
+        views.setViewVisibility(R.id.error_details, View.VISIBLE)
+    } else {
+        views.setViewVisibility(R.id.error_details, View.GONE)
     }
 
-    val intent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
-        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
+    // Maps link is still useful even on error
+    setupMapsButton(context, views, appWidgetId, fromStation, toStation, styling.textColor, styling.useSystemTextColor)
+
+    // Colorize error elements
+    if (!styling.useSystemTextColor) {
+        views.setTextColor(R.id.error_message, styling.textColor)
+        views.setTextColor(R.id.error_details, styling.textColor)
+        views.setTextColor(R.id.open_in_maps, styling.textColor)
+        views.setTextColor(R.id.last_updated, styling.textColor)
     }
-    val pendingIntent = PendingIntent.getBroadcast(
-        context,
-        appWidgetId,
-        intent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-    views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+
+    // Show timestamp so user knows when it failed
+    val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+    views.setTextViewText(R.id.last_updated, context.getString(R.string.last_update_format, currentTime))
+    views.setViewVisibility(R.id.last_updated, View.VISIBLE)
 
     appWidgetManager.updateAppWidget(appWidgetId, views)
 }
 
+private fun setupMapsButton(
+    context: Context,
+    views: RemoteViews,
+    appWidgetId: Int,
+    fromStation: String,
+    toStation: String,
+    textColor: Int,
+    useSystemTextColor: Boolean
+) {
+    val fromName = StationRepository.getStationName(context, fromStation)
+    val toName = if (toStation.isNotEmpty()) StationRepository.getStationName(context, toStation) else ""
+
+    val uriString = if (toName.isNotEmpty()) {
+        "https://www.google.com/maps/dir/?api=1&origin=${Uri.encode(fromName)}&destination=${Uri.encode(toName)}&travelmode=transit"
+    } else {
+        "https://www.google.com/maps/search/?api=1&query=${Uri.encode(fromName)}"
+    }
+
+    val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(uriString))
+    val mapPendingIntent = PendingIntent.getActivity(
+        context, appWidgetId, mapIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    views.setOnClickPendingIntent(R.id.open_in_maps, mapPendingIntent)
+    views.setViewVisibility(R.id.open_in_maps, View.VISIBLE)
+
+    if (!useSystemTextColor) {
+        views.setTextColor(R.id.open_in_maps, textColor)
+    }
+}
+
+private fun populateDeparturesList(
+    context: Context,
+    views: RemoteViews,
+    appWidgetId: Int,
+    services: List<TrainService>,
+    styling: TrainTimesWidgetProvider.WidgetStyling,
+    config: WidgetConfiguration
+) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    val bodySize = when (config.fontSize) {
+        0 -> 12f
+        2 -> 16f
+        else -> 14f
+    }
+
+    services.forEachIndexed { index, service ->
+        val departureView = RemoteViews(context.packageName, R.layout.departure_layout)
+
+        departureView.setTextViewText(R.id.departure_time, service.std)
+        departureView.setTextViewText(R.id.destination, service.destination)
+        val platformText = service.platform?.let { "Platform $it" } ?: ""
+        departureView.setTextViewText(R.id.platform, platformText)
+        departureView.setTextViewText(R.id.status, service.status)
+
+        // Styling
+        if (!styling.useSystemTextColor) {
+            val tc = styling.textColor
+            departureView.setTextColor(R.id.departure_time, tc)
+            departureView.setTextColor(R.id.destination, tc)
+            departureView.setTextColor(R.id.platform, tc)
+            departureView.setTextColor(R.id.status, tc)
+        }
+
+        // Sizing
+        val sizeUnit = TypedValue.COMPLEX_UNIT_SP
+        departureView.setTextViewTextSize(R.id.departure_time, sizeUnit, bodySize)
+        departureView.setTextViewTextSize(R.id.destination, sizeUnit, bodySize)
+        departureView.setTextViewTextSize(R.id.platform, sizeUnit, bodySize)
+        departureView.setTextViewTextSize(R.id.status, sizeUnit, bodySize)
+
+        // Stops Logic
+        val showStops = when(config.stationStopsMode) {
+            "ALL" -> true
+            "FIRST" -> (index == 0)
+            "NONE" -> false
+            else -> (index == 0)
+        }
+
+        if (service.subsequentCallingPoints.isNotEmpty() && showStops) {
+            val key = "${PREF_IS_EXPANDED}${appWidgetId}_$index"
+            val isExpanded = prefs.getBoolean(key, false)
+
+            val callingPointsText = "Calling at ${service.subsequentCallingPoints.joinToString(", ")}"
+            departureView.setTextViewText(R.id.calling_points, callingPointsText)
+
+            if (!styling.useSystemTextColor) {
+                departureView.setTextColor(R.id.calling_points, styling.textColor)
+            }
+            departureView.setTextViewTextSize(R.id.calling_points, sizeUnit, bodySize)
+            departureView.setViewVisibility(R.id.calling_points, View.VISIBLE)
+
+            val maxLines = if (isExpanded) 100 else 1
+            departureView.setInt(R.id.calling_points, "setMaxLines", maxLines)
+
+            val toggleIntent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
+                action = TrainTimesWidgetProvider.ACTION_TOGGLE_EXPAND
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                putExtra(TrainTimesWidgetProvider.EXTRA_SERVICE_INDEX, index)
+                data = Uri.parse("trainwidget://toggle/$appWidgetId/$index")
+            }
+            val togglePendingIntent = PendingIntent.getBroadcast(
+                context, appWidgetId, toggleIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            departureView.setOnClickPendingIntent(R.id.calling_points, togglePendingIntent)
+
+        } else {
+            departureView.setViewVisibility(R.id.calling_points, View.GONE)
+        }
+
+        views.addView(R.id.departures_container, departureView)
+    }
+}
+
 /**
- * Updates the App Widget to display a setup request message (e.g. missing API key).
- *
- * @param context The application context.
- * @param appWidgetManager The AppWidgetManager instance.
- * @param appWidgetId The ID of the widget to update.
- * @param bgColor The background color to use (will be applied with default transparency).
+ * Updates the App Widget to display a setup request message.
+ * Kept separate as it uses a significantly different layout structure (hiding content).
  */
 internal fun updateAppWidgetWithSetupRequest(
     context: Context,
@@ -518,37 +684,21 @@ internal fun updateAppWidgetWithSetupRequest(
     Log.d("TrainWidget", "Showing setup request for widget $appWidgetId")
     val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
-    // Use default transparency (128) if we don't know it, or just use 255 (opaque)?
-    // Or stick to XML default (which is #80000000 = 128 alpha black).
-    // Let's use the bgColor from prefs with 128 alpha to be consistent with default widget look?
-    // Prefs default for opacity is 128 in WidgetConfigurationStorage logic.
     val transparency = 128
-    val backgroundColor = Color.argb(
-        transparency,
-        Color.red(bgColor),
-        Color.green(bgColor),
-        Color.blue(bgColor)
-    )
+    val backgroundColor = Color.argb(transparency, Color.red(bgColor), Color.green(bgColor), Color.blue(bgColor))
     views.setInt(R.id.widget_root, "setBackgroundColor", backgroundColor)
 
-    // Hide everything else
     views.setViewVisibility(R.id.content_container, View.GONE)
-    views.setViewVisibility(R.id.error_message, View.GONE)
-
-    // Show setup message
+    views.setViewVisibility(R.id.error_container, View.GONE)
     views.setViewVisibility(R.id.setup_message, View.VISIBLE)
     views.setTextViewText(R.id.setup_message, context.getString(R.string.setup_api_key))
 
-    // Set click listener to launch MainActivity
     val intent = Intent(context, MainActivity::class.java)
     val pendingIntent = PendingIntent.getActivity(
-        context,
-        0,
-        intent,
+        context, 0, intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
     views.setOnClickPendingIntent(R.id.setup_message, pendingIntent)
-    views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
     appWidgetManager.updateAppWidget(appWidgetId, views)
 }

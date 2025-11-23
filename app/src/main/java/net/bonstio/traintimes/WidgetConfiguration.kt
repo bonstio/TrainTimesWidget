@@ -9,7 +9,8 @@ import android.graphics.Color
  * @property title The title displayed on the widget.
  * @property titleStyle The style of the title (e.g., "SHORT", "LONG", "CUSTOM").
  * @property showIcon Whether to show the train icon.
- * @property showStops Whether to show the calling points for the first service.
+ * @property showStops Deprecated. Use stationStopsMode instead.
+ * @property stationStopsMode Mode for station stops display: "FIRST", "ALL", "NONE".
  * @property fromStation The CRS code of the departure station.
  * @property toStation The CRS code of the arrival station.
  * @property alignment The alignment of the title ("START", "CENTER", "END").
@@ -28,14 +29,15 @@ data class WidgetConfiguration(
     val title: String,
     val titleStyle: String = "SHORT",
     val showIcon: Boolean = true,
-    val showStops: Boolean = true,
+    @Deprecated("Use stationStopsMode") val showStops: Boolean = true,
+    val stationStopsMode: String = "FIRST",
     val fromStation: String,
     val toStation: String,
     val alignment: String = "START",
     val startTimeNormal: Int = 270, // 04:30
     val startTimeReverse: Int = 720,  // 12:00
     val timeOffset: Int = 0,
-    val departureCount: Int = 4,
+    val departureCount: Int = 5,
     val transparency: Int = 128,
     val textColor: Int = Color.WHITE,
     val bgColor: Int = Color.BLACK,
@@ -54,6 +56,7 @@ object WidgetConfigurationStorage {
     private const val PREF_IS_AUTO_TITLE_KEY = "is_auto_title_" // Deprecated
     private const val PREF_SHOW_ICON_KEY = "show_icon_"
     private const val PREF_SHOW_STOPS_KEY = "show_stops_"
+    private const val PREF_STATION_STOPS_MODE_KEY = "station_stops_mode_"
     private const val PREF_FROM_STATION_KEY = "from_station_"
     private const val PREF_TO_STATION_KEY = "to_station_"
     private const val PREF_ALIGNMENT_KEY = "alignment_"
@@ -77,7 +80,8 @@ object WidgetConfigurationStorage {
         title: String,
         titleStyle: String,
         showIcon: Boolean,
-        showStops: Boolean,
+        showStops: Boolean, // Deprecated, but keep for backward compat or just ignore
+        stationStopsMode: String,
         fromStation: String,
         toStation: String,
         alignment: String,
@@ -98,6 +102,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_IS_AUTO_TITLE_KEY + appWidgetId) // Clean up deprecated key
         prefs.putBoolean(PREF_SHOW_ICON_KEY + appWidgetId, showIcon)
         prefs.putBoolean(PREF_SHOW_STOPS_KEY + appWidgetId, showStops)
+        prefs.putString(PREF_STATION_STOPS_MODE_KEY + appWidgetId, stationStopsMode)
         prefs.putString(PREF_FROM_STATION_KEY + appWidgetId, fromStation)
         prefs.putString(PREF_TO_STATION_KEY + appWidgetId, toStation)
         prefs.putString(PREF_ALIGNMENT_KEY + appWidgetId, alignment)
@@ -140,13 +145,20 @@ object WidgetConfigurationStorage {
 
         val showIcon = prefs.getBoolean(PREF_SHOW_ICON_KEY + appWidgetId, true)
         val showStops = prefs.getBoolean(PREF_SHOW_STOPS_KEY + appWidgetId, true)
+        
+        // Migration logic for station stops
+        var stationStopsMode = prefs.getString(PREF_STATION_STOPS_MODE_KEY + appWidgetId, null)
+        if (stationStopsMode == null) {
+            stationStopsMode = if (showStops) "FIRST" else "NONE"
+        }
+        
         val fromStation = prefs.getString(PREF_FROM_STATION_KEY + appWidgetId, null)
         val toStation = prefs.getString(PREF_TO_STATION_KEY + appWidgetId, null)
         val alignment = prefs.getString(PREF_ALIGNMENT_KEY + appWidgetId, "START")
         val startTimeNormal = prefs.getInt(PREF_START_NORMAL_KEY + appWidgetId, 270)
         val startTimeReverse = prefs.getInt(PREF_START_REVERSE_KEY + appWidgetId, 720)
         val timeOffset = prefs.getInt(PREF_TIME_OFFSET_KEY + appWidgetId, 0)
-        val departureCount = prefs.getInt(PREF_DEPARTURE_COUNT_KEY + appWidgetId, 4)
+        val departureCount = prefs.getInt(PREF_DEPARTURE_COUNT_KEY + appWidgetId, 5)
         val transparency = prefs.getInt(PREF_TRANSPARENCY_KEY + appWidgetId, 128)
         val textColor = prefs.getInt(PREF_TEXT_COLOR_KEY + appWidgetId, Color.WHITE)
         val bgColor = prefs.getInt(PREF_BG_COLOR_KEY + appWidgetId, Color.BLACK)
@@ -161,6 +173,7 @@ object WidgetConfigurationStorage {
                 titleStyle,
                 showIcon,
                 showStops,
+                stationStopsMode,
                 fromStation,
                 toStation,
                 alignment,
@@ -193,6 +206,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_IS_AUTO_TITLE_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_STOPS_KEY + appWidgetId)
+        prefs.remove(PREF_STATION_STOPS_MODE_KEY + appWidgetId)
         prefs.remove(PREF_FROM_STATION_KEY + appWidgetId)
         prefs.remove(PREF_TO_STATION_KEY + appWidgetId)
         prefs.remove(PREF_ALIGNMENT_KEY + appWidgetId)

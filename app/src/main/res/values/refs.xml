@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <drawable name="app_widget_preview_themed">@drawable/widget_preview</drawable>
+</resources>

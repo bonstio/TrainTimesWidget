@@ -6,7 +6,7 @@
     <string name="configuration_title">Widget configuration</string>
 
     <!-- Error message displayed in the widget when loading fails. Length: 35 chars. -->
-    <string name="widget_error">Failed to load train times. Tap to retry.</string>
+    <string name="widget_error">Failed to load train times.</string>
 
     <!-- Generic Done button label. Length: 10 chars. -->
     <string name="done">Done</string>
@@ -63,7 +63,7 @@
     <string name="show_icon">Show icon</string>
 
     <!-- Label for title style selection. Length: 10 chars. -->
-    <string name="title_style">Style</string>
+    <string name="title_style">Format</string>
 
     <!-- Option for long title style (e.g., full station names). Length: 10 chars. -->
     <string name="title_style_long">Long</string>
@@ -72,10 +72,19 @@
     <string name="title_style_short">Short</string>
 
     <!-- Option for custom title style. Length: 10 chars. -->
-    <string name="title_style_custom">Custom</string>
+    <string name="title_style_custom">Custom title</string>
 
-    <!-- Label for checkbox to show/hide intermediate stops. Length: 25 chars. -->
-    <string name="show_stops">Show station stops</string>
+    <!-- Label for the station stops setting. Length: 25 chars. -->
+    <string name="show_stops">Station stops</string>
+    
+    <!-- Option for hidden station stops. -->
+    <string name="stops_hidden">Hidden</string>
+    
+    <!-- Option for showing stops for first departure only. -->
+    <string name="stops_first">First departure only</string>
+    
+    <!-- Option for showing stops for all departures. -->
+    <string name="stops_all">All departures</string>
 
     <!-- Button text to cancel configuration. Length: 10 chars. -->
     <string name="cancel">Cancel</string>
@@ -84,7 +93,7 @@
     <string name="clear">Clear</string>
 
     <!-- Message displayed in the widget when no trains are found. Length: 20 chars. -->
-    <string name="no_trains_found">No trains found</string>
+    <string name="no_trains_found">No trains found.</string>
 
     <!-- Title for the Route tab. Length: 10 chars. -->
     <string name="tab_route">Route</string>
@@ -101,17 +110,23 @@
     <!-- Hint for the time offset input field in minutes. Length: 20 chars. -->
     <string name="offset_minutes">Offset (minutes)</string>
 
+    <!-- Title for Offset setting row. -->
+    <string name="offset_row_title">Offset</string>
+
     <!-- Hint for the From station input field (required). Length: 10 chars. -->
     <string name="from_required">From *</string>
 
-    <!-- Hint for the To station input field (required). Length: 10 chars. -->
-    <string name="to_required">To *</string>
+    <!-- Hint for the To station input field (optional). Length: 10 chars. -->
+    <string name="to_required">To</string>
 
     <!-- Text for requesting an API key. Length: 20 chars. -->
     <string name="request_api_key">Request API key</string>
 
     <!-- Hint for the number of departures input field. Length: 20 chars. -->
     <string name="departure_count">Departure count</string>
+
+    <!-- Title for Departure Count setting row. -->
+    <string name="departure_count_row_title">Departure count</string>
 
     <!-- Helper text explaining the departure count setting. Length: 50 chars. -->
     <string name="departure_count_helper">The number of train departures requested.</string>
@@ -120,7 +135,7 @@
     <string name="display_times_header">Display options</string>
 
     <!-- Helper text explaining the route reversal based on time feature. Length: 130 chars. -->
-    <string name="display_times_helper">Set start times to automatically reverse the route direction, useful for return journeys. Leave blank to disable.</string>
+    <string name="display_times_helper">Specify a time to show this station as the departure station. This is useful for commuting. Leave blank to disable this feature.</string>
 
     <!-- Header for the title settings section. Length: 15 chars. -->
     <string name="title_section_header">Heading</string>
@@ -182,6 +197,56 @@
     <!-- Option for large font size. Length: 10 chars. -->
     <string name="font_size_large">Large</string>
 
-    <!-- Instruction to tap the widget to retry loading. Length: 15 chars. -->
-    <string name="tap_to_retry">Tap to retry</string>
+    <!-- Text for retry button. Length: 10 chars. -->
+    <string name="retry">Refresh</string>
+
+    <!-- Label for the update frequency setting. Length: 25 chars. -->
+    <string name="update_frequency">Widget update frequency</string>
+
+    <string-array name="update_frequency_options">
+        <item>Tap to refresh only</item>
+        <item>30 minutes</item>
+        <item>1 hour</item>
+        <item>2 hours</item>
+    </string-array>
+
+    <!-- Text for Global Settings button. Length: 15 chars. -->
+    <string name="global_settings">Global Settings</string>
+
+    <!-- Text for Open Global Settings link/row. -->
+    <string name="global_settings_open">Open global settings</string>
+
+    <!-- Format string for last update time. %s is the time. Length: 20 chars. -->
+    <string name="last_update_format">Last update at %s</string>
+
+    <!-- Label for entering the API key. Length: 25 chars. -->
+    <string name="enter_api_key_label">National Rail API key</string>
+
+    <!-- Hint for the API key input field. Length: 10 chars. -->
+    <string name="api_key_hint">API Key</string>
+
+    <!-- Text for Open in Google Maps link. Length: 20 chars. -->
+    <string name="open_in_maps">Open in Google Maps</string>
+
+    <!-- Default text for custom title input when only From station is specified. -->
+    <string name="default_from_only_title">Departures from $F</string>
+
+    <!-- Name of the widget. -->
+    <string name="widget_name">Departure board</string>
+
+    <!-- Label for departing from station. -->
+    <string name="route_departing_from">Departing from</string>
+
+    <!-- Label for destination station. -->
+    <string name="route_destination">Going to</string>
+
+    <string name="summary_station_required"><i>Required</i></string>
+    <string name="summary_station_unspecified"><i>Anywhere</i></string>
+    <string name="shown_from_summary">from %s</string>
+
+    <!-- Header for the font settings section. -->
+    <string name="font_section_header">Font</string>
+
+    <!-- Label for the font size row. -->
+    <string name="font_size_row_label">Size</string>
 </resources>

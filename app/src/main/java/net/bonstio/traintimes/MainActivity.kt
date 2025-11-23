@@ -10,7 +10,9 @@ import android.text.SpannableString
 import android.text.Spanned
 import android.text.method.LinkMovementMethod
 import android.text.style.URLSpan
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
@@ -23,8 +25,11 @@ import com.google.android.material.textfield.TextInputEditText
 class MainActivity : AppCompatActivity() {
 
     private lateinit var apiKeyInput: TextInputEditText
+    private lateinit var updateFrequencySpinner: Spinner
     private lateinit var prefs: SharedPreferences
     private lateinit var doneButton: Button
+
+    private val frequencyValues = intArrayOf(0, 30, 60, 120)
 
     /**
      * Called when the activity is starting.
@@ -39,6 +44,7 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         apiKeyInput = findViewById(R.id.api_key_input)
+        updateFrequencySpinner = findViewById(R.id.update_frequency_spinner)
         doneButton = findViewById(R.id.done_button)
 
         // Setup Request API Key Link
@@ -50,8 +56,25 @@ class MainActivity : AppCompatActivity() {
         requestApiKeyLink.text = spannable
         requestApiKeyLink.movementMethod = LinkMovementMethod.getInstance()
 
+        // Setup Spinner
+        ArrayAdapter.createFromResource(
+            this,
+            R.array.update_frequency_options,
+            android.R.layout.simple_spinner_item
+        ).also { adapter ->
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            updateFrequencySpinner.adapter = adapter
+        }
+
         // Load saved settings
         apiKeyInput.setText(prefs.getString(PREF_API_KEY, ""))
+        val savedFrequency = prefs.getInt(PREF_UPDATE_FREQUENCY, 30) // Default to 30 mins
+        val selectionIndex = frequencyValues.indexOf(savedFrequency)
+        if (selectionIndex >= 0) {
+            updateFrequencySpinner.setSelection(selectionIndex)
+        } else {
+            updateFrequencySpinner.setSelection(1) // Default to 30m
+        }
 
         doneButton.setOnClickListener {
             saveSettings()
@@ -73,9 +96,19 @@ class MainActivity : AppCompatActivity() {
      * Saves the API key and other settings to SharedPreferences.
      */
     private fun saveSettings() {
+        val selectedPosition = updateFrequencySpinner.selectedItemPosition
+        val frequency = if (selectedPosition in frequencyValues.indices) {
+            frequencyValues[selectedPosition]
+        } else {
+            30
+        }
+
         prefs.edit {
             putString(PREF_API_KEY, apiKeyInput.text.toString())
+            putInt(PREF_UPDATE_FREQUENCY, frequency)
         }
+
+        WidgetUpdateScheduler.scheduleUpdate(this, frequency)
     }
 
     /**

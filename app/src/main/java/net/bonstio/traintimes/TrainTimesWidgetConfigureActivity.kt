@@ -17,18 +17,25 @@ import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RectShape
 import android.os.Bundle
 import android.text.Editable
+import android.text.InputType
 import android.text.TextWatcher
+import android.transition.AutoTransition
+import android.transition.TransitionManager
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.CheckBox
+import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -44,22 +51,38 @@ import kotlin.math.roundToInt
 class TrainTimesWidgetConfigureActivity : Activity() {
 
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-    private lateinit var fromStationEditText: MaterialAutoCompleteTextView
-    private lateinit var toStationEditText: MaterialAutoCompleteTextView
-    private lateinit var titleEditText: TextInputEditText
-    private lateinit var widgetTitleLayout: TextInputLayout
-    private lateinit var alignmentGroup: RadioGroup
+    
+    // Route Tab Views
+    private lateinit var rowDepartingFrom: View
+    private lateinit var summaryDepartingFrom: TextView
+    private lateinit var timeDepartingFrom: TextView
+    private lateinit var rowDestination: View
+    private lateinit var summaryDestination: TextView
+    private lateinit var timeDestination: TextView
+    
+    // Layout Tab Views
+    private lateinit var rowStyle: View
+    private lateinit var summaryStyle: TextView
+    private lateinit var rowCustomTitle: View
+    private lateinit var summaryCustomTitle: TextView
+    private lateinit var rowAlignment: View
+    private lateinit var summaryAlignment: TextView
+    private lateinit var rowFontSize: View
+    private lateinit var summaryFontSize: TextView
+    private lateinit var rowStationStops: View
+    private lateinit var summaryStationStops: TextView
+    
+    private lateinit var switchWidgetIcon: MaterialSwitch
+
+    // Advanced Tab Views
+    private lateinit var rowOffset: View
+    private lateinit var summaryOffset: TextView
+    private lateinit var rowDepartureCount: View
+    private lateinit var summaryDepartureCount: TextView
+    private lateinit var rowGlobalSettings: View
+
     private lateinit var addButton: Button
     private lateinit var cancelButton: Button
-    private lateinit var titleStyleGroup: RadioGroup
-    private lateinit var showIconCheckbox: CheckBox
-    private lateinit var showStopsCheckbox: CheckBox
-    private lateinit var timeOffsetEditText: TextInputEditText
-    private lateinit var departureCountEditText: TextInputEditText
-    private lateinit var fontSizeSlider: Slider
-
-    private lateinit var timeNormalEditText: TextInputEditText
-    private lateinit var timeReverseEditText: TextInputEditText
 
     // Color Tab Views
     private lateinit var colorSourceGroup: RadioGroup
@@ -111,7 +134,22 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
     private var isUpdatingColor = false
 
+    // Flags for smart default title style logic
+    private var userChangedTitleStyle = false
+    private var isUpdatingTitleStyle = false
+
     private lateinit var stations: List<Station>
+    
+    // State variables
+    private var fromStationCode: String = ""
+    private var toStationCode: String = ""
+    private var selectedTitleStyle: String = "SHORT"
+    private var selectedAlignment: String = "START"
+    private var selectedFontSize: Int = 1
+    private var customTitleText: String = ""
+    private var selectedStationStopsMode: String = "FIRST"
+    private var selectedOffset: Int = 0
+    private var selectedDepartureCount: Int = 5
 
     /**
      * Called when the activity is first created.
@@ -132,25 +170,37 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         window.attributes = layoutParams
 
-        fromStationEditText = findViewById(R.id.from_station)
-        toStationEditText = findViewById(R.id.to_station)
-        titleEditText = findViewById(R.id.widget_title)
-        widgetTitleLayout = findViewById(R.id.widget_title_layout)
-        alignmentGroup = findViewById(R.id.alignment_group)
+        // Route Tab Bindings
+        rowDepartingFrom = findViewById(R.id.row_departing_from)
+        summaryDepartingFrom = findViewById(R.id.summary_departing_from)
+        timeDepartingFrom = findViewById(R.id.time_departing_from)
+        rowDestination = findViewById(R.id.row_destination)
+        summaryDestination = findViewById(R.id.summary_destination)
+        timeDestination = findViewById(R.id.time_destination)
+        
         addButton = findViewById(R.id.add_button)
         cancelButton = findViewById(R.id.cancel_button)
-        titleStyleGroup = findViewById(R.id.title_style_group)
-        showIconCheckbox = findViewById(R.id.show_icon_checkbox)
-        showStopsCheckbox = findViewById(R.id.show_stops_checkbox)
-        timeOffsetEditText = findViewById(R.id.time_offset)
-        departureCountEditText = findViewById(R.id.departure_count)
-        fontSizeSlider = findViewById(R.id.font_size_slider)
-
-        timeNormalEditText = findViewById(R.id.time_normal)
-        timeReverseEditText = findViewById(R.id.time_reverse)
-
-        val timeNormalLayout = findViewById<TextInputLayout>(R.id.time_normal_layout)
-        val timeReverseLayout = findViewById<TextInputLayout>(R.id.time_reverse_layout)
+        
+        // Layout Tab Bindings
+        rowStyle = findViewById(R.id.row_style)
+        summaryStyle = findViewById(R.id.summary_style)
+        rowCustomTitle = findViewById(R.id.row_custom_title)
+        summaryCustomTitle = findViewById(R.id.summary_custom_title)
+        rowAlignment = findViewById(R.id.row_alignment)
+        summaryAlignment = findViewById(R.id.summary_alignment)
+        rowFontSize = findViewById(R.id.row_font_size)
+        summaryFontSize = findViewById(R.id.summary_font_size)
+        rowStationStops = findViewById(R.id.row_station_stops)
+        summaryStationStops = findViewById(R.id.summary_station_stops)
+        
+        switchWidgetIcon = findViewById(R.id.switch_widget_icon)
+        
+        // Advanced Tab Bindings
+        rowOffset = findViewById(R.id.row_offset)
+        summaryOffset = findViewById(R.id.summary_offset)
+        rowDepartureCount = findViewById(R.id.row_departure_count)
+        summaryDepartureCount = findViewById(R.id.summary_departure_count)
+        rowGlobalSettings = findViewById(R.id.row_global_settings)
 
         // Color Views
         colorSourceGroup = findViewById(R.id.color_source_group)
@@ -189,74 +239,11 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         advancedContent = findViewById(R.id.tab_advanced_content)
 
         stations = StationRepository.getStations(this)
-        val adapter = StationAdapter(this, stations)
-        fromStationEditText.setAdapter(adapter)
-        toStationEditText.setAdapter(adapter)
 
-        setupInputListeners(fromStationEditText)
-        setupInputListeners(toStationEditText)
+        setupRouteListeners()
+        setupLayoutListeners()
+        setupAdvancedListeners()
         setupValidation()
-
-        titleStyleGroup.setOnCheckedChangeListener { _, checkedId ->
-            val isCustom = (checkedId == R.id.style_custom)
-            titleEditText.isEnabled = isCustom
-            widgetTitleLayout.visibility = if (isCustom) View.VISIBLE else View.GONE
-        }
-
-        timeNormalEditText.setOnClickListener {
-            showTimePicker(startTimeNormal) { minutes ->
-                startTimeNormal = minutes
-                updateTimeLabels()
-            }
-        }
-
-        timeNormalEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                if (s.isNullOrEmpty()) {
-                    startTimeNormal = -1
-                    timeNormalLayout.isEndIconVisible = false
-                } else {
-                    timeNormalLayout.isEndIconVisible = true
-                }
-            }
-        })
-
-        timeNormalLayout.setEndIconOnClickListener {
-            timeNormalEditText.setText("")
-        }
-
-        timeReverseEditText.setOnClickListener {
-            showTimePicker(startTimeReverse) { minutes ->
-                startTimeReverse = minutes
-                updateTimeLabels()
-            }
-        }
-
-        timeReverseEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                if (s.isNullOrEmpty()) {
-                    startTimeReverse = -1
-                    timeReverseLayout.isEndIconVisible = false
-                } else {
-                    timeReverseLayout.isEndIconVisible = true
-                }
-            }
-        })
-
-        timeReverseLayout.setEndIconOnClickListener {
-            timeReverseEditText.setText("")
-        }
-
-        findViewById<ImageButton>(R.id.swap_times).setOnClickListener {
-            val temp = startTimeNormal
-            startTimeNormal = startTimeReverse
-            startTimeReverse = temp
-            updateTimeLabels()
-        }
 
         setupColorListeners()
 
@@ -288,30 +275,17 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         addButton.setOnClickListener {
             val context = this@TrainTimesWidgetConfigureActivity
 
-            val fromInput = fromStationEditText.text.toString()
-            val toInput = toStationEditText.text.toString()
+            val title = customTitleText
+            val titleStyle = selectedTitleStyle
+            val alignment = selectedAlignment
 
-            val fromStation = extractStationCode(fromInput, stations)
-            val toStation = extractStationCode(toInput, stations)
-
-            val title = titleEditText.text.toString()
-
-            val titleStyle = when (titleStyleGroup.checkedRadioButtonId) {
-                R.id.style_short -> "SHORT"
-                R.id.style_custom -> "CUSTOM"
-                else -> "LONG"
-            }
-
-            val showIcon = showIconCheckbox.isChecked
-            val showStops = showStopsCheckbox.isChecked
-            val timeOffset = timeOffsetEditText.text.toString().toIntOrNull() ?: 0
-            val departureCount = departureCountEditText.text.toString().toIntOrNull() ?: 4
-
-            val alignment = when (alignmentGroup.checkedRadioButtonId) {
-                R.id.alignment_center -> "CENTER"
-                R.id.alignment_right -> "END"
-                else -> "START"
-            }
+            val showIcon = switchWidgetIcon.isChecked
+            val stationStopsMode = selectedStationStopsMode
+            // Backward compatibility
+            val showStops = (stationStopsMode != "NONE") 
+            
+            val timeOffset = selectedOffset
+            val departureCount = selectedDepartureCount
 
             val transparency = Color.alpha(currentBackgroundColor)
             val bgColor = Color.rgb(
@@ -320,7 +294,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 Color.blue(currentBackgroundColor)
             )
 
-            val fontSize = fontSizeSlider.value.toInt()
+            val fontSize = selectedFontSize
 
             WidgetConfigurationStorage.saveConfiguration(
                 context,
@@ -329,8 +303,9 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 titleStyle,
                 showIcon,
                 showStops,
-                fromStation,
-                toStation,
+                stationStopsMode,
+                fromStationCode,
+                toStationCode,
                 alignment,
                 startTimeNormal,
                 startTimeReverse,
@@ -357,13 +332,6 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             finish()
         }
 
-        findViewById<ImageButton>(R.id.swap_stations).setOnClickListener {
-            val from = fromStationEditText.text
-            val to = toStationEditText.text
-            fromStationEditText.text = to
-            toStationEditText.text = from
-        }
-
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 updateTabVisibility(tab.position)
@@ -388,30 +356,21 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
         val existingConfig = WidgetConfigurationStorage.loadConfiguration(this, appWidgetId)
         if (existingConfig != null) {
-            setStationText(fromStationEditText, existingConfig.fromStation)
-            setStationText(toStationEditText, existingConfig.toStation)
-            titleEditText.setText(existingConfig.title)
-
-            when (existingConfig.titleStyle) {
-                "SHORT" -> titleStyleGroup.check(R.id.style_short)
-                "CUSTOM" -> titleStyleGroup.check(R.id.style_custom)
-                else -> titleStyleGroup.check(R.id.style_long)
-            }
-            val isCustom = (existingConfig.titleStyle == "CUSTOM")
-            titleEditText.isEnabled = isCustom
-            widgetTitleLayout.visibility = if (isCustom) View.VISIBLE else View.GONE
-
-            showIconCheckbox.isChecked = existingConfig.showIcon
-            showStopsCheckbox.isChecked = existingConfig.showStops
-            when (existingConfig.alignment) {
-                "CENTER" -> alignmentGroup.check(R.id.alignment_center)
-                "END" -> alignmentGroup.check(R.id.alignment_right)
-                else -> alignmentGroup.check(R.id.alignment_left)
-            }
+            fromStationCode = existingConfig.fromStation
+            toStationCode = existingConfig.toStation
+            
+            customTitleText = existingConfig.title
+            userChangedTitleStyle = true // Treat existing as manually set
+            selectedTitleStyle = existingConfig.titleStyle
+            
+            switchWidgetIcon.isChecked = existingConfig.showIcon
+            selectedStationStopsMode = existingConfig.stationStopsMode
+            selectedAlignment = existingConfig.alignment
+            
             startTimeNormal = existingConfig.startTimeNormal
             startTimeReverse = existingConfig.startTimeReverse
-            timeOffsetEditText.setText(existingConfig.timeOffset.toString())
-            departureCountEditText.setText(existingConfig.departureCount.toString())
+            selectedOffset = existingConfig.timeOffset
+            selectedDepartureCount = existingConfig.departureCount
 
             currentTextColor = existingConfig.textColor
             currentBackgroundColor = ColorUtils.setAlphaComponent(
@@ -421,33 +380,385 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
             isTextSystemColor = existingConfig.useSystemTextColor
             isBackgroundSystemColor = existingConfig.useSystemBgColor
-            fontSizeSlider.value = existingConfig.fontSize.toFloat()
+            selectedFontSize = existingConfig.fontSize
         } else {
-            alignmentGroup.check(R.id.alignment_left)
-            titleStyleGroup.check(R.id.style_short)
-            titleEditText.isEnabled = false
-            widgetTitleLayout.visibility = View.GONE
-            titleEditText.setText(R.string.default_custom_title)
-            showIconCheckbox.isChecked = true
-            showStopsCheckbox.isChecked = true
-            timeOffsetEditText.setText("0")
-            departureCountEditText.setText("4")
+            selectedAlignment = "START"
+            
+            isUpdatingTitleStyle = true
+            selectedTitleStyle = "CUSTOM" // Default
+            isUpdatingTitleStyle = false
+            
+            customTitleText = getString(R.string.default_from_only_title)
+            
+            switchWidgetIcon.isChecked = true
+            selectedStationStopsMode = "FIRST"
+            
+            selectedOffset = 0
+            selectedDepartureCount = 5
             currentTextColor = Color.WHITE
             currentBackgroundColor = Color.argb(128, 0, 0, 0)
             isTextSystemColor = true
             isBackgroundSystemColor = true
-            fontSizeSlider.value = 1f
+            selectedFontSize = 1
         }
 
         updateActiveMode(ColorMode.TEXT)
         updatePreviews()
+        updateLayoutSummaries()
+        updateRouteSummaries()
+        updateAdvancedSummaries()
 
         validateInputs()
-        updateTimeLabels()
         updateTabVisibility(0)
     }
 
+    private fun setupRouteListeners() {
+        rowDepartingFrom.setOnClickListener {
+            showRouteDialog(
+                R.string.route_departing_from,
+                fromStationCode,
+                startTimeNormal
+            ) { station, time ->
+                fromStationCode = station
+                startTimeNormal = time
+                updateRouteSummaries()
+                validateInputs()
+            }
+        }
+
+        rowDestination.setOnClickListener {
+            showRouteDialog(
+                R.string.route_destination,
+                toStationCode,
+                startTimeReverse
+            ) { station, time ->
+                toStationCode = station
+                startTimeReverse = time
+                updateRouteSummaries()
+                validateInputs()
+            }
+        }
+    }
+
+    private fun showRouteDialog(titleRes: Int, currentStationCode: String, currentTime: Int, onConfirm: (String, Int) -> Unit) {
+        val view = layoutInflater.inflate(R.layout.dialog_route_config, null)
+        val stationInput = view.findViewById<MaterialAutoCompleteTextView>(R.id.dialog_station_input)
+        val timeInput = view.findViewById<TextInputEditText>(R.id.dialog_time_input)
+        val timeLayout = view.findViewById<TextInputLayout>(R.id.dialog_time_layout)
+
+        val adapter = StationAdapter(this, stations)
+        stationInput.setAdapter(adapter)
+        setStationText(stationInput, currentStationCode)
+        setupInputListeners(stationInput)
+
+        var selectedTime = currentTime
+        
+        fun updateTimeDisplay() {
+            if (selectedTime == -1) {
+                timeInput.setText("")
+                timeLayout.isEndIconVisible = false
+            } else {
+                timeInput.setText(formatTime(selectedTime))
+                timeLayout.isEndIconVisible = true
+            }
+        }
+        updateTimeDisplay()
+
+        timeInput.setOnClickListener {
+            showTimePicker(selectedTime) { minutes ->
+                selectedTime = minutes
+                updateTimeDisplay()
+            }
+        }
+        
+        timeLayout.setEndIconOnClickListener {
+            selectedTime = -1
+            updateTimeDisplay()
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(titleRes)
+            .setView(view)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val stationCode = extractStationCode(stationInput.text.toString(), stations)
+                onConfirm(stationCode, selectedTime)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+            
+        stationInput.post {
+             stationInput.selectAll()
+             stationInput.requestFocus()
+        }
+    }
+
+    private fun updateRouteSummaries() {
+        val fromName = if (fromStationCode.isNotEmpty()) {
+            StationRepository.getStationName(this, fromStationCode)
+        } else {
+            getText(R.string.summary_station_required)
+        }
+        summaryDepartingFrom.text = fromName
+        
+        val toName = if (toStationCode.isNotEmpty()) {
+            StationRepository.getStationName(this, toStationCode)
+        } else {
+            getText(R.string.summary_station_unspecified)
+        }
+        summaryDestination.text = toName
+        
+        if (startTimeNormal != -1) {
+            timeDepartingFrom.text = getString(R.string.shown_from_summary, formatTime(startTimeNormal))
+            timeDepartingFrom.visibility = View.VISIBLE
+        } else {
+            timeDepartingFrom.visibility = View.GONE
+        }
+
+        if (startTimeReverse != -1) {
+            timeDestination.text = getString(R.string.shown_from_summary, formatTime(startTimeReverse))
+            timeDestination.visibility = View.VISIBLE
+        } else {
+            timeDestination.visibility = View.GONE
+        }
+    }
+
+    private fun setupLayoutListeners() {
+        rowStyle.setOnClickListener {
+            val items = arrayOf(getString(R.string.title_style_short), getString(R.string.title_style_long), getString(R.string.title_style_custom))
+            val values = arrayOf("SHORT", "LONG", "CUSTOM")
+            val selectedIndex = values.indexOf(selectedTitleStyle).coerceAtLeast(0)
+            
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.title_style)
+                .setSingleChoiceItems(items, selectedIndex) { dialog, which ->
+                    val newStyle = values[which]
+                    if (newStyle != selectedTitleStyle) {
+                        selectedTitleStyle = newStyle
+                        if (selectedTitleStyle == "CUSTOM") {
+                             // Ensure default text if empty
+                             if (customTitleText.isEmpty()) {
+                                 customTitleText = getString(R.string.default_from_only_title)
+                             }
+                        }
+                        userChangedTitleStyle = true
+                        updateLayoutSummaries()
+                    }
+                    dialog.dismiss()
+                }
+                .show()
+        }
+        
+        rowAlignment.setOnClickListener {
+             val items = arrayOf(getString(R.string.alignment_left), getString(R.string.alignment_center), getString(R.string.alignment_right))
+             val values = arrayOf("START", "CENTER", "END")
+             val selectedIndex = values.indexOf(selectedAlignment).coerceAtLeast(0)
+             
+             MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.title_alignment)
+                .setSingleChoiceItems(items, selectedIndex) { dialog, which ->
+                    selectedAlignment = values[which]
+                    updateLayoutSummaries()
+                    dialog.dismiss()
+                }
+                .show()
+        }
+        
+        rowFontSize.setOnClickListener {
+             val items = arrayOf(getString(R.string.font_size_small), getString(R.string.font_size_regular), getString(R.string.font_size_large))
+             val values = arrayOf(0, 1, 2)
+             val selectedIndex = values.indexOf(selectedFontSize).coerceAtLeast(1)
+             
+             MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.font_size_section_header)
+                .setSingleChoiceItems(items, selectedIndex) { dialog, which ->
+                    selectedFontSize = values[which]
+                    updateLayoutSummaries()
+                    dialog.dismiss()
+                }
+                .show()
+        }
+        
+        rowCustomTitle.setOnClickListener {
+            val container = LinearLayout(this)
+            container.orientation = LinearLayout.VERTICAL
+            val margin = (24 * resources.displayMetrics.density).toInt()
+            container.setPadding(margin, margin / 2, margin, 0)
+
+            val input = TextInputEditText(this)
+            input.setText(customTitleText)
+            container.addView(input)
+
+            val helperText = TextView(this)
+            helperText.text = getString(R.string.widget_title_helper)
+            val typedValue = TypedValue()
+            theme.resolveAttribute(com.google.android.material.R.attr.textAppearanceCaption, typedValue, true)
+            if (typedValue.resourceId != 0) {
+                helperText.setTextAppearance(typedValue.resourceId)
+            }
+            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            params.topMargin = (8 * resources.displayMetrics.density).toInt()
+            helperText.layoutParams = params
+            container.addView(helperText)
+            
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.widget_title_hint)
+                .setView(container)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    customTitleText = input.text.toString()
+                    updateLayoutSummaries()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+            
+            input.post {
+                 input.selectAll()
+                 input.requestFocus()
+            }
+        }
+        
+        rowStationStops.setOnClickListener {
+            val items = arrayOf(
+                getString(R.string.stops_first),
+                getString(R.string.stops_all),
+                getString(R.string.stops_hidden)
+            )
+            val values = arrayOf("FIRST", "ALL", "NONE")
+            val selectedIndex = values.indexOf(selectedStationStopsMode).coerceAtLeast(0)
+            
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.show_stops)
+                .setSingleChoiceItems(items, selectedIndex) { dialog, which ->
+                    selectedStationStopsMode = values[which]
+                    updateLayoutSummaries()
+                    dialog.dismiss()
+                }
+                .show()
+        }
+    }
+
+    private fun setupAdvancedListeners() {
+        rowOffset.setOnClickListener {
+            val container = LinearLayout(this)
+            container.orientation = LinearLayout.VERTICAL
+            val margin = (24 * resources.displayMetrics.density).toInt()
+            container.setPadding(margin, margin / 2, margin, 0)
+
+            val input = TextInputEditText(this)
+            input.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
+            input.setText(selectedOffset.toString())
+            container.addView(input)
+
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.offset_row_title)
+                .setView(container)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val value = input.text.toString().toIntOrNull() ?: 0
+                    if (value >= -120 && value <= 120) {
+                        selectedOffset = value
+                        updateAdvancedSummaries()
+                        validateInputs()
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+                
+            input.post {
+                 input.selectAll()
+                 input.requestFocus()
+            }
+        }
+
+        rowDepartureCount.setOnClickListener {
+            val container = LinearLayout(this)
+            container.orientation = LinearLayout.VERTICAL
+            val margin = (24 * resources.displayMetrics.density).toInt()
+            container.setPadding(margin, margin / 2, margin, 0)
+
+            val input = TextInputEditText(this)
+            input.inputType = InputType.TYPE_CLASS_NUMBER
+            input.setText(selectedDepartureCount.toString())
+            container.addView(input)
+
+            val helperText = TextView(this)
+            helperText.text = getString(R.string.departure_count_helper)
+            val typedValue = TypedValue()
+            theme.resolveAttribute(com.google.android.material.R.attr.textAppearanceCaption, typedValue, true)
+            if (typedValue.resourceId != 0) {
+                helperText.setTextAppearance(typedValue.resourceId)
+            }
+            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            params.topMargin = (8 * resources.displayMetrics.density).toInt()
+            helperText.layoutParams = params
+            container.addView(helperText)
+
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.departure_count_row_title)
+                .setView(container)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val value = input.text.toString().toIntOrNull() ?: 5
+                    if (value >= 1 && value <= 100) {
+                        selectedDepartureCount = value
+                        updateAdvancedSummaries()
+                        validateInputs()
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+                
+            input.post {
+                 input.selectAll()
+                 input.requestFocus()
+            }
+        }
+
+        rowGlobalSettings.setOnClickListener {
+            startActivity(Intent(this, MainActivity::class.java))
+        }
+    }
+
+    private fun updateAdvancedSummaries() {
+        summaryOffset.text = selectedOffset.toString()
+        summaryDepartureCount.text = selectedDepartureCount.toString()
+    }
+
+    private fun updateLayoutSummaries() {
+        summaryStyle.text = when (selectedTitleStyle) {
+            "SHORT" -> getString(R.string.title_style_short)
+            "LONG" -> getString(R.string.title_style_long)
+            "CUSTOM" -> getString(R.string.title_style_custom)
+            else -> selectedTitleStyle
+        }
+        
+        rowCustomTitle.visibility = if (selectedTitleStyle == "CUSTOM") View.VISIBLE else View.GONE
+        summaryCustomTitle.text = if (customTitleText.isEmpty()) getString(R.string.default_custom_title) else customTitleText
+        
+        summaryAlignment.text = when (selectedAlignment) {
+            "START" -> getString(R.string.alignment_left)
+            "CENTER" -> getString(R.string.alignment_center)
+            "END" -> getString(R.string.alignment_right)
+            else -> getString(R.string.alignment_left)
+        }
+        
+        summaryFontSize.text = when (selectedFontSize) {
+            0 -> getString(R.string.font_size_small)
+            2 -> getString(R.string.font_size_large)
+            else -> getString(R.string.font_size_regular)
+        }
+        
+        summaryStationStops.text = when (selectedStationStopsMode) {
+            "FIRST" -> getString(R.string.stops_first)
+            "ALL" -> getString(R.string.stops_all)
+            "NONE" -> getString(R.string.stops_hidden)
+            else -> getString(R.string.stops_first)
+        }
+    }
+
     private fun updateTabVisibility(position: Int) {
+        val container = findViewById<ViewGroup>(R.id.config_root_layout)
+        val transition = AutoTransition()
+        transition.duration = 200
+        TransitionManager.beginDelayedTransition(container, transition)
+        
         routeContent.visibility = if (position == 0) View.VISIBLE else View.GONE
         layoutContent.visibility = if (position == 1) View.VISIBLE else View.GONE
         colorsContent.visibility = if (position == 2) View.VISIBLE else View.GONE
@@ -464,17 +775,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     }
 
     private fun updateTimeLabels() {
-        if (startTimeNormal == -1) {
-            timeNormalEditText.setText("")
-        } else {
-            timeNormalEditText.setText(formatTime(startTimeNormal))
-        }
-
-        if (startTimeReverse == -1) {
-            timeReverseEditText.setText("")
-        } else {
-            timeReverseEditText.setText(formatTime(startTimeReverse))
-        }
+        // No longer used in the main UI, but keep method or remove?
+        // Removing as it referenced removed views
     }
 
     private fun formatTime(minutes: Int): String {
@@ -514,36 +816,34 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     }
 
     private fun setupValidation() {
-        val watcher = object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                validateInputs()
-            }
-        }
-        fromStationEditText.addTextChangedListener(watcher)
-        toStationEditText.addTextChangedListener(watcher)
-        timeOffsetEditText.addTextChangedListener(watcher)
-        departureCountEditText.addTextChangedListener(watcher)
+        // State changes handled in dialogs
     }
 
     private fun validateInputs() {
-        val fromText = fromStationEditText.text.toString()
-        val toText = toStationEditText.text.toString()
-        val offsetText = timeOffsetEditText.text.toString()
-        val departureCountText = departureCountEditText.text.toString()
+        val fromValid = isValidStation(fromStationCode)
+        val toValid = toStationCode.trim().isEmpty() || isValidStation(toStationCode)
 
-        val fromValid = isValidStation(fromText)
-        val toValid = isValidStation(toText)
+        addButton.isEnabled = fromValid && toValid
 
-        val offset = offsetText.toIntOrNull()
-        val offsetValid = offset != null && offset >= -120 && offset <= 120
-
-        val departureCount = departureCountText.toIntOrNull()
-        val departureCountValid =
-            departureCount != null && departureCount >= 1 && departureCount <= 100
-
-        addButton.isEnabled = fromValid && toValid && offsetValid && departureCountValid
+        // Smart default for title style
+        if (!userChangedTitleStyle) {
+            isUpdatingTitleStyle = true
+            if (toStationCode.trim().isEmpty()) {
+                if (selectedTitleStyle != "CUSTOM") {
+                    selectedTitleStyle = "CUSTOM"
+                }
+                val defaultCustomTitle = getString(R.string.default_from_only_title)
+                if (customTitleText != defaultCustomTitle) {
+                    customTitleText = defaultCustomTitle
+                }
+            } else {
+                if (selectedTitleStyle != "SHORT") {
+                    selectedTitleStyle = "SHORT"
+                }
+            }
+            updateLayoutSummaries()
+            isUpdatingTitleStyle = false
+        }
     }
 
     private fun isValidStation(input: String): Boolean {

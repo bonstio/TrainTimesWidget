@@ -17,14 +17,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="Enter your National Rail API key"
+            android:text="@string/enter_api_key_label"
             android:textAppearance="?attr/textAppearanceBody1" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="API Key">
+            android:hint="@string/api_key_hint">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/api_key_input"
@@ -42,13 +42,27 @@
             android:textAppearance="?attr/textAppearanceCaption"
             android:textColorLink="?attr/colorPrimary" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/update_frequency"
+            android:textAppearance="?attr/textAppearanceBody1" />
+
+        <Spinner
+            android:id="@+id/update_frequency_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp" />
+
         <Button
             android:id="@+id/done_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:layout_marginTop="24dp"
-            android:text="Done" />
+            android:text="@string/done" />
 
     </LinearLayout>
 </ScrollView>

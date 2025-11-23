@@ -51,12 +51,9 @@
         android:layout_below="@+id/destination"
         android:layout_alignStart="@+id/destination"
         android:textColor="?attr/colorOnSurface"
-        android:singleLine="true"
-        android:ellipsize="marquee"
-        android:marqueeRepeatLimit="marquee_forever"
-        android:scrollHorizontally="true"
-        android:focusable="true"
-        android:focusableInTouchMode="true"
-        android:visibility="gone" />
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:visibility="gone"
+        android:duplicateParentState="true" />
 
 </RelativeLayout>

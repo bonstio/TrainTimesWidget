@@ -41,8 +41,17 @@ class NationalRailClient(private val apiKey: String) {
         fromStation: String,
         toStation: String,
         timeOffset: Int = 0,
-        numRows: Int = 4
+        numRows: Int = 5
     ): List<TrainService> {
+        val filterCrsXml = if (toStation.isNotEmpty()) {
+            """
+            <ldb:filterCrs>$toStation</ldb:filterCrs>
+            <ldb:filterType>to</ldb:filterType>
+            """.trimIndent()
+        } else {
+            ""
+        }
+
         val requestBody = """
             <x:Envelope xmlns:x="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ldb="http://thalesgroup.com/RTTI/2017-10-01/ldb/" xmlns:typ4="http://thalesgroup.com/RTTI/2013-11-28/Token/types">
                 <x:Header>
@@ -53,8 +62,7 @@ class NationalRailClient(private val apiKey: String) {
                         <ldb:numRows>$numRows</ldb:numRows>
                         <ldb:crs>$fromStation</ldb:crs>
                         <ldb:timeOffset>$timeOffset</ldb:timeOffset>
-                        <ldb:filterCrs>$toStation</ldb:filterCrs>
-                        <ldb:filterType>to</ldb:filterType>
+                        $filterCrsXml
                         <ldb:timeWindow>120</ldb:timeWindow>
                     </ldb:GetDepBoardWithDetailsRequest>
                 </x:Body>

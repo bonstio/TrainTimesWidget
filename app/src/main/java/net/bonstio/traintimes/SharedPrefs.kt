@@ -15,6 +15,16 @@ const val PREFS_NAME = "net.bonstio.traintimes.TrainTimesWidget"
 const val PREF_API_KEY = "api_key"
 
 /**
+ * Key for storing the widget update frequency in minutes (0 = manual only).
+ */
+const val PREF_UPDATE_FREQUENCY = "update_frequency"
+
+/**
+ * Key for storing the expanded state of calling points (appended with widgetId).
+ */
+const val PREF_IS_EXPANDED = "is_expanded_"
+
+/**
  * Key for storing the transparency preference (deprecated/unused in new logic, moved to per-widget config).
  */
 const val PREF_TRANSPARENCY = "transparency"
