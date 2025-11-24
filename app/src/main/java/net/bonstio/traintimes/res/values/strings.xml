@@ -75,7 +75,7 @@
     <string name="title_style_custom">Custom title</string>
 
     <!-- Label for the station stops setting. Length: 25 chars. -->
-    <string name="show_stops">Show \"Calling at\" for</string>
+    <string name="show_stops">Station stops</string>
     
     <!-- Option for hidden station stops. -->
     <string name="stops_hidden">Hidden</string>
@@ -111,10 +111,7 @@
     <string name="offset_minutes">Offset (minutes)</string>
 
     <!-- Title for Offset setting row. -->
-    <string name="offset_row_title">Time offset</string>
-
-    <!-- Format string for offset summary. -->
-    <string name="offset_summary_format">%d mins</string>
+    <string name="offset_row_title">Offset</string>
 
     <!-- Hint for the From station input field (required). Length: 10 chars. -->
     <string name="from_required">From *</string>
@@ -194,9 +191,6 @@
     <!-- Header for the font size settings section. Length: 15 chars. -->
     <string name="font_size_section_header">Font size</string>
 
-    <!-- Option for extra small font size. -->
-    <string name="font_size_extra_small">Extra Small</string>
-
     <!-- Option for small font size. Length: 10 chars. -->
     <string name="font_size_small">Small</string>
 
@@ -205,9 +199,6 @@
 
     <!-- Option for large font size. Length: 10 chars. -->
     <string name="font_size_large">Large</string>
-
-    <!-- Option for extra large font size. -->
-    <string name="font_size_extra_large">Extra Large</string>
 
     <!-- Text for retry button. Length: 10 chars. -->
     <string name="retry">Refresh</string>
@@ -229,7 +220,7 @@
     <string name="global_settings_open">Open global settings</string>
 
     <!-- Format string for last update time. %s is the time. Length: 20 chars. -->
-    <string name="last_update_format">Updated at %s</string>
+    <string name="last_update_format">Last update at %s</string>
 
     <!-- Label for entering the API key. Length: 25 chars. -->
     <string name="enter_api_key_label">National Rail API key</string>
@@ -260,20 +251,32 @@
     <string name="font_section_header">Font</string>
 
     <!-- Label for the font size row. -->
-    <string name="font_size_row_label">Font size</string>
+    <string name="font_size_row_label">Size</string>
 
-    <string name="visible_items">Visible items</string>
-    <string name="visible_icons">Visible icons</string>
+    <!-- Footer section header -->
     <string name="footer_section_header">Footer</string>
-    <string name="header_items_title">Header items</string>
+
+    <!-- Label for visible items in a section -->
+    <string name="visible_items">Visible items</string>
+
+    <!-- Label for showing "Open on Maps" -->
+    <string name="show_on_maps">Show on Maps</string>
+
+    <!-- Label for showing last update time -->
+    <string name="show_last_update_time">Show last update time</string>
+    
+    <!-- Title for the footer items dialog -->
     <string name="footer_items_title">Footer items</string>
-    <string name="icon_widget">App icon</string>
-    <string name="icon_refresh">Refresh</string>
-    <string name="icon_settings">Settings</string>
-    <string name="item_maps">Show in Google Maps</string>
-    <string name="item_last_updated">Last updated</string>
-    <string name="summary_no_icons">No icons are displayed</string>
-    <string name="summary_nothing_displayed">Nothing displayed</string>
-    <string name="summary_items_displayed_format">%s</string>
-    <string name="station_suffix"> Station</string>
+
+    <!-- Summary item for Maps link in footer -->
+    <string name="footer_item_maps">Maps</string>
+
+    <!-- Summary item for Last Update time in footer -->
+    <string name="footer_item_last_update">Last update</string>
+
+    <!-- Summary text when no footer items are visible -->
+    <string name="footer_summary_none">No footer items are displayed</string>
+
+    <!-- Format string for footer summary. %s is the list of items. -->
+    <string name="footer_summary_format">%s are displayed</string>
 </resources>

@@ -1,150 +1,138 @@
 package net.bonstio.traintimes
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.os.Bundle
+import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import kotlinx.coroutines.runBlocking
 
-/**
- * Service that provides the RemoteViewsFactory for the Train Times widget.
- * This service allows the widget to display a collection of data (the train departures).
- */
 class TrainTimesWidgetService : RemoteViewsService() {
-    /**
-     * returns a new instance of the RemoteViewsFactory.
-     *
-     * @param intent The intent that triggered this service.
-     * @return A new TrainTimesRemoteViewsFactory.
-     */
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
         return TrainTimesRemoteViewsFactory(this.applicationContext, intent)
     }
 }
 
-/**
- * Factory class that provides data to the collection view in the widget.
- * It acts like an Adapter in a standard Android ListView/RecyclerView.
- *
- * @property context The application context.
- * @property intent The intent that created this factory.
- */
 class TrainTimesRemoteViewsFactory(
     private val context: Context,
     private val intent: Intent
 ) : RemoteViewsService.RemoteViewsFactory {
 
     private var services: List<TrainService> = emptyList()
-    private lateinit var client: NationalRailClient
-    private var textColor: Int = Color.WHITE
+    private var config: WidgetConfiguration? = null
+    private var styling: WidgetStyling? = null
+    private val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
 
-    /**
-     * Called when the factory is first created.
-     * Setup any connections or resources here.
-     */
+
     override fun onCreate() {
-        // Connect to the data source
+        // No-op
     }
 
-    /**
-     * Called when the underlying data set has changed or when the factory is first created.
-     * This is where we fetch the data for the widget.
-     * Note: This method is called on a binder thread, so we can perform synchronous network calls or blocking operations.
-     */
     override fun onDataSetChanged() {
-        val appWidgetId = intent.getIntExtra("appWidgetId", -1)
-        val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
+        config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
+        
+        // Load from cache instead of network
+        services = WidgetCache.loadServices(context, appWidgetId)
 
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val apiKey = prefs.getString(PREF_API_KEY, null)
-
-        if (config != null && apiKey != null) {
-            client = NationalRailClient(apiKey)
-            textColor = config.textColor
-            runBlocking {
-                services = client.getNextTrain(config.fromStation, config.toStation)
-            }
+        if (config != null) {
+            styling = TrainTimesWidgetProvider.resolveWidgetStyling(context, config!!)
         }
     }
 
-    /**
-     * Called when the factory is destroyed.
-     * Clean up any resources here.
-     */
     override fun onDestroy() {
-        // Close the data source
+        services = emptyList()
     }
 
-    /**
-     * Returns the number of items in the data set.
-     *
-     * @return The count of train services.
-     */
-    override fun getCount(): Int {
-        return services.size
-    }
+    override fun getCount(): Int = services.size
 
-    /**
-     * Creates a RemoteViews object for the item at the specified position.
-     *
-     * @param position The position of the item in the data set.
-     * @return A RemoteViews object populated with the data at the specified position.
-     */
-    override fun getViewAt(position: Int): RemoteViews {
+    override fun getViewAt(position: Int): RemoteViews? {
+        if (position >= services.size) return null
+
         val service = services[position]
-        val views = RemoteViews(context.packageName, R.layout.departure_layout)
+        val departureView = RemoteViews(context.packageName, R.layout.departure_layout)
 
-        views.setTextViewText(R.id.departure_time, service.std)
-        views.setTextColor(R.id.departure_time, textColor)
-        views.setTextViewText(R.id.destination, service.destination)
-        views.setTextColor(R.id.destination, textColor)
+        if (config == null || styling == null) {
+            return departureView
+        }
 
+        val bodySize = when (config!!.fontSize) {
+            0 -> 10f // Extra Small
+            1 -> 12f // Small
+            3 -> 16f // Large
+            4 -> 18f // Extra Large
+            else -> 14f // Regular (2)
+        }
+
+        departureView.setTextViewText(R.id.departure_time, service.std)
+        departureView.setTextViewText(R.id.destination, service.destination)
         val platformText = service.platform?.let { "Platform $it" } ?: ""
-        views.setTextViewText(R.id.platform, platformText)
-        views.setTextColor(R.id.platform, textColor)
+        departureView.setTextViewText(R.id.platform, platformText)
+        departureView.setTextViewText(R.id.status, service.status)
 
-        views.setTextViewText(R.id.status, service.status)
-        views.setTextColor(R.id.status, textColor)
+        // Styling
+        if (!styling!!.useSystemTextColor) {
+            val tc = styling!!.textColor
+            departureView.setTextColor(R.id.departure_time, tc)
+            departureView.setTextColor(R.id.destination, tc)
+            departureView.setTextColor(R.id.platform, tc)
+            departureView.setTextColor(R.id.status, tc)
+        }
 
-        return views
+        // Sizing
+        val sizeUnit = TypedValue.COMPLEX_UNIT_SP
+        departureView.setTextViewTextSize(R.id.departure_time, sizeUnit, bodySize)
+        departureView.setTextViewTextSize(R.id.destination, sizeUnit, bodySize)
+        departureView.setTextViewTextSize(R.id.platform, sizeUnit, bodySize)
+        departureView.setTextViewTextSize(R.id.status, sizeUnit, bodySize)
+
+        // Stops Logic
+        val showStops = when(config!!.stationStopsMode) {
+            "ALL" -> true
+            "FIRST" -> (position == 0)
+            "NONE" -> false
+            else -> (position == 0)
+        }
+
+        if (service.subsequentCallingPoints.isNotEmpty() && showStops) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val key = "${PREF_IS_EXPANDED}${appWidgetId}_$position"
+            val isExpanded = prefs.getBoolean(key, false)
+
+            val callingPointsText = "Calling at ${service.subsequentCallingPoints.joinToString(", ")}"
+            departureView.setTextViewText(R.id.calling_points, callingPointsText)
+
+            if (!styling!!.useSystemTextColor) {
+                departureView.setTextColor(R.id.calling_points, styling!!.textColor)
+            }
+            departureView.setTextViewTextSize(R.id.calling_points, sizeUnit, bodySize)
+            departureView.setViewVisibility(R.id.calling_points, View.VISIBLE)
+
+            val maxLines = if (isExpanded) 100 else 1
+            departureView.setInt(R.id.calling_points, "setMaxLines", maxLines)
+
+            val fillInIntent = Intent().apply {
+                val extras = Bundle()
+                extras.putInt(TrainTimesWidgetProvider.EXTRA_SERVICE_INDEX, position)
+                putExtras(extras)
+            }
+            departureView.setOnClickFillInIntent(R.id.departure_row, fillInIntent)
+        } else {
+            departureView.setViewVisibility(R.id.calling_points, View.GONE)
+            val fillInIntent = Intent()
+            departureView.setOnClickFillInIntent(R.id.departure_row, fillInIntent)
+        }
+
+        return departureView
     }
 
-    /**
-     * Returns a RemoteViews object to be used as a loading indicator.
-     * Returning null uses the default loading view.
-     *
-     * @return A RemoteViews object or null.
-     */
-    override fun getLoadingView(): RemoteViews? {
-        return null
-    }
+    override fun getLoadingView(): RemoteViews? = null
 
-    /**
-     * Returns the number of view types.
-     *
-     * @return The number of view types (1 in this case).
-     */
-    override fun getViewTypeCount(): Int {
-        return 1
-    }
+    override fun getViewTypeCount(): Int = 1
 
-    /**
-     * Returns the stable ID for the item at the specified position.
-     *
-     * @param position The position of the item.
-     * @return The stable ID.
-     */
-    override fun getItemId(position: Int): Long {
-        return position.toLong()
-    }
+    override fun getItemId(position: Int): Long = position.toLong()
 
-    /**
-     * Indicates whether the item IDs are stable across data changes.
-     *
-     * @return True if IDs are stable, false otherwise.
-     */
-    override fun hasStableIds(): Boolean {
-        return true
-    }
+    override fun hasStableIds(): Boolean = true
 }

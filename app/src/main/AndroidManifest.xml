@@ -46,6 +46,10 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".TrainTimesWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
     </application>
 
 </manifest>

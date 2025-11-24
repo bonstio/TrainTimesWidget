@@ -5,11 +5,9 @@ import org.junit.Assert.*
 import java.util.Calendar
 
 /**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
+ * Unit tests for the Train Times widget provider.
  */
-class ExampleUnitTest {
+class TrainTimesWidgetProviderTest {
     @Test
     fun addition_isCorrect() {
         assertEquals(4, 2 + 2)
@@ -19,6 +17,7 @@ class ExampleUnitTest {
     fun testDepartureFiltering() {
         // Mock TrainService data based on the provided XML
         val services = listOf(
+            TrainService("15:10", "Worcester", "8", "Exp 17:00", emptyList()),
             TrainService("16:10", "Wigan North Western", "8", "On time", emptyList()),
             TrainService("16:12", "Norwich", "9", "On time", emptyList()),
             TrainService("16:15", "London Euston", "7", "On time", emptyList()),
@@ -35,20 +34,15 @@ class ExampleUnitTest {
         // Filter the services
         val filteredServices = services.filter { !TrainTimesWidgetProvider.isDepartureInPast(it, now) }
 
-        // Assert the unfiltered list
-        assertEquals(5, services.size)
-        assertEquals("Wigan North Western", services[0].destination)
-        assertEquals("Norwich", services[1].destination)
-        assertEquals("London Euston", services[2].destination)
-        assertEquals("Manchester Oxford Road", services[3].destination)
-        assertEquals("Stalybridge", services[4].destination)
-
+        // Assert the unfiltered list has the correct size
+        assertEquals(6, services.size)
 
         // Assert the filtered list
-        assertEquals(4, filteredServices.size)
-        assertEquals("Norwich", filteredServices[0].destination)
-        assertEquals("London Euston", filteredServices[1].destination)
-        assertEquals("Manchester Oxford Road", filteredServices[2].destination)
-        assertEquals("Stalybridge", filteredServices[3].destination)
+        assertEquals(5, filteredServices.size)
+        assertEquals("Worcester", filteredServices[0].destination)
+        assertEquals("Norwich", filteredServices[1].destination)
+        assertEquals("London Euston", filteredServices[2].destination)
+        assertEquals("Manchester Oxford Road", filteredServices[3].destination)
+        assertEquals("Stalybridge", filteredServices[4].destination)
     }
 }
