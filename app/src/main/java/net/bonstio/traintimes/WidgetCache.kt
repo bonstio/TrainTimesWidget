@@ -20,7 +20,8 @@ object WidgetCache {
             jsonArray.put(jsonObj)
         }
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(PREF_CACHE_PREFIX + appWidgetId, jsonArray.toString()).apply()
+        // Use commit() to ensure data is written before notifying the widget to update
+        prefs.edit().putString(PREF_CACHE_PREFIX + appWidgetId, jsonArray.toString()).commit()
     }
 
     fun loadServices(context: Context, appWidgetId: Int): List<TrainService> {

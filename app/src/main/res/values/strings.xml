@@ -252,8 +252,13 @@
     <!-- Label for destination station. -->
     <string name="route_destination">Going to</string>
 
+    <!-- Summary text for required station field. Length: 16 chars. -->
     <string name="summary_station_required"><i>Required</i></string>
+
+    <!-- Summary text for unspecified station field. Length: 16 chars. -->
     <string name="summary_station_unspecified"><i>Anywhere</i></string>
+
+    <!-- Format string for summary showing time offset. Length: 26 chars. -->
     <string name="shown_from_summary">Set as destination from %s</string>
 
     <!-- Header for the font settings section. -->
@@ -262,18 +267,57 @@
     <!-- Label for the font size row. -->
     <string name="font_size_row_label">Font size</string>
 
+    <!-- Header for visible items section. Length: 13 chars. -->
     <string name="visible_items">Visible items</string>
+
+    <!-- Header for visible icons section. Length: 13 chars. -->
     <string name="visible_icons">Visible icons</string>
+
+    <!-- Header for the footer section. Length: 6 chars. -->
     <string name="footer_section_header">Footer</string>
+
+    <!-- Title for the header items dialog. Length: 12 chars. -->
     <string name="header_items_title">Header items</string>
+
+    <!-- Title for the footer items dialog. Length: 12 chars. -->
     <string name="footer_items_title">Footer items</string>
+
+    <!-- Option label for App Icon visibility. Length: 8 chars. -->
     <string name="icon_widget">App icon</string>
+
+    <!-- Option label for Refresh Icon visibility. Length: 7 chars. -->
     <string name="icon_refresh">Refresh</string>
+
+    <!-- Option label for Settings Icon visibility. Length: 8 chars. -->
     <string name="icon_settings">Settings</string>
+
+    <!-- Option label for Google Maps link visibility. Length: 19 chars. -->
     <string name="item_maps">Show in Google Maps</string>
+
+    <!-- Option label for Last Updated time visibility. Length: 12 chars. -->
     <string name="item_last_updated">Last updated</string>
+
+    <!-- Summary text when no icons are selected. Length: 22 chars. -->
     <string name="summary_no_icons">No icons are displayed</string>
+
+    <!-- Summary text when nothing is displayed. Length: 17 chars. -->
     <string name="summary_nothing_displayed">Nothing displayed</string>
+
+    <!-- Format string for listing displayed items. Length: 2 chars. -->
     <string name="summary_items_displayed_format">%s</string>
+
+    <!-- Suffix added to station names for map search. Length: 8 chars. -->
     <string name="station_suffix"> Station</string>
+
+    <!-- Label for the divider visibility setting. Length: 13 chars. -->
+    <string name="show_divider">Show dividers</string>
+
+    <!-- Button text to add widget to home screen. Length: 18 chars. -->
+    <string name="add_to_home_screen">Add widget to home screen</string>
+
+    <!-- Message shown when pinning is not supported. Length: 36 chars. -->
+    <string name="pinning_not_supported">Pinning not supported on this device</string>
+
+    <!-- Text displayed in an unconfigured widget. Length: 16 chars. -->
+    <string name="configure_widget">Tap to configure</string>
 </resources>

@@ -18,13 +18,12 @@ import java.io.StringReader
  */
 class NationalRailClient(private val apiKey: String) {
 
-    // FIX: Switched from CIO to Android engine for better DNS/Network handling on devices
     private val client = HttpClient(Android) {
         engine {
             connectTimeout = 10_000
             socketTimeout = 10_000
         }
-        expectSuccess = true // Throws exception on non-2xx responses (e.g. SOAP Faults)
+        expectSuccess = true
     }
 
     /**
@@ -79,17 +78,11 @@ class NationalRailClient(private val apiKey: String) {
 
         val responseBody = response.bodyAsText()
         Log.d("NationalRailClient", "Response Status: ${response.status}")
-        Log.d("NationalRailClient", "Response Body: $responseBody")
+        Log.d("NationalRailClient", "Response Body length: ${responseBody.length}")
 
         return parseTrainServices(responseBody)
     }
 
-    /**
-     * Parses the XML response from the National Rail API.
-     *
-     * @param xml The XML response string.
-     * @return A list of parsed [TrainService] objects.
-     */
     private fun parseTrainServices(xml: String): List<TrainService> {
         val services = mutableListOf<TrainService>()
         val factory = XmlPullParserFactory.newInstance()
@@ -100,21 +93,20 @@ class NationalRailClient(private val apiKey: String) {
         var eventType = parser.eventType
         while (eventType != XmlPullParser.END_DOCUMENT) {
             if (eventType == XmlPullParser.START_TAG && parser.name == "service") {
-                readService(parser)?.let { services.add(it) }
+                try {
+                    readService(parser)?.let { services.add(it) }
+                } catch (e: Exception) {
+                    Log.e("NationalRailClient", "Error parsing service", e)
+                }
             }
             eventType = parser.next()
         }
+        Log.d("NationalRailClient", "Parsed ${services.size} services")
         return services
     }
 
-    /**
-     * Parses a single service element from the XML.
-     *
-     * @param parser The XMLPullParser positioned at the "service" tag.
-     * @return A [TrainService] object or null if parsing fails or critical data is missing.
-     */
     private fun readService(parser: XmlPullParser): TrainService? {
-        parser.require(XmlPullParser.START_TAG, null, "service")
+        // parser is at <service>
         var std: String? = null
         var destination: String? = null
         var platform: String? = null
@@ -127,12 +119,10 @@ class NationalRailClient(private val apiKey: String) {
                 continue
             }
             when (parser.name) {
-                "std" -> std = readText(parser, "std")
-                "etd" -> etd = readText(parser, "etd")
-                "platform" -> platform = readText(parser, "platform")
-                "isCancelled" ->
-                    isCancelled = readText(parser, "isCancelled")?.toBoolean() ?: false
-
+                "std" -> std = parser.nextText()
+                "etd" -> etd = parser.nextText()
+                "platform" -> platform = parser.nextText()
+                "isCancelled" -> isCancelled = parser.nextText().toBoolean()
                 "destination" -> destination = readDestination(parser)
                 "subsequentCallingPoints" -> callingPoints.addAll(readCallingPoints(parser))
                 else -> skip(parser)
@@ -147,30 +137,23 @@ class NationalRailClient(private val apiKey: String) {
             }
             TrainService(std, destination, platform, status, callingPoints)
         } else {
+            Log.w("NationalRailClient", "Incomplete service data: std=$std, dest=$destination")
             null
         }
     }
 
-    /**
-     * Parses the destination element to extract the location name.
-     *
-     * @param parser The XMLPullParser positioned at the "destination" tag.
-     * @return The name of the destination location.
-     */
     private fun readDestination(parser: XmlPullParser): String? {
-        parser.require(XmlPullParser.START_TAG, null, "destination")
+        // parser is at <destination>
         var locationName: String? = null
         while (parser.next() != XmlPullParser.END_TAG) {
-            if (parser.eventType != XmlPullParser.START_TAG) {
-                continue
-            }
+            if (parser.eventType != XmlPullParser.START_TAG) continue
+            
             if (parser.name == "location") {
                 while (parser.next() != XmlPullParser.END_TAG) {
-                    if (parser.eventType != XmlPullParser.START_TAG) {
-                        continue
-                    }
+                    if (parser.eventType != XmlPullParser.START_TAG) continue
+                    
                     if (parser.name == "locationName") {
-                        locationName = readText(parser, "locationName")
+                        locationName = parser.nextText()
                     } else {
                         skip(parser)
                     }
@@ -182,24 +165,16 @@ class NationalRailClient(private val apiKey: String) {
         return locationName
     }
 
-    /**
-     * Parses the subsequent calling points list.
-     *
-     * @param parser The XMLPullParser positioned at the "subsequentCallingPoints" tag.
-     * @return A list of calling point names.
-     */
     private fun readCallingPoints(parser: XmlPullParser): List<String> {
+        // parser is at <subsequentCallingPoints>
         val callingPoints = mutableListOf<String>()
-        parser.require(XmlPullParser.START_TAG, null, "subsequentCallingPoints")
         while (parser.next() != XmlPullParser.END_TAG) {
-            if (parser.eventType != XmlPullParser.START_TAG) {
-                continue
-            }
+            if (parser.eventType != XmlPullParser.START_TAG) continue
+            
             if (parser.name == "callingPointList") {
                 while (parser.next() != XmlPullParser.END_TAG) {
-                    if (parser.eventType != XmlPullParser.START_TAG) {
-                        continue
-                    }
+                    if (parser.eventType != XmlPullParser.START_TAG) continue
+                    
                     if (parser.name == "callingPoint") {
                         readCallingPoint(parser)?.let { callingPoints.add(it) }
                     } else {
@@ -213,21 +188,14 @@ class NationalRailClient(private val apiKey: String) {
         return callingPoints
     }
 
-    /**
-     * Parses a single calling point to extract the location name.
-     *
-     * @param parser The XMLPullParser positioned at the "callingPoint" tag.
-     * @return The name of the calling point location.
-     */
     private fun readCallingPoint(parser: XmlPullParser): String? {
-        parser.require(XmlPullParser.START_TAG, null, "callingPoint")
+        // parser is at <callingPoint>
         var locationName: String? = null
         while (parser.next() != XmlPullParser.END_TAG) {
-            if (parser.eventType != XmlPullParser.START_TAG) {
-                continue
-            }
+            if (parser.eventType != XmlPullParser.START_TAG) continue
+            
             if (parser.name == "locationName") {
-                locationName = readText(parser, "locationName")
+                locationName = parser.nextText()
             } else {
                 skip(parser)
             }
@@ -235,29 +203,6 @@ class NationalRailClient(private val apiKey: String) {
         return locationName
     }
 
-    /**
-     * Reads the text content of a tag.
-     *
-     * @param parser The XMLPullParser.
-     * @param tagName The name of the tag expected.
-     * @return The text content of the tag.
-     */
-    private fun readText(parser: XmlPullParser, tagName: String): String? {
-        parser.require(XmlPullParser.START_TAG, null, tagName)
-        var result: String? = null
-        if (parser.next() == XmlPullParser.TEXT) {
-            result = parser.text
-            parser.nextTag()
-        }
-        parser.require(XmlPullParser.END_TAG, null, tagName)
-        return result
-    }
-
-    /**
-     * Skips the current tag and its children.
-     *
-     * @param parser The XMLPullParser.
-     */
     private fun skip(parser: XmlPullParser) {
         if (parser.eventType != XmlPullParser.START_TAG) {
             throw IllegalStateException()

@@ -67,17 +67,20 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     private lateinit var summaryFontSize: TextView
     private lateinit var rowStationStops: View
     private lateinit var summaryStationStops: TextView
+    private lateinit var rowDivider: View
+    private lateinit var switchShowDivider: MaterialSwitch
     private lateinit var rowIconVisibility: View
     private lateinit var summaryIconVisibility: TextView
     private lateinit var rowFooter: View
     private lateinit var summaryFooter: TextView
     
-    private var showWidgetIcon = true
-    private var showRefreshIcon = true
-    private var showSettingsIcon = false
+    private var showWidgetIcon = WidgetConfigurationDefaults.SHOW_ICON
+    private var showRefreshIcon = WidgetConfigurationDefaults.SHOW_REFRESH_ICON
+    private var showSettingsIcon = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON
     
-    private var showMapsIcon = true
-    private var showLastUpdateTime = true
+    private var showMapsIcon = WidgetConfigurationDefaults.SHOW_MAPS_ICON
+    private var showLastUpdateTime = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME
+    private var showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
 
     // Advanced Tab Views
     private lateinit var rowOffset: View
@@ -113,8 +116,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
     private var activeColorMode = ColorMode.TEXT
 
-    private var currentTextColor = Color.WHITE
-    private var currentBackgroundColor = Color.argb(128, 0, 0, 0)
+    private var currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
+    private var currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
 
     private var isTextSystemColor = true
     private var isBackgroundSystemColor = true
@@ -130,13 +133,13 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     // State variables
     private var fromStationCode: String = ""
     private var toStationCode: String = ""
-    private var selectedTitleStyle: String = "SHORT"
-    private var selectedAlignment: String = "START"
-    private var selectedFontSize: Int = 2 // Default Regular (index 2 now)
+    private var selectedTitleStyle: String = WidgetConfigurationDefaults.TITLE_STYLE
+    private var selectedAlignment: String = WidgetConfigurationDefaults.ALIGNMENT
+    private var selectedFontSize: Int = WidgetConfigurationDefaults.FONT_SIZE
     private var customTitleText: String = ""
-    private var selectedStationStopsMode: String = "FIRST"
-    private var selectedOffset: Int = 0
-    private var selectedDepartureCount: Int = 5
+    private var selectedStationStopsMode: String = WidgetConfigurationDefaults.STATION_STOPS_MODE
+    private var selectedOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
+    private var selectedDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
 
     /**
      * Called when the activity is first created.
@@ -179,6 +182,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         summaryFontSize = findViewById(R.id.summary_font_size)
         rowStationStops = findViewById(R.id.row_station_stops)
         summaryStationStops = findViewById(R.id.summary_station_stops)
+        rowDivider = findViewById(R.id.row_divider)
+        switchShowDivider = findViewById(R.id.switch_show_divider)
         rowIconVisibility = findViewById(R.id.row_icon_visibility)
         summaryIconVisibility = findViewById(R.id.summary_icon_visibility)
         rowFooter = findViewById(R.id.row_footer)
@@ -273,7 +278,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 isBackgroundSystemColor,
                 fontSize,
                 showMapsIcon,
-                showLastUpdateTime
+                showLastUpdateTime,
+                showDivider
             )
 
             val appWidgetManager = AppWidgetManager.getInstance(context)
@@ -325,6 +331,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             showSettingsIcon = existingConfig.showSettingsIcon
             showMapsIcon = existingConfig.showMapsIcon
             showLastUpdateTime = existingConfig.showLastUpdateTime
+            showDivider = existingConfig.showDivider
             
             selectedStationStopsMode = existingConfig.stationStopsMode
             selectedAlignment = existingConfig.alignment
@@ -345,30 +352,34 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             isBackgroundSystemColor = existingConfig.useSystemBgColor
             selectedFontSize = existingConfig.fontSize
         } else {
-            selectedAlignment = "START"
+            selectedAlignment = WidgetConfigurationDefaults.ALIGNMENT
             
             isUpdatingTitleStyle = true
-            selectedTitleStyle = "CUSTOM" // Default
+            selectedTitleStyle = "CUSTOM" // Default for new widget
             isUpdatingTitleStyle = false
             
             customTitleText = getString(R.string.default_from_only_title)
             
-            showWidgetIcon = true
-            showRefreshIcon = true
-            showSettingsIcon = false
-            showMapsIcon = true
-            showLastUpdateTime = true
-            selectedStationStopsMode = "FIRST"
+            showWidgetIcon = WidgetConfigurationDefaults.SHOW_ICON
+            showRefreshIcon = WidgetConfigurationDefaults.SHOW_REFRESH_ICON
+            showSettingsIcon = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON
+            showMapsIcon = WidgetConfigurationDefaults.SHOW_MAPS_ICON
+            showLastUpdateTime = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME
+            showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
+            selectedStationStopsMode = WidgetConfigurationDefaults.STATION_STOPS_MODE
             
-            selectedOffset = 0
-            selectedDepartureCount = 5
-            switchHidePastDepartures.isChecked = false
-            currentTextColor = Color.WHITE
-            currentBackgroundColor = Color.argb(128, 0, 0, 0)
+            selectedOffset = WidgetConfigurationDefaults.TIME_OFFSET
+            selectedDepartureCount = WidgetConfigurationDefaults.DEPARTURE_COUNT
+            switchHidePastDepartures.isChecked = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
+            currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
+            currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
             isTextSystemColor = true
             isBackgroundSystemColor = true
-            selectedFontSize = 2
+            selectedFontSize = WidgetConfigurationDefaults.FONT_SIZE
         }
+        
+        // Sync switch state with loaded config
+        switchShowDivider.isChecked = showDivider
 
         updateColorSummariesAndPreviews()
         updateLayoutSummaries()
@@ -616,6 +627,14 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 .show()
         }
 
+        rowDivider.setOnClickListener {
+            switchShowDivider.toggle()
+        }
+        
+        switchShowDivider.setOnCheckedChangeListener { _, isChecked ->
+            showDivider = isChecked
+        }
+
         rowIconVisibility.setOnClickListener {
             showIconVisibilityDialog()
         }
@@ -749,7 +768,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 .setTitle(R.string.departure_count_row_title)
                 .setView(container)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val value = input.text.toString().toIntOrNull() ?: 5
+                    val value = input.text.toString().toIntOrNull() ?: 12
                     if (value >= 1 && value <= 100) {
                         selectedDepartureCount = value
                         updateAdvancedSummaries()
@@ -964,13 +983,13 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
     private fun updateColorSummariesAndPreviews() {
         summaryTextColor.text = if (isTextSystemColor) getString(R.string.color_source_theme) else getString(R.string.color_source_custom)
-        val textColor = if (isTextSystemColor) getSystemColor(com.google.android.material.R.attr.colorOnSurface) else currentTextColor
+        val textColor = if (isTextSystemColor) WidgetUtils.getThemeColor(this, com.google.android.material.R.attr.colorOnSurface) else currentTextColor
         previewTextColor.setBackgroundColor(textColor)
         previewTextColorCheckerboard.visibility = if (Color.alpha(textColor) < 255) View.VISIBLE else View.GONE
 
 
         summaryBackgroundColor.text = if (isBackgroundSystemColor) getString(R.string.color_source_theme) else getString(R.string.color_source_custom)
-        val bgColor = if (isBackgroundSystemColor) getSystemColor(com.google.android.material.R.attr.colorSurface) else currentBackgroundColor
+        val bgColor = if (isBackgroundSystemColor) WidgetUtils.getThemeColor(this, com.google.android.material.R.attr.colorSurfaceContainerHighest) else currentBackgroundColor
         previewBackgroundColor.setBackgroundColor(bgColor)
         previewBackgroundColorCheckerboard.visibility = if (Color.alpha(bgColor) < 255) View.VISIBLE else View.GONE
     }
@@ -1145,12 +1164,6 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
-    }
-
-    private fun getSystemColor(attr: Int): Int {
-        val typedValue = TypedValue()
-        theme.resolveAttribute(attr, typedValue, true)
-        return typedValue.data
     }
 
     private fun createCheckerboardDrawable(cornerRadius: Float): Drawable {

@@ -6,8 +6,9 @@ package net.bonstio.traintimes
 
 /**
  * Name of the SharedPreferences file for the widget application.
+ * FIX: Updated to match the one used in TrainTimesWidgetProvider and other files.
  */
-const val PREFS_NAME = "net.bonstio.traintimes.TrainTimesWidget"
+const val PREFS_NAME = "net.bonstio.traintimes.widget"
 
 /**
  * Key for storing the National Rail API key.

@@ -4,11 +4,11 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
-import kotlinx.coroutines.runBlocking
 
 class TrainTimesWidgetService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
@@ -25,20 +25,28 @@ class TrainTimesRemoteViewsFactory(
     private var config: WidgetConfiguration? = null
     private var styling: WidgetStyling? = null
     private val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+    
+    companion object {
+        private const val TAG = "TrainWidgetService"
+    }
 
 
     override fun onCreate() {
-        // No-op
+        Log.d(TAG, "onCreate: widgetId=$appWidgetId")
     }
 
     override fun onDataSetChanged() {
+        Log.d(TAG, "onDataSetChanged: widgetId=$appWidgetId")
         config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
         
         // Load from cache instead of network
         services = WidgetCache.loadServices(context, appWidgetId)
+        Log.d(TAG, "onDataSetChanged: Loaded ${services.size} services from cache for widgetId=$appWidgetId")
 
         if (config != null) {
-            styling = TrainTimesWidgetProvider.resolveWidgetStyling(context, config!!)
+            styling = WidgetUtils.resolveWidgetStyling(context, config!!)
+        } else {
+            Log.w(TAG, "onDataSetChanged: Config is null for widgetId=$appWidgetId")
         }
     }
 
@@ -58,13 +66,7 @@ class TrainTimesRemoteViewsFactory(
             return departureView
         }
 
-        val bodySize = when (config!!.fontSize) {
-            0 -> 10f // Extra Small
-            1 -> 12f // Small
-            3 -> 16f // Large
-            4 -> 18f // Extra Large
-            else -> 14f // Regular (2)
-        }
+        val bodySize = WidgetUtils.getBodySize(config!!.fontSize)
 
         departureView.setTextViewText(R.id.departure_time, service.std)
         departureView.setTextViewText(R.id.destination, service.destination)
@@ -98,6 +100,7 @@ class TrainTimesRemoteViewsFactory(
 
         if (service.subsequentCallingPoints.isNotEmpty() && showStops) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            // FIX: Use the correct preference key prefix from SharedPrefs.kt
             val key = "${PREF_IS_EXPANDED}${appWidgetId}_$position"
             val isExpanded = prefs.getBoolean(key, false)
 

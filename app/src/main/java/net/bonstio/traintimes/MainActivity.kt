@@ -1,15 +1,19 @@
 package net.bonstio.traintimes
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.method.LinkMovementMethod
 import android.text.style.URLSpan
+import android.util.Log
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.Spinner
@@ -28,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var updateFrequencySpinner: Spinner
     private lateinit var prefs: SharedPreferences
     private lateinit var doneButton: Button
+    private lateinit var addToHomeButton: Button
 
     private val frequencyValues = intArrayOf(0, 30, 60, 120)
 
@@ -46,6 +51,7 @@ class MainActivity : AppCompatActivity() {
         apiKeyInput = findViewById(R.id.api_key_input)
         updateFrequencySpinner = findViewById(R.id.update_frequency_spinner)
         doneButton = findViewById(R.id.done_button)
+        addToHomeButton = findViewById(R.id.add_to_home_button)
 
         // Setup Request API Key Link
         val requestApiKeyLink = findViewById<TextView>(R.id.request_api_key_link)
@@ -80,6 +86,35 @@ class MainActivity : AppCompatActivity() {
             saveSettings()
             updateWidgets()
             finish()
+        }
+
+        setupAddToHomeButton()
+    }
+
+    private fun setupAddToHomeButton() {
+        val appWidgetManager = AppWidgetManager.getInstance(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && appWidgetManager.isRequestPinAppWidgetSupported) {
+            addToHomeButton.setOnClickListener {
+                Log.d("TrainWidgetDebug", "Requesting pin widget...")
+                val myProvider = ComponentName(this, TrainTimesWidgetProvider::class.java)
+                
+                val intent = Intent(this, TrainTimesWidgetProvider::class.java).apply {
+                    action = TrainTimesWidgetProvider.ACTION_WIDGET_PINNED
+                }
+                
+                val successCallback = PendingIntent.getBroadcast(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+                
+                appWidgetManager.requestPinAppWidget(myProvider, null, successCallback)
+                finish()
+            }
+        } else {
+            addToHomeButton.isEnabled = false
+            addToHomeButton.visibility = View.GONE
         }
     }
 

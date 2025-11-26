@@ -8,28 +8,29 @@ import android.graphics.Color
  */
 data class WidgetConfiguration(
     val title: String,
-    val titleStyle: String = "SHORT",
-    val showIcon: Boolean = true,
-    @Deprecated("Use stationStopsMode") val showStops: Boolean = true,
-    val stationStopsMode: String = "FIRST",
+    val titleStyle: String = WidgetConfigurationDefaults.TITLE_STYLE,
+    val showIcon: Boolean = WidgetConfigurationDefaults.SHOW_ICON,
+    @Deprecated("Use stationStopsMode") val showStops: Boolean = WidgetConfigurationDefaults.SHOW_STOPS,
+    val stationStopsMode: String = WidgetConfigurationDefaults.STATION_STOPS_MODE,
     val fromStation: String,
     val toStation: String,
-    val alignment: String = "START",
-    val startTimeNormal: Int = -1,
-    val startTimeReverse: Int = -1,
-    val timeOffset: Int = 0,
-    val departureCount: Int = 5,
-    val transparency: Int = 128,
-    val textColor: Int = Color.WHITE,
-    val bgColor: Int = Color.BLACK,
-    val useSystemTextColor: Boolean = false,
-    val useSystemBgColor: Boolean = false,
-    val fontSize: Int = 2, // 0 = Extra Small, 1 = Small, 2 = Regular, 3 = Large, 4 = Extra Large
-    val showRefreshIcon: Boolean = true,
-    val showSettingsIcon: Boolean = false,
-    val hidePastDepartures: Boolean = false,
-    val showMapsIcon: Boolean = true,
-    val showLastUpdateTime: Boolean = true
+    val alignment: String = WidgetConfigurationDefaults.ALIGNMENT,
+    val startTimeNormal: Int = WidgetConfigurationDefaults.START_TIME_NORMAL,
+    val startTimeReverse: Int = WidgetConfigurationDefaults.START_TIME_REVERSE,
+    val timeOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET,
+    val departureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT,
+    val transparency: Int = WidgetConfigurationDefaults.TRANSPARENCY,
+    val textColor: Int = WidgetConfigurationDefaults.TEXT_COLOR,
+    val bgColor: Int = WidgetConfigurationDefaults.BG_COLOR,
+    val useSystemTextColor: Boolean = WidgetConfigurationDefaults.USE_SYSTEM_TEXT_COLOR,
+    val useSystemBgColor: Boolean = WidgetConfigurationDefaults.USE_SYSTEM_BG_COLOR,
+    val fontSize: Int = WidgetConfigurationDefaults.FONT_SIZE, // 0 = Extra Small, 1 = Small, 2 = Regular, 3 = Large, 4 = Extra Large
+    val showRefreshIcon: Boolean = WidgetConfigurationDefaults.SHOW_REFRESH_ICON,
+    val showSettingsIcon: Boolean = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON,
+    val hidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES,
+    val showMapsIcon: Boolean = WidgetConfigurationDefaults.SHOW_MAPS_ICON,
+    val showLastUpdateTime: Boolean = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME,
+    val showDivider: Boolean = WidgetConfigurationDefaults.SHOW_DIVIDER
 )
 
 /**
@@ -61,6 +62,7 @@ object WidgetConfigurationStorage {
     private const val PREF_FONT_SIZE_KEY = "font_size_"
     private const val PREF_SHOW_MAPS_ICON_KEY = "show_maps_icon_"
     private const val PREF_SHOW_LAST_UPDATE_TIME_KEY = "show_last_update_time_"
+    private const val PREF_SHOW_DIVIDER_KEY = "show_divider_"
 
     /**
      * Saves the configuration for a specific widget ID.
@@ -90,7 +92,8 @@ object WidgetConfigurationStorage {
         useSystemBgColor: Boolean,
         fontSize: Int,
         showMapsIcon: Boolean,
-        showLastUpdateTime: Boolean
+        showLastUpdateTime: Boolean,
+        showDivider: Boolean
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, 0).edit()
         prefs.putString(PREF_TITLE_KEY + appWidgetId, title)
@@ -117,7 +120,9 @@ object WidgetConfigurationStorage {
         prefs.putInt(PREF_FONT_SIZE_KEY + appWidgetId, fontSize)
         prefs.putBoolean(PREF_SHOW_MAPS_ICON_KEY + appWidgetId, showMapsIcon)
         prefs.putBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, showLastUpdateTime)
-        prefs.apply()
+        prefs.putBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, showDivider)
+        // Use commit to ensure data is written before we broadcast the update
+        prefs.commit()
     }
 
     /**
@@ -133,43 +138,44 @@ object WidgetConfigurationStorage {
                 val isAutoTitle = prefs.getBoolean(PREF_IS_AUTO_TITLE_KEY + appWidgetId, true)
                 titleStyle = if (isAutoTitle) "SHORT" else "CUSTOM"
             } else {
-                titleStyle = "SHORT"
+                titleStyle = WidgetConfigurationDefaults.TITLE_STYLE
             }
         }
 
-        val showIcon = prefs.getBoolean(PREF_SHOW_ICON_KEY + appWidgetId, true)
-        val showRefreshIcon = prefs.getBoolean(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId, true)
-        val showSettingsIcon = prefs.getBoolean(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId, false)
-        val hidePastDepartures = prefs.getBoolean(PREF_HIDE_PAST_DEPARTURES_KEY + appWidgetId, false)
-        val showStops = prefs.getBoolean(PREF_SHOW_STOPS_KEY + appWidgetId, true)
+        val showIcon = prefs.getBoolean(PREF_SHOW_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_ICON)
+        val showRefreshIcon = prefs.getBoolean(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_REFRESH_ICON)
+        val showSettingsIcon = prefs.getBoolean(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_SETTINGS_ICON)
+        val hidePastDepartures = prefs.getBoolean(PREF_HIDE_PAST_DEPARTURES_KEY + appWidgetId, WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES)
+        val showStops = prefs.getBoolean(PREF_SHOW_STOPS_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_STOPS)
         
         var stationStopsMode = prefs.getString(PREF_STATION_STOPS_MODE_KEY + appWidgetId, null)
         if (stationStopsMode == null) {
-            stationStopsMode = if (showStops) "FIRST" else "NONE"
+            stationStopsMode = if (showStops) WidgetConfigurationDefaults.STATION_STOPS_MODE else "NONE"
         }
         
         val fromStation = prefs.getString(PREF_FROM_STATION_KEY + appWidgetId, null)
         val toStation = prefs.getString(PREF_TO_STATION_KEY + appWidgetId, null)
-        val alignment = prefs.getString(PREF_ALIGNMENT_KEY + appWidgetId, "START")
-        val startTimeNormal = prefs.getInt(PREF_START_NORMAL_KEY + appWidgetId, -1)
-        val startTimeReverse = prefs.getInt(PREF_START_REVERSE_KEY + appWidgetId, -1)
-        val timeOffset = prefs.getInt(PREF_TIME_OFFSET_KEY + appWidgetId, 0)
-        val departureCount = prefs.getInt(PREF_DEPARTURE_COUNT_KEY + appWidgetId, 5)
-        val transparency = prefs.getInt(PREF_TRANSPARENCY_KEY + appWidgetId, 128)
-        val textColor = prefs.getInt(PREF_TEXT_COLOR_KEY + appWidgetId, Color.WHITE)
-        val bgColor = prefs.getInt(PREF_BG_COLOR_KEY + appWidgetId, Color.BLACK)
-        val useSystemTextColor = prefs.getBoolean(PREF_USE_SYSTEM_TEXT_COLOR_KEY + appWidgetId, false)
-        val useSystemBgColor = prefs.getBoolean(PREF_USE_SYSTEM_BG_COLOR_KEY + appWidgetId, false)
+        val alignment = prefs.getString(PREF_ALIGNMENT_KEY + appWidgetId, WidgetConfigurationDefaults.ALIGNMENT)
+        val startTimeNormal = prefs.getInt(PREF_START_NORMAL_KEY + appWidgetId, WidgetConfigurationDefaults.START_TIME_NORMAL)
+        val startTimeReverse = prefs.getInt(PREF_START_REVERSE_KEY + appWidgetId, WidgetConfigurationDefaults.START_TIME_REVERSE)
+        val timeOffset = prefs.getInt(PREF_TIME_OFFSET_KEY + appWidgetId, WidgetConfigurationDefaults.TIME_OFFSET)
+        val departureCount = prefs.getInt(PREF_DEPARTURE_COUNT_KEY + appWidgetId, WidgetConfigurationDefaults.DEPARTURE_COUNT)
+        val transparency = prefs.getInt(PREF_TRANSPARENCY_KEY + appWidgetId, WidgetConfigurationDefaults.TRANSPARENCY)
+        val textColor = prefs.getInt(PREF_TEXT_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.TEXT_COLOR)
+        val bgColor = prefs.getInt(PREF_BG_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.BG_COLOR)
+        val useSystemTextColor = prefs.getBoolean(PREF_USE_SYSTEM_TEXT_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.USE_SYSTEM_TEXT_COLOR)
+        val useSystemBgColor = prefs.getBoolean(PREF_USE_SYSTEM_BG_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.USE_SYSTEM_BG_COLOR)
         // Default font size was 1 (Regular). Now let's map old values to new scale if needed.
         // Old: 0=Small, 1=Regular, 2=Large
         // New: 0=Extra Small, 1=Small, 2=Regular, 3=Large, 4=Extra Large
         var fontSize = prefs.getInt(PREF_FONT_SIZE_KEY + appWidgetId, -1)
         if (fontSize == -1) {
-             fontSize = 2 // Default Regular
+             fontSize = WidgetConfigurationDefaults.FONT_SIZE // Default Regular
         }
         
-        val showMapsIcon = prefs.getBoolean(PREF_SHOW_MAPS_ICON_KEY + appWidgetId, true)
-        val showLastUpdateTime = prefs.getBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, true)
+        val showMapsIcon = prefs.getBoolean(PREF_SHOW_MAPS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_MAPS_ICON)
+        val showLastUpdateTime = prefs.getBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME)
+        val showDivider = prefs.getBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_DIVIDER)
 
         return if (title != null && fromStation != null && toStation != null && alignment != null) {
             WidgetConfiguration(
@@ -195,7 +201,8 @@ object WidgetConfigurationStorage {
                 showSettingsIcon,
                 hidePastDepartures,
                 showMapsIcon,
-                showLastUpdateTime
+                showLastUpdateTime,
+                showDivider
             )
         } else {
             null
@@ -231,6 +238,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_FONT_SIZE_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_MAPS_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId)
+        prefs.remove(PREF_SHOW_DIVIDER_KEY + appWidgetId)
         prefs.apply()
     }
 }
