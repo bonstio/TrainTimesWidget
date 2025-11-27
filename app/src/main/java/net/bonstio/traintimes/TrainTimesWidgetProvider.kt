@@ -249,6 +249,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             }
             val refreshPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             views.setOnClickPendingIntent(R.id.refresh_button, refreshPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_title, refreshPendingIntent)
+
 
             val settingsIntent = Intent(context, TrainTimesWidgetConfigureActivity::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
