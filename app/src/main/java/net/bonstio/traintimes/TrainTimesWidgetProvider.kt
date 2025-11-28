@@ -12,6 +12,8 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.RemoteViews
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -154,6 +156,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         ) {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
 
+            var handled = false
             try {
                 val (fromStation, toStation) = WidgetUtils.determineDirection(config)
                 var trainServices = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
@@ -161,13 +164,26 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                     trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }
                 }
                 WidgetCache.saveServices(context, appWidgetId, trainServices)
+            } catch (e: ClientRequestException) {
+                if (e.response.status == HttpStatusCode.Unauthorized) {
+                    Log.w(TAG, "Unauthorized API key for widget $appWidgetId")
+                    withContext(Dispatchers.Main) {
+                        updateAppWidgetWithSetupRequest(context, appWidgetManager, appWidgetId, isApiKeyMissing = false, showInvalidKeyError = true)
+                    }
+                    handled = true
+                } else {
+                    Log.e(TAG, "Failed to update widget $appWidgetId", e)
+                    WidgetCache.saveServices(context, appWidgetId, emptyList())
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to update widget $appWidgetId", e)
                 WidgetCache.saveServices(context, appWidgetId, emptyList()) // Clear cache on error
             } finally {
-                withContext(Dispatchers.Main) {
-                    updateAppWidget(context, appWidgetManager, appWidgetId)
-                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
+                if (!handled) {
+                    withContext(Dispatchers.Main) {
+                        updateAppWidget(context, appWidgetManager, appWidgetId)
+                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
+                    }
                 }
             }
         }
@@ -273,7 +289,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             return views
         }
 
-        private fun updateAppWidgetWithSetupRequest(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, isApiKeyMissing: Boolean) {
+        private fun updateAppWidgetWithSetupRequest(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, isApiKeyMissing: Boolean, showInvalidKeyError: Boolean = false) {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
             
             views.setColorAttr(R.id.widget_root, "setBackgroundColor", com.google.android.material.R.attr.colorSurfaceContainerHighest)
@@ -284,14 +300,17 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.error_container, View.GONE)
             views.setViewVisibility(R.id.setup_message, View.VISIBLE)
             
-            val messageRes = if (isApiKeyMissing) R.string.setup_api_key else R.string.configure_widget
-            val intentTarget = if (isApiKeyMissing) MainActivity::class.java else TrainTimesWidgetConfigureActivity::class.java
+            val messageRes = if (isApiKeyMissing || showInvalidKeyError) R.string.setup_api_key else R.string.configure_widget
+            val intentTarget = if (isApiKeyMissing || showInvalidKeyError) MainActivity::class.java else TrainTimesWidgetConfigureActivity::class.java
             
             views.setTextViewText(R.id.setup_message, context.getString(messageRes))
             
             val intent = Intent(context, intentTarget).apply {
                 if (intentTarget == TrainTimesWidgetConfigureActivity::class.java) {
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                }
+                if (showInvalidKeyError) {
+                    putExtra(MainActivity.EXTRA_INVALID_API_KEY, true)
                 }
             }
             

@@ -32,7 +32,7 @@ class TrainTimesWidgetProviderTest {
         }
 
         // Filter the services
-        val filteredServices = services.filter { !TrainTimesWidgetProvider.isDepartureInPast(it, now) }
+        val filteredServices = services.filter { !WidgetUtils.isDepartureInPast(it, now) }
 
         // Assert the unfiltered list has the correct size
         assertEquals(6, services.size)
