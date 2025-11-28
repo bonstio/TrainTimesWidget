@@ -21,6 +21,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 
 /**
  * Main Activity of the application.
@@ -36,6 +37,10 @@ class MainActivity : AppCompatActivity() {
 
     private val frequencyValues = intArrayOf(0, 30, 60, 120)
 
+    companion object {
+        const val EXTRA_INVALID_API_KEY = "invalid_api_key"
+    }
+
     /**
      * Called when the activity is starting.
      * Initializes the UI and loads saved settings.
@@ -49,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         apiKeyInput = findViewById(R.id.api_key_input)
+        val apiKeyInputLayout = findViewById<TextInputLayout>(R.id.api_key_input_layout)
         updateFrequencySpinner = findViewById(R.id.update_frequency_spinner)
         doneButton = findViewById(R.id.done_button)
         addToHomeButton = findViewById(R.id.add_to_home_button)
@@ -89,6 +95,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupAddToHomeButton()
+
+        if (intent.getBooleanExtra(EXTRA_INVALID_API_KEY, false)) {
+            apiKeyInputLayout.error = "Invalid API key"
+        }
     }
 
     private fun setupAddToHomeButton() {
