@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -33,6 +34,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             for (i in 0..99) {
                 prefs.remove("${PREF_IS_EXPANDED}${appWidgetId}_$i")
             }
+            prefs.remove(PREF_LAST_ERROR + appWidgetId)
         }
         prefs.apply()
     }
@@ -111,6 +113,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         const val PREF_API_KEY = "api_key"
         const val PREF_BG_COLOR = "bg_color"
         const val PREF_IS_EXPANDED = "is_expanded_"
+        const val PREF_LAST_ERROR = "last_error_"
 
         internal fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
@@ -121,10 +124,10 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             }
 
             val (fromStation, toStation) = WidgetUtils.determineDirection(config)
-            val displayTitle = calculateDisplayTitle(context, config, fromStation, toStation)
+            val displayTitle = WidgetUtils.calculateDisplayTitle(context, config.titleStyle, config.title, fromStation, toStation)
             val styling = WidgetUtils.resolveWidgetStyling(context, config)
 
-            val views = createBaseWidgetView(context, appWidgetId, styling, displayTitle, config, fromStation)
+            val views = createBaseWidgetView(context, appWidgetId, styling, displayTitle, config, fromStation, toStation)
 
             val intent = Intent(context, TrainTimesWidgetService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
@@ -132,7 +135,22 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             }
             views.setRemoteAdapter(R.id.departures_list, intent)
             views.setEmptyView(R.id.departures_list, R.id.error_container)
-            views.setTextViewText(R.id.error_message, context.getString(R.string.no_trains_found))
+            
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val errorState = prefs.getString(PREF_LAST_ERROR + appWidgetId, null)
+
+            val errorMessage = when (errorState) {
+                "NETWORK" -> context.getString(R.string.network_error)
+                "GENERIC" -> context.getString(R.string.widget_error)
+                else -> {
+                    if (toStation.isNotEmpty()) {
+                        context.getString(R.string.no_trains_found_from_to, fromStation, toStation)
+                    } else {
+                        context.getString(R.string.no_trains_found_from, fromStation)
+                    }
+                }
+            }
+            views.setTextViewText(R.id.error_message, errorMessage)
 
             val toggleIntent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
                 action = ACTION_TOGGLE_EXPAND
@@ -157,6 +175,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
 
             var handled = false
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             try {
                 val (fromStation, toStation) = WidgetUtils.determineDirection(config)
                 var trainServices = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
@@ -164,6 +183,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                     trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }
                 }
                 WidgetCache.saveServices(context, appWidgetId, trainServices)
+                prefs.edit().remove(PREF_LAST_ERROR + appWidgetId).apply()
             } catch (e: ClientRequestException) {
                 if (e.response.status == HttpStatusCode.Unauthorized) {
                     Log.w(TAG, "Unauthorized API key for widget $appWidgetId")
@@ -174,10 +194,13 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 } else {
                     Log.e(TAG, "Failed to update widget $appWidgetId", e)
                     WidgetCache.saveServices(context, appWidgetId, emptyList())
+                    prefs.edit().putString(PREF_LAST_ERROR + appWidgetId, "GENERIC").apply()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to update widget $appWidgetId", e)
                 WidgetCache.saveServices(context, appWidgetId, emptyList()) // Clear cache on error
+                val errorType = if (e is IOException) "NETWORK" else "GENERIC"
+                prefs.edit().putString(PREF_LAST_ERROR + appWidgetId, errorType).apply()
             } finally {
                 if (!handled) {
                     withContext(Dispatchers.Main) {
@@ -192,15 +215,15 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
             val styling = WidgetUtils.resolveWidgetStyling(context, config)
             val (fromStation, toStation) = WidgetUtils.determineDirection(config)
-            val title = calculateDisplayTitle(context, config, fromStation, toStation)
+            val title = WidgetUtils.calculateDisplayTitle(context, config.titleStyle, config.title, fromStation, toStation)
             
-            val views = createBaseWidgetView(context, appWidgetId, styling, title, config, fromStation, isLoading = true)
+            val views = createBaseWidgetView(context, appWidgetId, styling, title, config, fromStation, toStation, isLoading = true)
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
 
         private fun createBaseWidgetView(
             context: Context, appWidgetId: Int, styling: WidgetStyling,
-            title: String, config: WidgetConfiguration, fromStation: String, isLoading: Boolean = false
+            title: String, config: WidgetConfiguration, fromStation: String, toStation: String, isLoading: Boolean = false
         ): RemoteViews {
             val layoutId = if (config.showDivider) R.layout.widget_layout else R.layout.widget_layout_no_divider
             val views = RemoteViews(context.packageName, layoutId)
@@ -266,6 +289,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val refreshPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             views.setOnClickPendingIntent(R.id.refresh_button, refreshPendingIntent)
             views.setOnClickPendingIntent(R.id.widget_title, refreshPendingIntent)
+            views.setOnClickPendingIntent(R.id.retry_button, refreshPendingIntent)
 
 
             val settingsIntent = Intent(context, TrainTimesWidgetConfigureActivity::class.java).apply {
@@ -276,8 +300,15 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.settings_button, settingsPendingIntent)
             
             if (config.showMapsIcon) {
-                val stationName = StationRepository.getStationName(context, fromStation)
-                val mapUri = Uri.parse("geo:0,0?q=${Uri.encode(stationName + context.getString(R.string.station_suffix))}")
+                val fromStationName = StationRepository.getStationName(context, fromStation) + context.getString(R.string.station_suffix)
+                
+                val mapUri = if (toStation.isNotEmpty()) {
+                    val toStationName = StationRepository.getStationName(context, toStation) + context.getString(R.string.station_suffix)
+                     Uri.parse("https://www.google.com/maps/dir/?api=1&origin=${Uri.encode(fromStationName)}&destination=${Uri.encode(toStationName)}&travelmode=transit")
+                } else {
+                    Uri.parse("geo:0,0?q=${Uri.encode(fromStationName)}")
+                }
+
                 val mapIntent = Intent(Intent.ACTION_VIEW, mapUri)
                 val mapPendingIntent = PendingIntent.getActivity(
                     context, appWidgetId + 1000, mapIntent,
@@ -321,25 +352,6 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.setup_message, pendingIntent)
             
             appWidgetManager.updateAppWidget(appWidgetId, views)
-        }
-
-        private fun calculateDisplayTitle(context: Context, config: WidgetConfiguration, fromStation: String, toStation: String): String {
-            return when (config.titleStyle) {
-                "SHORT" -> if (toStation.isNotEmpty()) "${fromStation.uppercase()} -> ${toStation.uppercase()}" else fromStation.uppercase()
-                "CUSTOM" -> {
-                    var t = config.title.replace("\$f", fromStation.uppercase()).replace("\$t", toStation.uppercase())
-                    if (t.contains("\$F") || t.contains("\$T")) {
-                        val fromName = StationRepository.getStationName(context, fromStation)
-                        val toName = if (toStation.isNotEmpty()) StationRepository.getStationName(context, toStation) else ""
-                        t = t.replace("\$F", fromName).replace("\$T", toName)
-                    }
-                    t
-                }
-                else -> {
-                    val fromName = StationRepository.getStationName(context, fromStation)
-                    if (toStation.isNotEmpty()) "$fromName -> ${StationRepository.getStationName(context, toStation)}" else fromName
-                }
-            }
         }
     }
 }

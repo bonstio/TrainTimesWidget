@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:textColor="?attr/colorOnSurface"
-        android:textStyle="bold"/>
+        android:fontFamily="sans-serif-medium"/>
 
     <TextView
         android:id="@+id/destination"
@@ -24,7 +24,7 @@
         android:layout_toStartOf="@+id/platform"
         android:layout_marginStart="8dp"
         android:textColor="?attr/colorOnSurface"
-        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
         android:ellipsize="end"
         android:singleLine="true"/>
 

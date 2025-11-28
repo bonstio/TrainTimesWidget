@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.TimePickerDialog
 import android.appwidget.AppWidgetManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
@@ -22,10 +23,13 @@ import android.text.InputType
 import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.TextView
@@ -51,10 +55,11 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     // Route Tab Views
     private lateinit var rowDepartingFrom: View
     private lateinit var summaryDepartingFrom: TextView
-    private lateinit var timeDepartingFrom: TextView
     private lateinit var rowDestination: View
     private lateinit var summaryDestination: TextView
-    private lateinit var timeDestination: TextView
+    private lateinit var rowCommuteTimes: View
+    private lateinit var labelCommuteTimes: TextView
+    private lateinit var summaryCommuteTimes: TextView
     
     // Layout Tab Views
     private lateinit var rowStyle: View
@@ -65,6 +70,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     private lateinit var summaryAlignment: TextView
     private lateinit var rowFontSize: View
     private lateinit var summaryFontSize: TextView
+    private lateinit var sliderFontSize: Slider
     private lateinit var rowStationStops: View
     private lateinit var summaryStationStops: TextView
     private lateinit var rowDivider: View
@@ -93,7 +99,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     private lateinit var addButton: Button
     private lateinit var cancelButton: Button
 
-    // Color Tab Views
+    // Color Views
     private lateinit var rowTextColor: View
     private lateinit var summaryTextColor: TextView
     private lateinit var previewTextColor: View
@@ -114,15 +120,11 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
     private enum class ColorMode { TEXT, BACKGROUND }
 
-    private var activeColorMode = ColorMode.TEXT
-
     private var currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
     private var currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
 
     private var isTextSystemColor = true
     private var isBackgroundSystemColor = true
-
-    private var isUpdatingColor = false
 
     // Flags for smart default title style logic
     private var userChangedTitleStyle = false
@@ -163,10 +165,11 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         // Route Tab Bindings
         rowDepartingFrom = findViewById(R.id.row_departing_from)
         summaryDepartingFrom = findViewById(R.id.summary_departing_from)
-        timeDepartingFrom = findViewById(R.id.time_departing_from)
         rowDestination = findViewById(R.id.row_destination)
         summaryDestination = findViewById(R.id.summary_destination)
-        timeDestination = findViewById(R.id.time_destination)
+        rowCommuteTimes = findViewById(R.id.row_commute_times)
+        labelCommuteTimes = findViewById(R.id.label_commute_times)
+        summaryCommuteTimes = findViewById(R.id.summary_commute_times)
         
         addButton = findViewById(R.id.add_button)
         cancelButton = findViewById(R.id.cancel_button)
@@ -180,6 +183,9 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         summaryAlignment = findViewById(R.id.summary_alignment)
         rowFontSize = findViewById(R.id.row_font_size)
         summaryFontSize = findViewById(R.id.summary_font_size)
+        // sliderFontSize bind
+        sliderFontSize = findViewById(R.id.slider_font_size)
+        
         rowStationStops = findViewById(R.id.row_station_stops)
         summaryStationStops = findViewById(R.id.summary_station_stops)
         rowDivider = findViewById(R.id.row_divider)
@@ -188,6 +194,9 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         summaryIconVisibility = findViewById(R.id.summary_icon_visibility)
         rowFooter = findViewById(R.id.row_footer)
         summaryFooter = findViewById(R.id.summary_footer)
+        
+        // Hide the separate custom title row as it is now integrated into the dialog
+        rowCustomTitle.visibility = View.GONE
         
         // Advanced Tab Bindings
         rowOffset = findViewById(R.id.row_offset)
@@ -380,6 +389,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         
         // Sync switch state with loaded config
         switchShowDivider.isChecked = showDivider
+        // Set initial slider value
+        sliderFontSize.value = selectedFontSize.toFloat()
 
         updateColorSummariesAndPreviews()
         updateLayoutSummaries()
@@ -394,79 +405,64 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         rowDepartingFrom.setOnClickListener {
             showRouteDialog(
                 R.string.route_departing_from,
-                fromStationCode,
-                startTimeNormal,
-                360 // 06:00
-            ) { station, time ->
+                fromStationCode
+            ) { station ->
                 fromStationCode = station
-                startTimeNormal = time
                 updateRouteSummaries()
                 validateInputs()
+                updateLayoutSummaries()
             }
         }
 
         rowDestination.setOnClickListener {
             showRouteDialog(
                 R.string.route_destination,
-                toStationCode,
-                startTimeReverse,
-                960 // 16:00
-            ) { station, time ->
+                toStationCode
+            ) { station ->
                 toStationCode = station
-                startTimeReverse = time
                 updateRouteSummaries()
                 validateInputs()
+                updateLayoutSummaries()
             }
+        }
+        
+        rowCommuteTimes.setOnClickListener {
+            showCommuteTimesDialog()
         }
     }
 
-    private fun showRouteDialog(titleRes: Int, currentStationCode: String, currentTime: Int, defaultTime: Int, onConfirm: (String, Int) -> Unit) {
+    private fun showRouteDialog(titleRes: Int, currentStationCode: String, onConfirm: (String) -> Unit) {
         val view = layoutInflater.inflate(R.layout.dialog_route_config, null)
         val stationInput = view.findViewById<MaterialAutoCompleteTextView>(R.id.dialog_station_input)
-        val timeInput = view.findViewById<TextInputEditText>(R.id.dialog_time_input)
-        val timeLayout = view.findViewById<TextInputLayout>(R.id.dialog_time_layout)
-        val timeHelper = view.findViewById<TextView>(R.id.dialog_time_helper)
+        val stationLayout = view.findViewById<TextInputLayout>(R.id.dialog_station_layout)
 
-        timeLayout.visibility = View.VISIBLE
-        timeHelper.visibility = View.VISIBLE
+        // Configure clear button
+        stationLayout.setEndIconOnClickListener {
+            stationInput.setText("")
+        }
+
+        stationInput.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                stationLayout.isEndIconVisible = !s.isNullOrEmpty()
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        // Initial visibility
+        stationLayout.isEndIconVisible = !currentStationCode.isEmpty()
 
         val adapter = StationAdapter(this, stations)
         stationInput.setAdapter(adapter)
         setStationText(stationInput, currentStationCode)
         setupInputListeners(stationInput)
 
-        var selectedTime = currentTime
-        
-        fun updateTimeDisplay() {
-            if (selectedTime == -1) {
-                timeInput.setText("")
-                timeLayout.isEndIconVisible = false
-            } else {
-                timeInput.setText(formatTime(selectedTime))
-                timeLayout.isEndIconVisible = true
-            }
-        }
-        updateTimeDisplay()
-
-        timeInput.setOnClickListener {
-            showTimePicker(selectedTime, defaultTime) { minutes ->
-                selectedTime = minutes
-                updateTimeDisplay()
-            }
-        }
-        
-        timeLayout.setEndIconOnClickListener {
-            selectedTime = -1
-            updateTimeDisplay()
-        }
-
         MaterialAlertDialogBuilder(this)
             .setTitle(titleRes)
             .setView(view)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val stationCode = extractStationCode(stationInput.text.toString(), stations)
-                val finalTime = selectedTime
-                onConfirm(stationCode, finalTime)
+                onConfirm(stationCode)
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -475,6 +471,60 @@ class TrainTimesWidgetConfigureActivity : Activity() {
              stationInput.selectAll()
              stationInput.requestFocus()
         }
+    }
+    
+    private fun showCommuteTimesDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_commute_times, null)
+        val outboundInput = view.findViewById<TextInputEditText>(R.id.outbound_time_input)
+        val outboundLayout = view.findViewById<TextInputLayout>(R.id.outbound_time_layout)
+        val returnInput = view.findViewById<TextInputEditText>(R.id.return_time_input)
+        val returnLayout = view.findViewById<TextInputLayout>(R.id.return_time_layout)
+
+        fun setupTimeInput(input: TextInputEditText, layout: TextInputLayout, initialTime: Int, defaultTime: Int, onTimeChanged: (Int) -> Unit) {
+             var currentTime = initialTime
+             
+             fun updateDisplay() {
+                 if (currentTime == -1) {
+                     input.setText("")
+                     layout.isEndIconVisible = false
+                 } else {
+                     input.setText(formatTime(currentTime))
+                     layout.isEndIconVisible = true
+                 }
+             }
+             updateDisplay()
+             
+             input.setOnClickListener {
+                 showTimePicker(currentTime, defaultTime) { minutes ->
+                     currentTime = minutes
+                     onTimeChanged(minutes)
+                     updateDisplay()
+                 }
+             }
+             
+             layout.setEndIconOnClickListener {
+                 currentTime = -1
+                 onTimeChanged(-1)
+                 updateDisplay()
+             }
+        }
+        
+        var tempStartTimeNormal = startTimeNormal
+        var tempStartTimeReverse = startTimeReverse
+        
+        setupTimeInput(outboundInput, outboundLayout, startTimeNormal, 360) { tempStartTimeNormal = it }
+        setupTimeInput(returnInput, returnLayout, startTimeReverse, 960) { tempStartTimeReverse = it }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.commute_times)
+            .setView(view)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                startTimeNormal = tempStartTimeNormal
+                startTimeReverse = tempStartTimeReverse
+                updateRouteSummaries()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun updateRouteSummaries() {
@@ -493,45 +543,104 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         summaryDestination.text = toName
         
         val hasToStation = toStationCode.isNotEmpty()
-
-        if (hasToStation && startTimeNormal != -1) {
-            timeDepartingFrom.text = getString(R.string.shown_from_summary, formatTime(startTimeNormal))
-            timeDepartingFrom.visibility = View.VISIBLE
+        
+        rowCommuteTimes.isEnabled = hasToStation
+        labelCommuteTimes.alpha = if (hasToStation) 1.0f else 0.5f
+        summaryCommuteTimes.alpha = if (hasToStation) 1.0f else 0.5f
+        
+        if (!hasToStation) {
+             summaryCommuteTimes.text = getString(R.string.not_set)
         } else {
-            timeDepartingFrom.visibility = View.GONE
+            val outboundStr = if (startTimeNormal != -1) formatTime(startTimeNormal) else getString(R.string.not_set)
+            val returnStr = if (startTimeReverse != -1) formatTime(startTimeReverse) else getString(R.string.not_set)
+            
+            if (startTimeNormal == -1 && startTimeReverse == -1) {
+                summaryCommuteTimes.text = getString(R.string.not_set)
+            } else {
+                summaryCommuteTimes.text = getString(R.string.commute_times_summary_format, outboundStr, returnStr)
+            }
         }
+    }
 
-        if (hasToStation && startTimeReverse != -1) {
-            timeDestination.text = getString(R.string.shown_from_summary, formatTime(startTimeReverse))
-            timeDestination.visibility = View.VISIBLE
-        } else {
-            timeDestination.visibility = View.GONE
+    // Custom Adapter for Single Choice Items with Checkmark
+    private class CheckedItemAdapter(
+        context: Context,
+        private val items: Array<String>,
+        private val selectedIndex: Int
+    ) : ArrayAdapter<String>(context, R.layout.dialog_single_choice_item, items) {
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.dialog_single_choice_item, parent, false)
+            
+            val textView = view.findViewById<TextView>(R.id.text1)
+            val iconView = view.findViewById<ImageView>(R.id.icon)
+            
+            textView.text = items[position]
+            
+            if (position == selectedIndex) {
+                iconView.visibility = View.VISIBLE
+            } else {
+                iconView.visibility = View.GONE
+            }
+            
+            return view
         }
     }
 
     private fun setupLayoutListeners() {
         rowStyle.setOnClickListener {
-            val items = arrayOf(getString(R.string.title_style_short), getString(R.string.title_style_long), getString(R.string.title_style_custom))
-            val values = arrayOf("SHORT", "LONG", "CUSTOM")
-            val selectedIndex = values.indexOf(selectedTitleStyle).coerceAtLeast(0)
+            val view = layoutInflater.inflate(R.layout.dialog_title_style, null)
+            val radioGroup = view.findViewById<RadioGroup>(R.id.title_style_radio_group)
+            val customTitleContainer = view.findViewById<LinearLayout>(R.id.custom_title_container)
+            val customTitleInput = view.findViewById<TextInputEditText>(R.id.custom_title_input)
+            
+            customTitleInput.setText(customTitleText)
+            
+            when(selectedTitleStyle) {
+                "SHORT" -> radioGroup.check(R.id.radio_short)
+                "LONG" -> radioGroup.check(R.id.radio_long)
+                "CUSTOM" -> radioGroup.check(R.id.radio_custom)
+            }
+            
+            customTitleContainer.visibility = if (selectedTitleStyle == "CUSTOM") View.VISIBLE else View.GONE
+            
+            radioGroup.setOnCheckedChangeListener { _, checkedId ->
+                customTitleContainer.visibility = if (checkedId == R.id.radio_custom) View.VISIBLE else View.GONE
+            }
             
             MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.title_style)
-                .setSingleChoiceItems(items, selectedIndex) { dialog, which ->
-                    val newStyle = values[which]
+                .setTitle(R.string.heading_format)
+                .setView(view)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val checkedId = radioGroup.checkedRadioButtonId
+                    val newStyle = when(checkedId) {
+                        R.id.radio_short -> "SHORT"
+                        R.id.radio_long -> "LONG"
+                        R.id.radio_custom -> "CUSTOM"
+                        else -> "SHORT"
+                    }
+                    
                     if (newStyle != selectedTitleStyle) {
                         selectedTitleStyle = newStyle
-                        if (selectedTitleStyle == "CUSTOM") {
-                             if (customTitleText.isEmpty()) {
-                                 customTitleText = getString(R.string.default_from_only_title)
-                             }
-                        }
                         userChangedTitleStyle = true
-                        updateLayoutSummaries()
                     }
-                    dialog.dismiss()
+                    
+                    if (newStyle == "CUSTOM") {
+                        val newTitle = customTitleInput.text.toString()
+                        if (newTitle.isNotEmpty()) {
+                            customTitleText = newTitle
+                        } else {
+                            customTitleText = getString(R.string.default_from_only_title)
+                        }
+                    }
+                    updateLayoutSummaries()
                 }
+                .setNegativeButton(android.R.string.cancel, null)
                 .show()
+                
+            customTitleInput.post {
+                 customTitleInput.selectAll()
+            }
         }
         
         rowAlignment.setOnClickListener {
@@ -539,73 +648,24 @@ class TrainTimesWidgetConfigureActivity : Activity() {
              val values = arrayOf("START", "CENTER", "END")
              val selectedIndex = values.indexOf(selectedAlignment).coerceAtLeast(0)
              
-             MaterialAlertDialogBuilder(this)
+             val adapter = CheckedItemAdapter(this, items, selectedIndex)
+             
+             val dialog = MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.title_alignment)
-                .setSingleChoiceItems(items, selectedIndex) { dialog, which ->
+                .setAdapter(adapter) { dialog, which ->
                     selectedAlignment = values[which]
                     updateLayoutSummaries()
                     dialog.dismiss()
                 }
-                .show()
+                .create()
+                
+             dialog.show()
         }
         
-        rowFontSize.setOnClickListener {
-             val items = arrayOf(
-                 getString(R.string.font_size_extra_small),
-                 getString(R.string.font_size_small), 
-                 getString(R.string.font_size_regular), 
-                 getString(R.string.font_size_large),
-                 getString(R.string.font_size_extra_large)
-             )
-             val values = arrayOf(0, 1, 2, 3, 4)
-             val selectedIndex = values.indexOf(selectedFontSize).coerceAtLeast(2)
-             
-             MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.font_size_section_header)
-                .setSingleChoiceItems(items, selectedIndex) { dialog, which ->
-                    selectedFontSize = values[which]
-                    updateLayoutSummaries()
-                    dialog.dismiss()
-                }
-                .show()
-        }
-        
-        rowCustomTitle.setOnClickListener {
-            val container = LinearLayout(this)
-            container.orientation = LinearLayout.VERTICAL
-            val margin = (24 * resources.displayMetrics.density).toInt()
-            container.setPadding(margin, margin / 2, margin, 0)
-
-            val input = TextInputEditText(this)
-            input.setText(customTitleText)
-            container.addView(input)
-
-            val helperText = TextView(this)
-            helperText.text = getString(R.string.widget_title_helper)
-            val typedValue = TypedValue()
-            theme.resolveAttribute(com.google.android.material.R.attr.textAppearanceCaption, typedValue, true)
-            if (typedValue.resourceId != 0) {
-                helperText.setTextAppearance(typedValue.resourceId)
-            }
-            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            params.topMargin = (8 * resources.displayMetrics.density).toInt()
-            helperText.layoutParams = params
-            container.addView(helperText)
-            
-            MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.widget_title_hint)
-                .setView(container)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    customTitleText = input.text.toString()
-                    updateLayoutSummaries()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-            
-            input.post {
-                 input.selectAll()
-                 input.requestFocus()
-            }
+        // Inline slider listener
+        sliderFontSize.addOnChangeListener { _, value, _ ->
+            selectedFontSize = value.toInt()
+            updateLayoutSummaries()
         }
         
         rowStationStops.setOnClickListener {
@@ -617,14 +677,18 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             val values = arrayOf("FIRST", "ALL", "NONE")
             val selectedIndex = values.indexOf(selectedStationStopsMode).coerceAtLeast(0)
             
-            MaterialAlertDialogBuilder(this)
+            val adapter = CheckedItemAdapter(this, items, selectedIndex)
+            
+            val dialog = MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.show_stops)
-                .setSingleChoiceItems(items, selectedIndex) { dialog, which ->
+                .setAdapter(adapter) { dialog, which ->
                     selectedStationStopsMode = values[which]
                     updateLayoutSummaries()
                     dialog.dismiss()
                 }
-                .show()
+                .create()
+            
+            dialog.show()
         }
 
         rowDivider.setOnClickListener {
@@ -664,6 +728,16 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             switch.setOnCheckedChangeListener { _, isChecked ->
                 iconOptions[text]?.invoke(isChecked)
             }
+            
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            val verticalMargin = (8 * resources.displayMetrics.density).toInt()
+            params.topMargin = verticalMargin
+            params.bottomMargin = verticalMargin
+            switch.layoutParams = params
+            
             container.addView(switch)
         }
 
@@ -696,6 +770,16 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             switch.setOnCheckedChangeListener { _, isChecked ->
                 options[text]?.invoke(isChecked)
             }
+            
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            val verticalMargin = (8 * resources.displayMetrics.density).toInt()
+            params.topMargin = verticalMargin
+            params.bottomMargin = verticalMargin
+            switch.layoutParams = params
+
             container.addView(switch)
         }
 
@@ -795,15 +879,15 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     }
 
     private fun updateLayoutSummaries() {
-        summaryStyle.text = when (selectedTitleStyle) {
-            "SHORT" -> getString(R.string.title_style_short)
-            "LONG" -> getString(R.string.title_style_long)
-            "CUSTOM" -> getString(R.string.title_style_custom)
-            else -> selectedTitleStyle
-        }
+        summaryStyle.text = WidgetUtils.calculateDisplayTitle(
+            this, 
+            selectedTitleStyle, 
+            if (customTitleText.isEmpty()) getString(R.string.default_from_only_title) else customTitleText, 
+            fromStationCode, 
+            toStationCode
+        )
         
-        rowCustomTitle.visibility = if (selectedTitleStyle == "CUSTOM") View.VISIBLE else View.GONE
-        summaryCustomTitle.text = if (customTitleText.isEmpty()) getString(R.string.default_custom_title) else customTitleText
+        // rowCustomTitle.visibility is handled in onCreate (GONE)
         
         summaryAlignment.text = when (selectedAlignment) {
             "START" -> getString(R.string.alignment_left)
@@ -854,21 +938,16 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         }
     }
 
-    // ... rest of the file ...
     private fun updateTabVisibility(position: Int) {
-        // Get the root view of the bottom sheet content
         val rootView = findViewById<View>(R.id.config_root_layout)
         val startHeight = window.decorView.height
     
-        // Set the visibility of the tab content
         routeContent.visibility = if (position == 0) View.VISIBLE else View.GONE
         layoutContent.visibility = if (position == 1) View.VISIBLE else View.GONE
         colorsContent.visibility = if (position == 2) View.VISIBLE else View.GONE
         advancedContent.visibility = if (position == 3) View.VISIBLE else View.GONE
     
-        // Post a runnable to measure the new height and animate
         rootView.post {
-            // Force a measure of the root view to get the new target height
             rootView.measure(
                 View.MeasureSpec.makeMeasureSpec(rootView.width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -898,8 +977,6 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     }
 
     private fun updateTimeLabels() {
-        // No longer used in the main UI, but keep method or remove?
-        // Removing as it referenced removed views
     }
 
     private fun formatTime(minutes: Int): String {
@@ -939,7 +1016,6 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     }
 
     private fun setupValidation() {
-        // State changes handled in dialogs
     }
 
     private fun validateInputs() {
@@ -948,7 +1024,6 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
         addButton.isEnabled = fromValid && toValid
 
-        // Smart default for title style
         if (!userChangedTitleStyle) {
             isUpdatingTitleStyle = true
             if (toStationCode.trim().isEmpty()) {
@@ -979,17 +1054,23 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         }
     }
 
-
-
     private fun updateColorSummariesAndPreviews() {
         summaryTextColor.text = if (isTextSystemColor) getString(R.string.color_source_theme) else getString(R.string.color_source_custom)
-        val textColor = if (isTextSystemColor) WidgetUtils.getThemeColor(this, com.google.android.material.R.attr.colorOnSurface) else currentTextColor
+        val textColor = if (isTextSystemColor) {
+            val typedValue = TypedValue()
+            theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, typedValue, true)
+            typedValue.data
+        } else currentTextColor
         previewTextColor.setBackgroundColor(textColor)
         previewTextColorCheckerboard.visibility = if (Color.alpha(textColor) < 255) View.VISIBLE else View.GONE
 
 
         summaryBackgroundColor.text = if (isBackgroundSystemColor) getString(R.string.color_source_theme) else getString(R.string.color_source_custom)
-        val bgColor = if (isBackgroundSystemColor) WidgetUtils.getThemeColor(this, com.google.android.material.R.attr.colorSurfaceContainerHighest) else currentBackgroundColor
+        val bgColor = if (isBackgroundSystemColor) {
+            val typedValue = TypedValue()
+            theme.resolveAttribute(com.google.android.material.R.attr.colorSurfaceContainerHighest, typedValue, true)
+            typedValue.data
+        } else currentBackgroundColor
         previewBackgroundColor.setBackgroundColor(bgColor)
         previewBackgroundColorCheckerboard.visibility = if (Color.alpha(bgColor) < 255) View.VISIBLE else View.GONE
     }
@@ -1013,6 +1094,9 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         val textValueBackground: View = dialogView.findViewById(R.id.text_value_background)
         val textAlphaBackground: View = dialogView.findViewById(R.id.text_alpha_background)
         val textAlphaCheckerboard: View = dialogView.findViewById(R.id.text_alpha_checkerboard)
+        
+        val dialogPreviewCheckerboard: View = dialogView.findViewById(R.id.dialog_preview_checkerboard)
+        val dialogPreviewColor: View = dialogView.findViewById(R.id.dialog_preview_color)
 
         var isSystemColor = if (mode == ColorMode.TEXT) isTextSystemColor else isBackgroundSystemColor
         var currentColor = if (mode == ColorMode.TEXT) currentTextColor else currentBackgroundColor
@@ -1023,6 +1107,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             if (textHexInput.text.toString() != hex) {
                  textHexInput.setText(hex)
             }
+            dialogPreviewColor.setBackgroundColor(color)
+            dialogPreviewCheckerboard.visibility = if (Color.alpha(color) < 255) View.VISIBLE else View.GONE
         }
 
         fun updateSliderBackgrounds(hue: Float, saturation: Float, lightness: Float) {
@@ -1064,9 +1150,9 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             val lightness = hsl[2]
             val alpha = Color.alpha(color)
 
-            textHueSlider.value = hue
-            textSaturationSlider.value = saturation * 100f
-            textValueSlider.value = lightness * 100f
+            textHueSlider.value = hue.roundToInt().toFloat()
+            textSaturationSlider.value = (saturation * 100f).roundToInt().toFloat()
+            textValueSlider.value = (lightness * 100f).roundToInt().toFloat()
             textAlphaSlider.value = alpha.toFloat()
 
             textHueValueLabel.text = hue.toInt().toString()
@@ -1120,6 +1206,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         // Setup checkerboards
         val density = resources.displayMetrics.density
         textAlphaCheckerboard.background = createCheckerboardDrawable(12f * density)
+        dialogPreviewCheckerboard.background = createCheckerboardDrawable(0f) // Square checkerboard
 
         val hueColors = IntArray(7)
         for (i in 0..6) {
@@ -1140,6 +1227,10 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         textSaturationSlider.addOnChangeListener(sliderListener)
         textValueSlider.addOnChangeListener(sliderListener)
         textAlphaSlider.addOnChangeListener(sliderListener)
+        
+        textLightnessValueLabel.setOnClickListener {
+            textValueSlider.value = 50f
+        }
 
         textHexInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}

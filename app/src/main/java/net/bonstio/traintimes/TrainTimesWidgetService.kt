@@ -75,7 +75,13 @@ class TrainTimesRemoteViewsFactory(
         departureView.setTextViewText(R.id.status, service.status)
 
         // Styling
-        if (!styling!!.useSystemTextColor) {
+        if (styling!!.useSystemTextColor) {
+            val attr = com.google.android.material.R.attr.colorOnSurface
+            departureView.setColorAttr(R.id.departure_time, "setTextColor", attr)
+            departureView.setColorAttr(R.id.destination, "setTextColor", attr)
+            departureView.setColorAttr(R.id.platform, "setTextColor", attr)
+            departureView.setColorAttr(R.id.status, "setTextColor", attr)
+        } else {
             val tc = styling!!.textColor
             departureView.setTextColor(R.id.departure_time, tc)
             departureView.setTextColor(R.id.destination, tc)
@@ -91,41 +97,44 @@ class TrainTimesRemoteViewsFactory(
         departureView.setTextViewTextSize(R.id.status, sizeUnit, bodySize)
 
         // Stops Logic
-        val showStops = when(config!!.stationStopsMode) {
+        // Check if this row is expanded
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val key = "${PREF_IS_EXPANDED}${appWidgetId}_$position"
+        val isExpanded = prefs.getBoolean(key, false)
+
+        // Determine visibility based on config and expansion state
+        val shouldShowStops = isExpanded || when(config!!.stationStopsMode) {
             "ALL" -> true
             "FIRST" -> (position == 0)
             "NONE" -> false
             else -> (position == 0)
         }
 
-        if (service.subsequentCallingPoints.isNotEmpty() && showStops) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            // FIX: Use the correct preference key prefix from SharedPrefs.kt
-            val key = "${PREF_IS_EXPANDED}${appWidgetId}_$position"
-            val isExpanded = prefs.getBoolean(key, false)
+        // Always set the click intent so the user can expand/collapse
+        val fillInIntent = Intent().apply {
+            val extras = Bundle()
+            extras.putInt(TrainTimesWidgetProvider.EXTRA_SERVICE_INDEX, position)
+            putExtras(extras)
+        }
+        departureView.setOnClickFillInIntent(R.id.departure_row, fillInIntent)
 
+        if (service.subsequentCallingPoints.isNotEmpty() && shouldShowStops) {
             val callingPointsText = "Calling at ${service.subsequentCallingPoints.joinToString(", ")}"
             departureView.setTextViewText(R.id.calling_points, callingPointsText)
 
-            if (!styling!!.useSystemTextColor) {
+            if (styling!!.useSystemTextColor) {
+                departureView.setColorAttr(R.id.calling_points, "setTextColor", com.google.android.material.R.attr.colorOnSurface)
+            } else {
                 departureView.setTextColor(R.id.calling_points, styling!!.textColor)
             }
             departureView.setTextViewTextSize(R.id.calling_points, sizeUnit, bodySize)
             departureView.setViewVisibility(R.id.calling_points, View.VISIBLE)
 
+            // If expanded, show all lines. If just visible due to config, show 1 line.
             val maxLines = if (isExpanded) 100 else 1
             departureView.setInt(R.id.calling_points, "setMaxLines", maxLines)
-
-            val fillInIntent = Intent().apply {
-                val extras = Bundle()
-                extras.putInt(TrainTimesWidgetProvider.EXTRA_SERVICE_INDEX, position)
-                putExtras(extras)
-            }
-            departureView.setOnClickFillInIntent(R.id.departure_row, fillInIntent)
         } else {
             departureView.setViewVisibility(R.id.calling_points, View.GONE)
-            val fillInIntent = Intent()
-            departureView.setOnClickFillInIntent(R.id.departure_row, fillInIntent)
         }
 
         return departureView

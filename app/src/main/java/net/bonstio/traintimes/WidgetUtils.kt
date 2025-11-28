@@ -81,11 +81,11 @@ object WidgetUtils {
 
     fun getTitleSize(index: Int): Float {
         return when (index) {
-            0 -> 16f
-            1 -> 18f
-            3 -> 22f
-            4 -> 24f
-            else -> 20f
+            0 -> 14f
+            1 -> 16f
+            3 -> 20f
+            4 -> 22f
+            else -> 22f
         }
     }
 
@@ -96,6 +96,25 @@ object WidgetUtils {
             3 -> 18f
             4 -> 20f
             else -> 16f
+        }
+    }
+
+    fun calculateDisplayTitle(context: Context, titleStyle: String, customTitle: String, fromStation: String, toStation: String): String {
+        return when (titleStyle) {
+            "SHORT" -> if (toStation.isNotEmpty()) "${fromStation.uppercase()} -> ${toStation.uppercase()}" else fromStation.uppercase()
+            "CUSTOM" -> {
+                var t = customTitle.replace("\$f", fromStation.uppercase()).replace("\$t", toStation.uppercase())
+                if (t.contains("\$F") || t.contains("\$T")) {
+                    val fromName = StationRepository.getStationName(context, fromStation)
+                    val toName = if (toStation.isNotEmpty()) StationRepository.getStationName(context, toStation) else ""
+                    t = t.replace("\$F", fromName).replace("\$T", toName)
+                }
+                t
+            }
+            else -> {
+                val fromName = StationRepository.getStationName(context, fromStation)
+                if (toStation.isNotEmpty()) "$fromName -> ${StationRepository.getStationName(context, toStation)}" else fromName
+            }
         }
     }
 }

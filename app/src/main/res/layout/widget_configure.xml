@@ -112,14 +112,6 @@
                             android:textAppearance="?attr/textAppearanceBodyMedium"
                             android:textColor="?android:attr/textColorSecondary" />
                     </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/time_departing_from"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="?android:attr/textColorSecondary" />
                 </LinearLayout>
 
                 <!-- Destination Row -->
@@ -155,14 +147,42 @@
                             android:textAppearance="?attr/textAppearanceBodyMedium"
                             android:textColor="?android:attr/textColorSecondary" />
                     </LinearLayout>
+                </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/time_destination"
-                        android:layout_width="wrap_content"
+                <!-- Commute Times Row -->
+                <LinearLayout
+                    android:id="@+id/row_commute_times"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="12dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="?android:attr/textColorSecondary" />
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/label_commute_times"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/commute_times"
+                            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                        <TextView
+                            android:id="@+id/summary_commute_times"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/not_set"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"
+                            android:textColor="?android:attr/textColorSecondary" />
+                    </LinearLayout>
                 </LinearLayout>
 
             </LinearLayout>
@@ -175,14 +195,11 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <!-- Font Size Row -->
+                <!-- Font Size Row (Inline) -->
                 <LinearLayout
                     android:id="@+id/row_font_size"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
                     android:orientation="vertical"
                     android:paddingHorizontal="4dp"
                     android:paddingVertical="12dp">
@@ -200,6 +217,16 @@
                         android:text="@string/font_size_regular"
                         android:textAppearance="?attr/textAppearanceBodyMedium"
                         android:textColor="?android:attr/textColorSecondary" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/slider_font_size"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:stepSize="1.0"
+                        android:valueFrom="0.0"
+                        android:valueTo="4.0"
+                        app:labelBehavior="gone" />
                 </LinearLayout>
 
                 <!-- Station Stops Row -->
@@ -605,7 +632,7 @@
                         android:layout_width="0dp"
                         android:layout_weight="1"
                         android:layout_height="wrap_content"
-                        android:text="Hide departures in the past"
+                        android:text="@string/hide_past_departures"
                         android:textAppearance="?attr/textAppearanceBodyLarge" />
                         
                     <com.google.android.material.materialswitch.MaterialSwitch
