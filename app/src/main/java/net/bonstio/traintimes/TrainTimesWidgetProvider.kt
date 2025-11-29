@@ -89,8 +89,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 val isApiKeyMissing = apiKey.isNullOrEmpty()
                 updateAppWidgetWithSetupRequest(context, appWidgetManager, appWidgetId, isApiKeyMissing)
             } else {
-                // Show loading indicator before fetching data
-                showLoadingState(context, appWidgetManager, appWidgetId)
+                // Do not show loading indicator proactively to avoid flickering/flashing
+                // showLoadingState(context, appWidgetManager, appWidgetId)
             }
         }
 
@@ -129,7 +129,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         const val PREF_IS_EXPANDED = "is_expanded_"
         const val PREF_LAST_ERROR = "last_error_"
 
-        internal fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+        internal fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, hasData: Boolean? = null) {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
             if (config == null) {
                 val apiKey = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(PREF_API_KEY, null)
@@ -148,7 +148,11 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
             }
             views.setRemoteAdapter(R.id.departures_list, intent)
-            views.setEmptyView(R.id.departures_list, R.id.error_container)
+            
+            val effectiveHasData = hasData ?: WidgetCache.loadServices(context, appWidgetId).isNotEmpty()
+            if (!effectiveHasData) {
+                views.setEmptyView(R.id.departures_list, R.id.error_container)
+            }
             
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val errorState = prefs.getString(PREF_LAST_ERROR + appWidgetId, null)
@@ -189,10 +193,11 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
 
             var handled = false
+            var trainServices: List<TrainService> = emptyList()
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             try {
                 val (fromStation, toStation) = WidgetUtils.determineDirection(config)
-                var trainServices = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
+                trainServices = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
                 if (config.hidePastDepartures) {
                     trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }
                 }
@@ -218,7 +223,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             } finally {
                 if (!handled) {
                     withContext(Dispatchers.Main) {
-                        updateAppWidget(context, appWidgetManager, appWidgetId)
+                        updateAppWidget(context, appWidgetManager, appWidgetId, hasData = trainServices.isNotEmpty())
                         appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
                     }
                 }

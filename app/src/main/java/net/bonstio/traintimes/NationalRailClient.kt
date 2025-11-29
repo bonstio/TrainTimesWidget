@@ -73,6 +73,7 @@ class NationalRailClient(private val apiKey: String) {
         val response: HttpResponse =
             client.post("https://lite.realtime.nationalrail.co.uk/OpenLDBWS/ldb11.asmx") {
                 contentType(ContentType.Text.Xml.withParameter("charset", "utf-8"))
+                header(HttpHeaders.CacheControl, "no-cache")
                 setBody(requestBody)
             }
 
