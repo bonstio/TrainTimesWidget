@@ -17,7 +17,7 @@ object WidgetConfigurationDefaults {
     const val BG_COLOR = Color.BLACK
     const val USE_SYSTEM_TEXT_COLOR = false
     const val USE_SYSTEM_BG_COLOR = false
-    const val FONT_SIZE = 2 // Regular
+    const val FONT_SIZE = 3 // Regular
     const val SHOW_REFRESH_ICON = true
     const val SHOW_SETTINGS_ICON = false
     const val HIDE_PAST_DEPARTURES = false

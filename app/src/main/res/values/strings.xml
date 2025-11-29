@@ -202,19 +202,13 @@
     <string name="font_size_section_header">Font size</string>
 
     <!-- Option for extra small font size. Length: 15 chars. -->
+    <string name="font_size_tiny">Tiny</string>
     <string name="font_size_extra_small">Extra Small</string>
-
-    <!-- Option for small font size. Length: 10 chars. -->
     <string name="font_size_small">Small</string>
-
-    <!-- Option for regular font size. Length: 10 chars. -->
     <string name="font_size_regular">Regular</string>
-
-    <!-- Option for large font size. Length: 10 chars. -->
     <string name="font_size_large">Large</string>
-
-    <!-- Option for extra large font size. Length: 15 chars. -->
     <string name="font_size_extra_large">Extra Large</string>
+    <string name="font_size_massive">Massive</string>
 
     <!-- Text for retry button. Length: 10 chars. -->
     <string name="retry">Refresh</string>

@@ -3,6 +3,7 @@ package net.bonstio.traintimes
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -59,6 +60,18 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
              if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                  updateAppWidget(context, AppWidgetManager.getInstance(context), appWidgetId)
              }
+        } else if (intent.action == ACTION_WIDGET_STYLE_UPDATE) {
+            val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                updateAppWidget(context, appWidgetManager, appWidgetId)
+                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
+            }
+        } else if (intent.action == WidgetUpdateScheduler.ACTION_AUTO_UPDATE) {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val thisAppWidget = ComponentName(context.packageName, TrainTimesWidgetProvider::class.java.name)
+            val appWidgetIds = appWidgetManager.getAppWidgetIds(thisAppWidget)
+            onUpdate(context, appWidgetManager, appWidgetIds)
         }
     }
 
@@ -108,6 +121,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         private const val TAG = "TrainWidget"
         const val ACTION_TOGGLE_EXPAND = "net.bonstio.traintimes.ACTION_TOGGLE_EXPAND"
         const val ACTION_WIDGET_PINNED = "net.bonstio.traintimes.ACTION_WIDGET_PINNED"
+        const val ACTION_WIDGET_STYLE_UPDATE = "net.bonstio.traintimes.ACTION_WIDGET_STYLE_UPDATE"
         const val EXTRA_SERVICE_INDEX = "service_index"
         const val PREFS_NAME = "net.bonstio.traintimes.widget"
         const val PREF_API_KEY = "api_key"

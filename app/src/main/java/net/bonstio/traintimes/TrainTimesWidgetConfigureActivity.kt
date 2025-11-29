@@ -1,5 +1,6 @@
 package net.bonstio.traintimes
 
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.TimePickerDialog
@@ -17,6 +18,7 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.PaintDrawable
 import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RectShape
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
@@ -24,14 +26,17 @@ import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioGroup
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -41,8 +46,12 @@ import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import java.util.Calendar
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlin.math.max
+import kotlin.math.abs
+import kotlin.math.min
 
 /**
  * Activity for configuring the Train Times widget.
@@ -114,6 +123,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     private lateinit var layoutContent: View
     private lateinit var colorsContent: View
     private lateinit var advancedContent: View
+    private lateinit var rootView: View
 
     private var startTimeNormal = 360  // 06:00
     private var startTimeReverse = 960  // 16:00
@@ -143,6 +153,15 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     private var selectedOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
     private var selectedDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
 
+    // Initial config for comparison
+    private var initialFromStationCode: String = ""
+    private var initialToStationCode: String = ""
+    private var initialStartTimeNormal: Int = 360
+    private var initialStartTimeReverse: Int = 960
+    private var initialOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
+    private var initialDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
+    private var initialHidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
+
     /**
      * Called when the activity is first created.
      * Initializes the UI, listeners, and loads any existing configuration.
@@ -161,6 +180,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         layoutParams.width = WindowManager.LayoutParams.MATCH_PARENT
         layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         window.attributes = layoutParams
+
+        rootView = findViewById(R.id.config_root_layout)
 
         // Route Tab Bindings
         rowDepartingFrom = findViewById(R.id.row_departing_from)
@@ -227,6 +248,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         setupRouteListeners()
         setupLayoutListeners()
         setupAdvancedListeners()
+        setupDragToMove()
 
         // Setup checkerboards for color previews
         previewTextColorCheckerboard.background = createCheckerboardDrawable(0f)
@@ -240,68 +262,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         }
 
         addButton.setOnClickListener {
-            val context = this@TrainTimesWidgetConfigureActivity
-
-            val title = customTitleText
-            val titleStyle = selectedTitleStyle
-            val alignment = selectedAlignment
-            
-            val stationStopsMode = selectedStationStopsMode
-            val showStops = (stationStopsMode != "NONE") 
-            
-            val timeOffset = selectedOffset
-            val departureCount = selectedDepartureCount
-            val hidePastDepartures = switchHidePastDepartures.isChecked
-
-            val transparency = Color.alpha(currentBackgroundColor)
-            val bgColor = Color.rgb(
-                Color.red(currentBackgroundColor),
-                Color.green(currentBackgroundColor),
-                Color.blue(currentBackgroundColor)
-            )
-
-            val fontSize = selectedFontSize
-
-            WidgetConfigurationStorage.saveConfiguration(
-                context,
-                appWidgetId,
-                title,
-                titleStyle,
-                showWidgetIcon,
-                showRefreshIcon,
-                showSettingsIcon,
-                hidePastDepartures,
-                showStops,
-                stationStopsMode,
-                fromStationCode,
-                toStationCode,
-                alignment,
-                startTimeNormal,
-                startTimeReverse,
-                timeOffset,
-                departureCount,
-                transparency,
-                currentTextColor,
-                bgColor,
-                isTextSystemColor,
-                isBackgroundSystemColor,
-                fontSize,
-                showMapsIcon,
-                showLastUpdateTime,
-                showDivider
-            )
-
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val intent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
-            }
-            sendBroadcast(intent)
-
-            val resultValue = Intent()
-            resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            setResult(RESULT_OK, resultValue)
-            finish()
+            saveAndBroadcast(finish = true)
         }
 
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
@@ -386,6 +347,15 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             isBackgroundSystemColor = true
             selectedFontSize = WidgetConfigurationDefaults.FONT_SIZE
         }
+
+        // Store initial data-affecting config
+        initialFromStationCode = fromStationCode
+        initialToStationCode = toStationCode
+        initialStartTimeNormal = startTimeNormal
+        initialStartTimeReverse = startTimeReverse
+        initialOffset = selectedOffset
+        initialDepartureCount = selectedDepartureCount
+        initialHidePastDepartures = switchHidePastDepartures.isChecked
         
         // Sync switch state with loaded config
         switchShowDivider.isChecked = showDivider
@@ -399,6 +369,239 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
         validateInputs()
         updateTabVisibility(0)
+    }
+
+    private fun performHapticFeedback() {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            vibrator?.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_CLICK))
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(android.os.VibrationEffect.createOneShot(70, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(70)
+        }
+    }
+
+    private fun setupDragToMove() {
+        val scrollContainer = findViewById<View>(R.id.config_root_layout)
+        val headerView = (scrollContainer as? ViewGroup)?.getChildAt(0) ?: return
+
+        headerView.setOnClickListener {
+            togglePosition()
+        }
+
+        headerView.setOnTouchListener(object : View.OnTouchListener {
+            private var lastY = 0f
+            private var startY = 0f
+            private var isDragging = false
+            private val touchSlop = 10f
+            private var hasVibratedTop = false
+            private var hasVibratedBottom = false
+
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        lastY = event.rawY
+                        startY = event.rawY
+                        isDragging = false
+                        val contentView = findViewById<View>(android.R.id.content)
+                        val maxTrans = calculateMaxTranslation()
+                        
+                        // Mark as already vibrated if starting in the trigger zones
+                        hasVibratedTop = contentView.translationY < 2f
+                        hasVibratedBottom = contentView.translationY > maxTrans - 2f
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dy = event.rawY - lastY
+                        val totalDy = event.rawY - startY
+                        
+                        if (!isDragging && abs(totalDy) > touchSlop) {
+                            isDragging = true
+                        }
+                        
+                        if (isDragging) {
+                            val contentView = findViewById<View>(android.R.id.content)
+                            val maxTrans = calculateMaxTranslation()
+                            val newTranslationY = contentView.translationY + dy
+                            // Clamp between 0 and maxTranslation
+                            val clampedTranslationY = min(maxTrans, max(0f, newTranslationY))
+                            contentView.translationY = clampedTranslationY
+
+                            // Vibration feedback when hitting top
+                            if (clampedTranslationY < 2f && !hasVibratedTop) {
+                                performHapticFeedback()
+                                hasVibratedTop = true
+                            } else if (clampedTranslationY > 20f) {
+                                hasVibratedTop = false
+                            }
+                            
+                            // Vibration feedback when hitting bottom
+                            if (clampedTranslationY > maxTrans - 2f && !hasVibratedBottom) {
+                                performHapticFeedback()
+                                hasVibratedBottom = true
+                            } else if (clampedTranslationY < maxTrans - 20f) {
+                                hasVibratedBottom = false
+                            }
+
+                            lastY = event.rawY
+                        }
+                        return true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (isDragging) {
+                            // User requested to stop automatic move back.
+                            // We leave it as is. 
+                        } else {
+                            // It was a tap
+                            v.performClick()
+                        }
+                        isDragging = false
+                        return true
+                    }
+                }
+                return false
+            }
+        })
+    }
+
+    private fun getVisibleStripHeight(): Int {
+        val contentView = findViewById<View>(android.R.id.content)
+        val scrollContainer = findViewById<View>(R.id.config_root_layout)
+        val headerView = (scrollContainer as? ViewGroup)?.getChildAt(0) ?: return 0
+
+        // Calculate bottom inset to ensure header is visible above nav bar
+        var bottomInset = 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            contentView.rootWindowInsets?.let {
+                bottomInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    it.getInsets(WindowInsets.Type.systemBars()).bottom
+                } else {
+                    @Suppress("DEPRECATION")
+                    it.systemWindowInsetBottom
+                }
+            }
+        }
+
+        // Extra buffer to ensure it clears the nav bar comfortably (e.g. 16dp)
+        val extraBuffer = (16 * resources.displayMetrics.density).toInt()
+
+        return headerView.height + bottomInset + extraBuffer
+    }
+
+    private fun calculateMaxTranslation(): Float {
+        val contentView = findViewById<View>(android.R.id.content)
+        val visibleStripHeight = getVisibleStripHeight()
+        // contentView.height can be 0 if the view is not laid out yet.
+        if (contentView.height == 0) return 0f
+        return max(0f, (contentView.height - visibleStripHeight).toFloat())
+    }
+
+    private fun togglePosition() {
+        val contentView = findViewById<View>(android.R.id.content)
+        val maxTranslation = calculateMaxTranslation()
+        
+        val targetY = if (contentView.translationY < maxTranslation / 2) maxTranslation else 0f
+        
+        ObjectAnimator.ofFloat(contentView, "translationY", targetY).apply {
+            duration = 300
+            start()
+        }
+    }
+
+    private fun triggerUpdate(forceStyleOnly: Boolean = false) {
+        saveAndBroadcast(finish = false)
+    }
+
+    private fun saveAndBroadcast(finish: Boolean) {
+        val context = this@TrainTimesWidgetConfigureActivity
+
+        val title = customTitleText
+        val titleStyle = selectedTitleStyle
+        val alignment = selectedAlignment
+        
+        val stationStopsMode = selectedStationStopsMode
+        val showStops = (stationStopsMode != "NONE") 
+        
+        val timeOffset = selectedOffset
+        val departureCount = selectedDepartureCount
+        val hidePastDepartures = switchHidePastDepartures.isChecked
+
+        val transparency = Color.alpha(currentBackgroundColor)
+        val bgColor = Color.rgb(
+            Color.red(currentBackgroundColor),
+            Color.green(currentBackgroundColor),
+            Color.blue(currentBackgroundColor)
+        )
+
+        val fontSize = selectedFontSize
+
+        WidgetConfigurationStorage.saveConfiguration(
+            context,
+            appWidgetId,
+            title,
+            titleStyle,
+            showWidgetIcon,
+            showRefreshIcon,
+            showSettingsIcon,
+            hidePastDepartures,
+            showStops,
+            stationStopsMode,
+            fromStationCode,
+            toStationCode,
+            alignment,
+            startTimeNormal,
+            startTimeReverse,
+            timeOffset,
+            departureCount,
+            transparency,
+            currentTextColor,
+            bgColor,
+            isTextSystemColor,
+            isBackgroundSystemColor,
+            fontSize,
+            showMapsIcon,
+            showLastUpdateTime,
+            showDivider
+        )
+
+        // Check if data changed
+        val dataChanged = initialFromStationCode != fromStationCode ||
+                initialToStationCode != toStationCode ||
+                initialStartTimeNormal != startTimeNormal ||
+                initialStartTimeReverse != startTimeReverse ||
+                initialOffset != timeOffset ||
+                initialDepartureCount != departureCount ||
+                initialHidePastDepartures != hidePastDepartures
+
+        // If data changed, update our "initial" reference so subsequent style updates don't trigger data fetch
+        if (dataChanged) {
+            initialFromStationCode = fromStationCode
+            initialToStationCode = toStationCode
+            initialStartTimeNormal = startTimeNormal
+            initialStartTimeReverse = startTimeReverse
+            initialOffset = timeOffset
+            initialDepartureCount = departureCount
+            initialHidePastDepartures = hidePastDepartures
+        }
+
+        val intent = Intent(context, TrainTimesWidgetProvider::class.java)
+        if (dataChanged) {
+            intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
+        } else {
+            intent.action = TrainTimesWidgetProvider.ACTION_WIDGET_STYLE_UPDATE
+            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        }
+        sendBroadcast(intent)
+
+        if (finish) {
+            val resultValue = Intent()
+            resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            setResult(RESULT_OK, resultValue)
+            finish()
+        }
     }
 
     private fun setupRouteListeners() {
@@ -522,6 +725,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 startTimeNormal = tempStartTimeNormal
                 startTimeReverse = tempStartTimeReverse
                 updateRouteSummaries()
+                updateLayoutSummaries()
+                triggerUpdate()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -623,14 +828,17 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                     if (newStyle != selectedTitleStyle) {
                         selectedTitleStyle = newStyle
                         userChangedTitleStyle = true
+                        triggerUpdate()
                     }
                     
                     if (newStyle == "CUSTOM") {
                         val newTitle = customTitleInput.text.toString()
                         if (newTitle.isNotEmpty()) {
                             customTitleText = newTitle
+                            triggerUpdate()
                         } else {
                             customTitleText = getString(R.string.default_from_only_title)
+                            triggerUpdate()
                         }
                     }
                     updateLayoutSummaries()
@@ -655,6 +863,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 .setAdapter(adapter) { dialog, which ->
                     selectedAlignment = values[which]
                     updateLayoutSummaries()
+                    triggerUpdate()
                     dialog.dismiss()
                 }
                 .create()
@@ -666,6 +875,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         sliderFontSize.addOnChangeListener { _, value, _ ->
             selectedFontSize = value.toInt()
             updateLayoutSummaries()
+            triggerUpdate()
         }
         
         rowStationStops.setOnClickListener {
@@ -684,6 +894,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 .setAdapter(adapter) { dialog, which ->
                     selectedStationStopsMode = values[which]
                     updateLayoutSummaries()
+                    triggerUpdate()
                     dialog.dismiss()
                 }
                 .create()
@@ -697,6 +908,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         
         switchShowDivider.setOnCheckedChangeListener { _, isChecked ->
             showDivider = isChecked
+            triggerUpdate()
         }
 
         rowIconVisibility.setOnClickListener {
@@ -746,6 +958,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 updateLayoutSummaries()
+                triggerUpdate()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -788,6 +1001,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 updateLayoutSummaries()
+                triggerUpdate()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -879,12 +1093,23 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     }
 
     private fun updateLayoutSummaries() {
+        val calendar = Calendar.getInstance()
+        val currentMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        val isReversed = if (toStationCode.isNotEmpty()) {
+            WidgetUtils.isTimeReversed(currentMinutes, startTimeNormal, startTimeReverse)
+        } else {
+            false
+        }
+
+        val displayFrom = if (isReversed) toStationCode else fromStationCode
+        val displayTo = if (isReversed) fromStationCode else toStationCode
+
         summaryStyle.text = WidgetUtils.calculateDisplayTitle(
             this, 
             selectedTitleStyle, 
             if (customTitleText.isEmpty()) getString(R.string.default_from_only_title) else customTitleText, 
-            fromStationCode, 
-            toStationCode
+            displayFrom, 
+            displayTo
         )
         
         // rowCustomTitle.visibility is handled in onCreate (GONE)
@@ -897,10 +1122,13 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         }
         
         summaryFontSize.text = when (selectedFontSize) {
-            0 -> getString(R.string.font_size_extra_small)
-            1 -> getString(R.string.font_size_small)
-            3 -> getString(R.string.font_size_large)
-            4 -> getString(R.string.font_size_extra_large)
+            0 -> getString(R.string.font_size_tiny)
+            1 -> getString(R.string.font_size_extra_small)
+            2 -> getString(R.string.font_size_small)
+            3 -> getString(R.string.font_size_regular)
+            4 -> getString(R.string.font_size_large)
+            5 -> getString(R.string.font_size_extra_large)
+            6 -> getString(R.string.font_size_massive)
             else -> getString(R.string.font_size_regular)
         }
         
@@ -948,13 +1176,28 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         advancedContent.visibility = if (position == 3) View.VISIBLE else View.GONE
     
         rootView.post {
+            val measureWidth = if (rootView.width > 0) {
+                rootView.width
+            } else {
+                resources.displayMetrics.widthPixels
+            }
+
             rootView.measure(
-                View.MeasureSpec.makeMeasureSpec(rootView.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(measureWidth, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
             )
             val targetHeight = rootView.measuredHeight
+            val contentView = findViewById<View>(android.R.id.content)
+
+            // Animate to fully expanded state when tab changes.
+            if (contentView.translationY != 0f) {
+                ObjectAnimator.ofFloat(contentView, "translationY", 0f).apply {
+                    duration = 250
+                    start()
+                }
+            }
     
-            if (startHeight != targetHeight) {
+            if (startHeight != targetHeight && targetHeight > 0) {
                 val animator = ValueAnimator.ofInt(startHeight, targetHeight)
                 animator.addUpdateListener { animation ->
                     val params = window.attributes
@@ -1252,6 +1495,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                     currentBackgroundColor = currentColor
                 }
                 updateColorSummariesAndPreviews()
+                triggerUpdate()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

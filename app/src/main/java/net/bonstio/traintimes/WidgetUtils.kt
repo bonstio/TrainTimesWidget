@@ -47,7 +47,7 @@ object WidgetUtils {
         return Pair(fromStation, toStation)
     }
 
-    private fun isTimeReversed(currentMinutes: Int, startNormal: Int, startReverse: Int): Boolean {
+    fun isTimeReversed(currentMinutes: Int, startNormal: Int, startReverse: Int): Boolean {
         if (startNormal == -1 || startReverse == -1) return false
         return if (startNormal < startReverse) {
             !(currentMinutes >= startNormal && currentMinutes < startReverse)
@@ -79,23 +79,30 @@ object WidgetUtils {
         }
     }
 
+    // Font size logic: 0=Tiny, 1=Extra Small, 2=Small, 3=Regular, 4=Large, 5=Extra Large, 6=Massive
     fun getTitleSize(index: Int): Float {
         return when (index) {
-            0 -> 14f
-            1 -> 16f
-            3 -> 20f
-            4 -> 22f
-            else -> 22f
+            0 -> 10f
+            1 -> 12f
+            2 -> 14f
+            3 -> 16f
+            4 -> 18f
+            5 -> 20f
+            6 -> 22f
+            else -> 16f
         }
     }
 
     fun getBodySize(index: Int): Float {
         return when (index) {
-            0 -> 12f
-            1 -> 14f
-            3 -> 18f
-            4 -> 20f
-            else -> 16f
+            0 -> 8f
+            1 -> 10f
+            2 -> 12f
+            3 -> 14f
+            4 -> 16f
+            5 -> 18f
+            6 -> 20f
+            else -> 14f
         }
     }
 
