@@ -24,13 +24,14 @@ data class WidgetConfiguration(
     val bgColor: Int = WidgetConfigurationDefaults.BG_COLOR,
     val useSystemTextColor: Boolean = WidgetConfigurationDefaults.USE_SYSTEM_TEXT_COLOR,
     val useSystemBgColor: Boolean = WidgetConfigurationDefaults.USE_SYSTEM_BG_COLOR,
-    val fontSize: Int = WidgetConfigurationDefaults.FONT_SIZE, // 0 = Extra Small, 1 = Small, 2 = Regular, 3 = Large, 4 = Extra Large
+    val fontSize: Int = WidgetConfigurationDefaults.FONT_SIZE, // 0-6 scale
     val showRefreshIcon: Boolean = WidgetConfigurationDefaults.SHOW_REFRESH_ICON,
     val showSettingsIcon: Boolean = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON,
     val hidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES,
     val showMapsIcon: Boolean = WidgetConfigurationDefaults.SHOW_MAPS_ICON,
     val showLastUpdateTime: Boolean = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME,
-    val showDivider: Boolean = WidgetConfigurationDefaults.SHOW_DIVIDER
+    val showDivider: Boolean = WidgetConfigurationDefaults.SHOW_DIVIDER,
+    val commutingMode: String = WidgetConfigurationDefaults.COMMUTING_MODE
 )
 
 /**
@@ -63,6 +64,7 @@ object WidgetConfigurationStorage {
     private const val PREF_SHOW_MAPS_ICON_KEY = "show_maps_icon_"
     private const val PREF_SHOW_LAST_UPDATE_TIME_KEY = "show_last_update_time_"
     private const val PREF_SHOW_DIVIDER_KEY = "show_divider_"
+    private const val PREF_COMMUTING_MODE_KEY = "commuting_mode_"
 
     /**
      * Saves the configuration for a specific widget ID.
@@ -93,7 +95,8 @@ object WidgetConfigurationStorage {
         fontSize: Int,
         showMapsIcon: Boolean,
         showLastUpdateTime: Boolean,
-        showDivider: Boolean
+        showDivider: Boolean,
+        commutingMode: String
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, 0).edit()
         prefs.putString(PREF_TITLE_KEY + appWidgetId, title)
@@ -121,6 +124,7 @@ object WidgetConfigurationStorage {
         prefs.putBoolean(PREF_SHOW_MAPS_ICON_KEY + appWidgetId, showMapsIcon)
         prefs.putBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, showLastUpdateTime)
         prefs.putBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, showDivider)
+        prefs.putString(PREF_COMMUTING_MODE_KEY + appWidgetId, commutingMode)
         // Use commit to ensure data is written before we broadcast the update
         prefs.commit()
     }
@@ -165,17 +169,16 @@ object WidgetConfigurationStorage {
         val bgColor = prefs.getInt(PREF_BG_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.BG_COLOR)
         val useSystemTextColor = prefs.getBoolean(PREF_USE_SYSTEM_TEXT_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.USE_SYSTEM_TEXT_COLOR)
         val useSystemBgColor = prefs.getBoolean(PREF_USE_SYSTEM_BG_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.USE_SYSTEM_BG_COLOR)
-        // Default font size was 1 (Regular). Now let's map old values to new scale if needed.
-        // Old: 0=Small, 1=Regular, 2=Large
-        // New: 0=Extra Small, 1=Small, 2=Regular, 3=Large, 4=Extra Large
+        
         var fontSize = prefs.getInt(PREF_FONT_SIZE_KEY + appWidgetId, -1)
         if (fontSize == -1) {
-             fontSize = WidgetConfigurationDefaults.FONT_SIZE // Default Regular
+             fontSize = WidgetConfigurationDefaults.FONT_SIZE
         }
         
         val showMapsIcon = prefs.getBoolean(PREF_SHOW_MAPS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_MAPS_ICON)
         val showLastUpdateTime = prefs.getBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME)
         val showDivider = prefs.getBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_DIVIDER)
+        val commutingMode = prefs.getString(PREF_COMMUTING_MODE_KEY + appWidgetId, WidgetConfigurationDefaults.COMMUTING_MODE) ?: WidgetConfigurationDefaults.COMMUTING_MODE
 
         return if (title != null && fromStation != null && toStation != null && alignment != null) {
             WidgetConfiguration(
@@ -202,7 +205,8 @@ object WidgetConfigurationStorage {
                 hidePastDepartures,
                 showMapsIcon,
                 showLastUpdateTime,
-                showDivider
+                showDivider,
+                commutingMode
             )
         } else {
             null
@@ -239,6 +243,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_SHOW_MAPS_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_DIVIDER_KEY + appWidgetId)
+        prefs.remove(PREF_COMMUTING_MODE_KEY + appWidgetId)
         prefs.apply()
     }
 }

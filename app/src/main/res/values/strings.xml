@@ -326,7 +326,7 @@
     <string name="network_error">Check internet connection.</string>
 
     <!-- Commute times label. Length: 15 chars. -->
-    <string name="commute_times">Commute times</string>
+    <string name="commute_times">Commuting</string>
     <!-- Outbound time label. Length: 15 chars. -->
     <string name="outbound_time">Outbound time</string>
     <!-- Return time label. Length: 15 chars. -->
@@ -339,4 +339,12 @@
 
     <!-- Format for commute times summary. Length: 20 chars. -->
     <string name="commute_times_summary_format">%1$s / %2$s</string>
+
+    <string name="commuting_mode_time">Specify times</string>
+    <string name="commuting_mode_location">Location based</string>
+    <string name="nearest_station_hint">Uses your location to determine which of your selected stations is closest, reversing the route automatically.</string>
+    <string name="location_permission_rationale">Location access is needed to find your nearest station.</string>
+    <string name="grant_permission">Grant</string>
+    <string name="summary_commuting_location">Based on location</string>
+    <string name="location_closest_summary">Based on location - currently closest to %1$s</string>
 </resources>

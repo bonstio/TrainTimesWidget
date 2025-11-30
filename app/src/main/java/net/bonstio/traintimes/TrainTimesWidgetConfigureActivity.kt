@@ -1,5 +1,6 @@
 package net.bonstio.traintimes
 
+import android.Manifest
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
@@ -7,6 +8,7 @@ import android.app.TimePickerDialog
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
@@ -18,6 +20,7 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.PaintDrawable
 import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RectShape
+import android.location.Location
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
@@ -35,10 +38,16 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
@@ -57,7 +66,7 @@ import kotlin.math.min
  * Activity for configuring the Train Times widget.
  * Handles station selection, display options, and color customization.
  */
-class TrainTimesWidgetConfigureActivity : Activity() {
+class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     
@@ -152,6 +161,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     private var selectedStationStopsMode: String = WidgetConfigurationDefaults.STATION_STOPS_MODE
     private var selectedOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
     private var selectedDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
+    private var selectedCommutingMode: String = WidgetConfigurationDefaults.COMMUTING_MODE
 
     // Initial config for comparison
     private var initialFromStationCode: String = ""
@@ -161,6 +171,17 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     private var initialOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
     private var initialDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
     private var initialHidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
+
+    // Permission launcher
+    private val locationPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) ||
+                permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
+        if (granted) {
+            updateRouteSummaries()
+        }
+    }
 
     /**
      * Called when the activity is first created.
@@ -311,6 +332,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             selectedOffset = existingConfig.timeOffset
             selectedDepartureCount = existingConfig.departureCount
             switchHidePastDepartures.isChecked = existingConfig.hidePastDepartures
+            selectedCommutingMode = existingConfig.commutingMode
 
             currentTextColor = existingConfig.textColor
             currentBackgroundColor = ColorUtils.setAlphaComponent(
@@ -373,19 +395,17 @@ class TrainTimesWidgetConfigureActivity : Activity() {
 
     private fun performHapticFeedback() {
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            vibrator?.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_CLICK))
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator?.vibrate(android.os.VibrationEffect.createOneShot(70, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Use a slightly stronger vibration (40ms) for feedback
+            vibrator?.vibrate(android.os.VibrationEffect.createOneShot(40, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
         } else {
             @Suppress("DEPRECATION")
-            vibrator?.vibrate(70)
+            vibrator?.vibrate(40)
         }
     }
 
     private fun setupDragToMove() {
-        val scrollContainer = findViewById<View>(R.id.config_root_layout)
-        val headerView = (scrollContainer as? ViewGroup)?.getChildAt(0) ?: return
+        val headerView = findViewById<View>(R.id.header_container) ?: return
 
         headerView.setOnClickListener {
             togglePosition()
@@ -444,7 +464,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                             } else if (clampedTranslationY < maxTrans - 20f) {
                                 hasVibratedBottom = false
                             }
-
+                            
                             lastY = event.rawY
                         }
                         return true
@@ -469,7 +489,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     private fun getVisibleStripHeight(): Int {
         val contentView = findViewById<View>(android.R.id.content)
         val scrollContainer = findViewById<View>(R.id.config_root_layout)
-        val headerView = (scrollContainer as? ViewGroup)?.getChildAt(0) ?: return 0
+        val headerView = findViewById<View>(R.id.header_container) ?: return 0
 
         // Calculate bottom inset to ensure header is visible above nav bar
         var bottomInset = 0
@@ -563,7 +583,8 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             fontSize,
             showMapsIcon,
             showLastUpdateTime,
-            showDivider
+            showDivider,
+            selectedCommutingMode
         )
 
         // Check if data changed
@@ -678,10 +699,46 @@ class TrainTimesWidgetConfigureActivity : Activity() {
     
     private fun showCommuteTimesDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_commute_times, null)
+        val commutingModeGroup = view.findViewById<RadioGroup>(R.id.commuting_mode_radio_group)
+        val timeModeContainer = view.findViewById<View>(R.id.time_mode_container)
+        val locationModeContainer = view.findViewById<View>(R.id.location_mode_container)
         val outboundInput = view.findViewById<TextInputEditText>(R.id.outbound_time_input)
         val outboundLayout = view.findViewById<TextInputLayout>(R.id.outbound_time_layout)
         val returnInput = view.findViewById<TextInputEditText>(R.id.return_time_input)
         val returnLayout = view.findViewById<TextInputLayout>(R.id.return_time_layout)
+
+        fun updateVisibility(mode: String) {
+            if (mode == "LOCATION") {
+                timeModeContainer.visibility = View.INVISIBLE
+                locationModeContainer.visibility = View.VISIBLE
+            } else {
+                timeModeContainer.visibility = View.VISIBLE
+                locationModeContainer.visibility = View.INVISIBLE
+            }
+        }
+
+        // Initial State
+        var currentMode = selectedCommutingMode
+        if (currentMode == "LOCATION") {
+            commutingModeGroup.check(R.id.radio_location_mode)
+        } else {
+            commutingModeGroup.check(R.id.radio_time_mode)
+        }
+        updateVisibility(currentMode)
+
+        commutingModeGroup.setOnCheckedChangeListener { _, checkedId ->
+            if (checkedId == R.id.radio_location_mode) {
+                currentMode = "LOCATION"
+                updateVisibility("LOCATION")
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                     locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                }
+            } else {
+                currentMode = "TIME"
+                updateVisibility("TIME")
+            }
+        }
 
         fun setupTimeInput(input: TextInputEditText, layout: TextInputLayout, initialTime: Int, defaultTime: Int, onTimeChanged: (Int) -> Unit) {
              var currentTime = initialTime
@@ -722,6 +779,7 @@ class TrainTimesWidgetConfigureActivity : Activity() {
             .setTitle(R.string.commute_times)
             .setView(view)
             .setPositiveButton(android.R.string.ok) { _, _ ->
+                selectedCommutingMode = currentMode
                 startTimeNormal = tempStartTimeNormal
                 startTimeReverse = tempStartTimeReverse
                 updateRouteSummaries()
@@ -755,6 +813,24 @@ class TrainTimesWidgetConfigureActivity : Activity() {
         
         if (!hasToStation) {
              summaryCommuteTimes.text = getString(R.string.not_set)
+        } else if (selectedCommutingMode == "LOCATION") {
+            summaryCommuteTimes.text = getString(R.string.summary_commuting_location)
+            
+            // Check permissions and fetch location to update text
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                
+                val client = LocationServices.getFusedLocationProviderClient(this)
+                client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                    .addOnSuccessListener { location ->
+                        if (location != null) {
+                            val closestStation = findClosestStation(location, fromStationCode, toStationCode)
+                            if (closestStation != null) {
+                                summaryCommuteTimes.text = getString(R.string.location_closest_summary, closestStation.code)
+                            }
+                        }
+                    }
+            }
         } else {
             val outboundStr = if (startTimeNormal != -1) formatTime(startTimeNormal) else getString(R.string.not_set)
             val returnStr = if (startTimeReverse != -1) formatTime(startTimeReverse) else getString(R.string.not_set)
@@ -765,6 +841,23 @@ class TrainTimesWidgetConfigureActivity : Activity() {
                 summaryCommuteTimes.text = getString(R.string.commute_times_summary_format, outboundStr, returnStr)
             }
         }
+    }
+    
+    private fun findClosestStation(location: Location, fromCode: String, toCode: String): Station? {
+         val fromStation = StationRepository.getStation(this, fromCode)
+         val toStation = StationRepository.getStation(this, toCode)
+         
+         if (fromStation == null && toStation == null) return null
+         if (fromStation == null) return toStation
+         if (toStation == null) return fromStation
+         
+         val distFrom = FloatArray(1)
+         Location.distanceBetween(location.latitude, location.longitude, fromStation.lat, fromStation.lon, distFrom)
+         
+         val distTo = FloatArray(1)
+         Location.distanceBetween(location.latitude, location.longitude, toStation.lat, toStation.lon, distTo)
+         
+         return if (distTo[0] < distFrom[0]) toStation else fromStation
     }
 
     // Custom Adapter for Single Choice Items with Checkmark

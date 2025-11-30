@@ -1,29 +1,37 @@
 package net.bonstio.traintimes
 
+import android.Manifest
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.Location
 import android.net.Uri
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.coroutines.resume
 
 class TrainTimesWidgetProvider : AppWidgetProvider() {
 
@@ -36,6 +44,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 prefs.remove("${PREF_IS_EXPANDED}${appWidgetId}_$i")
             }
             prefs.remove(PREF_LAST_ERROR + appWidgetId)
+            prefs.remove(PREF_EFFECTIVE_FROM + appWidgetId)
+            prefs.remove(PREF_EFFECTIVE_TO + appWidgetId)
         }
         prefs.apply()
     }
@@ -128,6 +138,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         const val PREF_BG_COLOR = "bg_color"
         const val PREF_IS_EXPANDED = "is_expanded_"
         const val PREF_LAST_ERROR = "last_error_"
+        const val PREF_EFFECTIVE_FROM = "effective_from_"
+        const val PREF_EFFECTIVE_TO = "effective_to_"
 
         internal fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, hasData: Boolean? = null) {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
@@ -137,7 +149,20 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 return
             }
 
-            val (fromStation, toStation) = WidgetUtils.determineDirection(config)
+            // Logic duplicated here for display title consistency
+            val (fromStation, toStation) = if (config.commutingMode == "LOCATION") {
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val ef = prefs.getString(PREF_EFFECTIVE_FROM + appWidgetId, null)
+                val et = prefs.getString(PREF_EFFECTIVE_TO + appWidgetId, null)
+                if (ef != null && et != null) {
+                    Pair(ef, et)
+                } else {
+                    WidgetUtils.determineDirection(config)
+                }
+            } else {
+                WidgetUtils.determineDirection(config)
+            }
+            
             val displayTitle = WidgetUtils.calculateDisplayTitle(context, config.titleStyle, config.title, fromStation, toStation)
             val styling = WidgetUtils.resolveWidgetStyling(context, config)
 
@@ -184,6 +209,27 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
 
+        private suspend fun getLastLocation(context: Context): Location? {
+             if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                return null
+            }
+
+            return suspendCancellableCoroutine { cont ->
+                val client = LocationServices.getFusedLocationProviderClient(context)
+                client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                    .addOnSuccessListener { location: Location? ->
+                        cont.resume(location)
+                    }
+                    .addOnFailureListener {
+                        cont.resume(null)
+                    }
+                    .addOnCanceledListener {
+                        cont.resume(null)
+                    }
+            }
+        }
+
         private suspend fun updateSingleWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -196,7 +242,45 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             var trainServices: List<TrainService> = emptyList()
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             try {
-                val (fromStation, toStation) = WidgetUtils.determineDirection(config)
+                var fromStation = config.fromStation
+                var toStation = config.toStation
+                
+                if (config.commutingMode == "LOCATION") {
+                    val location = getLastLocation(context)
+                    if (location != null) {
+                        val fromStationObj = StationRepository.getStation(context, fromStation)
+                        val toStationObj = StationRepository.getStation(context, toStation)
+                        
+                        if (fromStationObj != null && toStationObj != null) {
+                             val distFrom = FloatArray(1)
+                             Location.distanceBetween(location.latitude, location.longitude, fromStationObj.lat, fromStationObj.lon, distFrom)
+                             
+                             val distTo = FloatArray(1)
+                             Location.distanceBetween(location.latitude, location.longitude, toStationObj.lat, toStationObj.lon, distTo)
+                             
+                             // If closer to "To" station, assume we are departing from there
+                             if (distTo[0] < distFrom[0]) {
+                                 Log.d(TAG, "Location based swap: Closest to ${toStationObj.code} (${distTo[0]}m vs ${distFrom[0]}m)")
+                                 val temp = fromStation
+                                 fromStation = toStation
+                                 toStation = temp
+                             } else {
+                                 Log.d(TAG, "Location based keep: Closest to ${fromStationObj.code} (${distFrom[0]}m vs ${distTo[0]}m)")
+                             }
+                        }
+                    }
+                } else {
+                    val pair = WidgetUtils.determineDirection(config)
+                    fromStation = pair.first
+                    toStation = pair.second
+                }
+                
+                // Save effective stations so updateAppWidget can use the correct title
+                prefs.edit()
+                    .putString(PREF_EFFECTIVE_FROM + appWidgetId, fromStation)
+                    .putString(PREF_EFFECTIVE_TO + appWidgetId, toStation)
+                    .apply()
+
                 trainServices = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
                 if (config.hidePastDepartures) {
                     trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }

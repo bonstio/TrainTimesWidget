@@ -54,4 +54,6 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-xml:2.3.5")
 
     implementation("com.github.dhaval2404:colorpicker:2.3")
+    
+    implementation("com.google.android.gms:play-services-location:21.1.0")
 }

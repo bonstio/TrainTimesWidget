@@ -7,8 +7,10 @@ import android.content.Context
  *
  * @property name The name of the station.
  * @property code The 3-letter CRS code of the station.
+ * @property lat The latitude of the station.
+ * @property lon The longitude of the station.
  */
-data class Station(val name: String, val code: String) {
+data class Station(val name: String, val code: String, val lat: Double, val lon: Double) {
     /**
      * Returns a string representation of the station.
      *
@@ -53,6 +55,18 @@ object StationRepository {
     }
 
     /**
+     * Retrieves a station object given its code.
+     *
+     * @param context The application context.
+     * @param code The 3-letter CRS code of the station.
+     * @return The Station object, or null if not found.
+     */
+    fun getStation(context: Context, code: String): Station? {
+        val stations = getStations(context)
+        return stations.find { it.code.equals(code, ignoreCase = true) }
+    }
+
+    /**
      * Loads stations from the "stations.csv" asset file.
      *
      * @param context The application context.
@@ -67,10 +81,15 @@ object StationRepository {
                     val parts = line.split(",")
                     if (parts.size >= 4) {
                         val name = parts[0].trim()
+                        val latStr = parts[1].trim()
+                        val lonStr = parts[2].trim()
                         val code = parts[3].trim()
 
+                        val lat = latStr.toDoubleOrNull() ?: 0.0
+                        val lon = lonStr.toDoubleOrNull() ?: 0.0
+
                         if (name.isNotEmpty() && code.length == 3 && code.all { it.isUpperCase() }) {
-                            list.add(Station(name, code))
+                            list.add(Station(name, code, lat, lon))
                         }
                     }
                 }
