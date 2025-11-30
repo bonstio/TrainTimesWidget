@@ -340,11 +340,18 @@
     <!-- Format for commute times summary. Length: 20 chars. -->
     <string name="commute_times_summary_format">%1$s / %2$s</string>
 
+    <!-- Option for time-based commuting mode. Length: 15 chars. -->
     <string name="commuting_mode_time">Specify times</string>
+    <!-- Option for location-based commuting mode. Length: 15 chars. -->
     <string name="commuting_mode_location">Location based</string>
+    <!-- Hint text explaining location-based commuting. Length: 110 chars. -->
     <string name="nearest_station_hint">Uses your location to determine which of your selected stations is closest, reversing the route automatically.</string>
+    <!-- Rationale for requesting location permission. Length: 60 chars. -->
     <string name="location_permission_rationale">Location access is needed to find your nearest station.</string>
+    <!-- Button label to grant permission. Length: 10 chars. -->
     <string name="grant_permission">Grant</string>
-    <string name="summary_commuting_location">Based on location</string>
+    <!-- Summary text when location mode is active. Length: 20 chars. -->
+    <string name="summary_commuting_location">Location based</string>
+    <!-- Summary text showing the closest station. Length: 50 chars. -->
     <string name="location_closest_summary">Based on location - currently closest to %1$s</string>
 </resources>
