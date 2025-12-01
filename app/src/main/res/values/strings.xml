@@ -181,7 +181,7 @@
     <string name="color_source_custom">Custom color</string>
 
     <!-- Helper text explaining custom title variables. Length: 55 chars. -->
-    <string name="widget_title_helper">Use $f/$t for codes, $F/$T for full names.</string>
+    <string name="widget_title_helper">Use $f/$t for codes, $F/$T for full names and $C for \"to work\" / \"home\".</string>
 
     <!-- Default text for custom title input. Length: 20 chars. -->
     <string name="default_custom_title">Heading to $T</string>

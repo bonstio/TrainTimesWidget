@@ -106,7 +106,7 @@ object WidgetUtils {
         }
     }
 
-    fun calculateDisplayTitle(context: Context, titleStyle: String, customTitle: String, fromStation: String, toStation: String): String {
+    fun calculateDisplayTitle(context: Context, titleStyle: String, customTitle: String, fromStation: String, toStation: String, configFromStation: String? = null): String {
         return when (titleStyle) {
             "SHORT" -> if (toStation.isNotEmpty()) "${fromStation.uppercase()} -> ${toStation.uppercase()}" else fromStation.uppercase()
             "CUSTOM" -> {
@@ -115,6 +115,11 @@ object WidgetUtils {
                     val fromName = StationRepository.getStationName(context, fromStation)
                     val toName = if (toStation.isNotEmpty()) StationRepository.getStationName(context, toStation) else ""
                     t = t.replace("\$F", fromName).replace("\$T", toName)
+                }
+                if (t.contains("\$C") && configFromStation != null) {
+                    val isReversed = !fromStation.equals(configFromStation, ignoreCase = true)
+                    val commuteText = if (isReversed) "home" else "to work"
+                    t = t.replace("\$C", commuteText)
                 }
                 t
             }

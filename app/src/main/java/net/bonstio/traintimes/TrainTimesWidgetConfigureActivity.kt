@@ -1198,11 +1198,12 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val displayTo = if (isReversed) fromStationCode else toStationCode
 
         summaryStyle.text = WidgetUtils.calculateDisplayTitle(
-            this, 
-            selectedTitleStyle, 
-            if (customTitleText.isEmpty()) getString(R.string.default_from_only_title) else customTitleText, 
-            displayFrom, 
-            displayTo
+            this,
+            selectedTitleStyle,
+            if (customTitleText.isEmpty()) getString(R.string.default_from_only_title) else customTitleText,
+            displayFrom,
+            displayTo,
+            fromStationCode
         )
         
         // rowCustomTitle.visibility is handled in onCreate (GONE)

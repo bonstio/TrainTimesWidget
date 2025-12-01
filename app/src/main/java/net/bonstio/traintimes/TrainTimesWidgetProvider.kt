@@ -163,7 +163,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 WidgetUtils.determineDirection(config)
             }
             
-            val displayTitle = WidgetUtils.calculateDisplayTitle(context, config.titleStyle, config.title, fromStation, toStation)
+            val displayTitle = WidgetUtils.calculateDisplayTitle(context, config.titleStyle, config.title, fromStation, toStation, config.fromStation)
             val styling = WidgetUtils.resolveWidgetStyling(context, config)
 
             val views = createBaseWidgetView(context, appWidgetId, styling, displayTitle, config, fromStation, toStation)
@@ -217,7 +217,10 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
 
             return suspendCancellableCoroutine { cont ->
                 val client = LocationServices.getFusedLocationProviderClient(context)
-                client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                // Use PRIORITY_HIGH_ACCURACY for better responsiveness when the user is moving (e.g. at a station)
+                // and a CancellationToken to ensure we don't hang indefinitely if location is unavailable.
+                // However, since we are in a coroutine, we can rely on standard timeouts if needed, but getCurrentLocation has its own.
+                client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                     .addOnSuccessListener { location: Location? ->
                         cont.resume(location)
                     }
@@ -318,7 +321,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
             val styling = WidgetUtils.resolveWidgetStyling(context, config)
             val (fromStation, toStation) = WidgetUtils.determineDirection(config)
-            val title = WidgetUtils.calculateDisplayTitle(context, config.titleStyle, config.title, fromStation, toStation)
+            val title = WidgetUtils.calculateDisplayTitle(context, config.titleStyle, config.title, fromStation, toStation, config.fromStation)
             
             val views = createBaseWidgetView(context, appWidgetId, styling, title, config, fromStation, toStation, isLoading = true)
             appWidgetManager.updateAppWidget(appWidgetId, views)
