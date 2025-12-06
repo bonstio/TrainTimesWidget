@@ -218,6 +218,33 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
+                    <!-- Font Style Row -->
+                    <LinearLayout
+                        android:id="@+id/row_font_style"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="4dp"
+                        android:paddingVertical="12dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/font_style_label"
+                            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                        <TextView
+                            android:id="@+id/summary_font_style"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/font_style_system"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"
+                            android:textColor="?android:attr/textColorSecondary" />
+                    </LinearLayout>
+
                     <!-- Font Size Row (Inline) -->
                     <LinearLayout
                         android:id="@+id/row_font_size"

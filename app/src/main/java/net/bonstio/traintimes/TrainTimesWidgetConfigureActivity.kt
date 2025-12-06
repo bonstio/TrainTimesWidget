@@ -15,6 +15,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Shader
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.PaintDrawable
@@ -45,6 +46,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.ColorUtils
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -82,6 +84,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     // Layout Tab Views
     private lateinit var rowStyle: View
     private lateinit var summaryStyle: TextView
+    private lateinit var rowFontStyle: View
+    private lateinit var summaryFontStyle: TextView
     private lateinit var rowCustomTitle: View
     private lateinit var summaryCustomTitle: TextView
     private lateinit var rowAlignment: View
@@ -157,6 +161,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var selectedTitleStyle: String = WidgetConfigurationDefaults.TITLE_STYLE
     private var selectedAlignment: String = WidgetConfigurationDefaults.ALIGNMENT
     private var selectedFontSize: Int = WidgetConfigurationDefaults.FONT_SIZE
+    private var selectedFontStyle: String = WidgetConfigurationDefaults.FONT_STYLE
     private var customTitleText: String = ""
     private var selectedStationStopsMode: String = WidgetConfigurationDefaults.STATION_STOPS_MODE
     private var selectedOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
@@ -219,6 +224,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         // Layout Tab Bindings
         rowStyle = findViewById(R.id.row_style)
         summaryStyle = findViewById(R.id.summary_style)
+        rowFontStyle = findViewById(R.id.row_font_style)
+        summaryFontStyle = findViewById(R.id.summary_font_style)
         rowCustomTitle = findViewById(R.id.row_custom_title)
         summaryCustomTitle = findViewById(R.id.summary_custom_title)
         rowAlignment = findViewById(R.id.row_alignment)
@@ -283,6 +290,10 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
 
         addButton.setOnClickListener {
+            // Read global frequency preference, defaulting to 30 mins
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val frequency = prefs.getInt(PREF_UPDATE_FREQUENCY, 30)
+            WidgetUpdateScheduler.scheduleUpdate(this, frequency)
             saveAndBroadcast(finish = true)
         }
 
@@ -343,6 +354,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             isTextSystemColor = existingConfig.useSystemTextColor
             isBackgroundSystemColor = existingConfig.useSystemBgColor
             selectedFontSize = existingConfig.fontSize
+            selectedFontStyle = existingConfig.fontStyle
         } else {
             selectedAlignment = WidgetConfigurationDefaults.ALIGNMENT
             
@@ -368,6 +380,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             isTextSystemColor = true
             isBackgroundSystemColor = true
             selectedFontSize = WidgetConfigurationDefaults.FONT_SIZE
+            selectedFontStyle = WidgetConfigurationDefaults.FONT_STYLE
         }
 
         // Store initial data-affecting config
@@ -556,6 +569,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         )
 
         val fontSize = selectedFontSize
+        val fontStyle = selectedFontStyle
 
         WidgetConfigurationStorage.saveConfiguration(
             context,
@@ -584,7 +598,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showMapsIcon,
             showLastUpdateTime,
             showDivider,
-            selectedCommutingMode
+            selectedCommutingMode,
+            fontStyle
         )
 
         // Check if data changed
@@ -944,6 +959,26 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             }
         }
         
+        rowFontStyle.setOnClickListener {
+             val items = arrayOf(getString(R.string.font_style_system), getString(R.string.font_style_retro))
+             val values = arrayOf("SYSTEM", "RETRO")
+             val selectedIndex = values.indexOf(selectedFontStyle).coerceAtLeast(0)
+             
+             val adapter = CheckedItemAdapter(this, items, selectedIndex)
+             
+             val dialog = MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.font_style_label)
+                .setAdapter(adapter) { dialog, which ->
+                    selectedFontStyle = values[which]
+                    updateLayoutSummaries()
+                    triggerUpdate()
+                    dialog.dismiss()
+                }
+                .create()
+                
+             dialog.show()
+        }
+        
         rowAlignment.setOnClickListener {
              val items = arrayOf(getString(R.string.alignment_left), getString(R.string.alignment_center), getString(R.string.alignment_right))
              val values = arrayOf("START", "CENTER", "END")
@@ -1231,6 +1266,24 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             "ALL" -> getString(R.string.stops_all)
             "NONE" -> getString(R.string.stops_hidden)
             else -> getString(R.string.stops_first)
+        }
+        
+        summaryFontStyle.text = when(selectedFontStyle) {
+            "SYSTEM" -> getString(R.string.font_style_system)
+            "RETRO" -> getString(R.string.font_style_retro)
+            else -> getString(R.string.font_style_system)
+        }
+        
+        if (selectedFontStyle == "RETRO") {
+            try {
+                 val typeface = ResourcesCompat.getFont(this, R.font.pixeloid_sans)
+                 summaryFontStyle.typeface = typeface
+            } catch (e: Exception) {
+                 // Fallback
+                 summaryFontStyle.typeface = Typeface.DEFAULT
+            }
+        } else {
+            summaryFontStyle.typeface = Typeface.DEFAULT
         }
         
         updateIconVisibilitySummary()

@@ -31,7 +31,8 @@ data class WidgetConfiguration(
     val showMapsIcon: Boolean = WidgetConfigurationDefaults.SHOW_MAPS_ICON,
     val showLastUpdateTime: Boolean = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME,
     val showDivider: Boolean = WidgetConfigurationDefaults.SHOW_DIVIDER,
-    val commutingMode: String = WidgetConfigurationDefaults.COMMUTING_MODE
+    val commutingMode: String = WidgetConfigurationDefaults.COMMUTING_MODE,
+    val fontStyle: String = WidgetConfigurationDefaults.FONT_STYLE
 )
 
 /**
@@ -65,6 +66,7 @@ object WidgetConfigurationStorage {
     private const val PREF_SHOW_LAST_UPDATE_TIME_KEY = "show_last_update_time_"
     private const val PREF_SHOW_DIVIDER_KEY = "show_divider_"
     private const val PREF_COMMUTING_MODE_KEY = "commuting_mode_"
+    private const val PREF_FONT_STYLE_KEY = "font_style_"
 
     /**
      * Saves the configuration for a specific widget ID.
@@ -96,7 +98,8 @@ object WidgetConfigurationStorage {
         showMapsIcon: Boolean,
         showLastUpdateTime: Boolean,
         showDivider: Boolean,
-        commutingMode: String
+        commutingMode: String,
+        fontStyle: String
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, 0).edit()
         prefs.putString(PREF_TITLE_KEY + appWidgetId, title)
@@ -125,6 +128,7 @@ object WidgetConfigurationStorage {
         prefs.putBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, showLastUpdateTime)
         prefs.putBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, showDivider)
         prefs.putString(PREF_COMMUTING_MODE_KEY + appWidgetId, commutingMode)
+        prefs.putString(PREF_FONT_STYLE_KEY + appWidgetId, fontStyle)
         // Use commit to ensure data is written before we broadcast the update
         prefs.commit()
     }
@@ -179,6 +183,7 @@ object WidgetConfigurationStorage {
         val showLastUpdateTime = prefs.getBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME)
         val showDivider = prefs.getBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_DIVIDER)
         val commutingMode = prefs.getString(PREF_COMMUTING_MODE_KEY + appWidgetId, WidgetConfigurationDefaults.COMMUTING_MODE) ?: WidgetConfigurationDefaults.COMMUTING_MODE
+        val fontStyle = prefs.getString(PREF_FONT_STYLE_KEY + appWidgetId, WidgetConfigurationDefaults.FONT_STYLE) ?: WidgetConfigurationDefaults.FONT_STYLE
 
         return if (title != null && fromStation != null && toStation != null && alignment != null) {
             WidgetConfiguration(
@@ -206,7 +211,8 @@ object WidgetConfigurationStorage {
                 showMapsIcon,
                 showLastUpdateTime,
                 showDivider,
-                commutingMode
+                commutingMode,
+                fontStyle
             )
         } else {
             null
@@ -244,6 +250,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_DIVIDER_KEY + appWidgetId)
         prefs.remove(PREF_COMMUTING_MODE_KEY + appWidgetId)
+        prefs.remove(PREF_FONT_STYLE_KEY + appWidgetId)
         prefs.apply()
     }
 }

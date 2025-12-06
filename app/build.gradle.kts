@@ -56,4 +56,6 @@ dependencies {
     implementation("com.github.dhaval2404:colorpicker:2.3")
     
     implementation("com.google.android.gms:play-services-location:21.1.0")
+
+    implementation(libs.androidx.work.runtime.ktx)
 }

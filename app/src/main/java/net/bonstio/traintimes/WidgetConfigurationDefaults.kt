@@ -25,4 +25,5 @@ object WidgetConfigurationDefaults {
     const val SHOW_LAST_UPDATE_TIME = true
     const val SHOW_DIVIDER = true
     const val COMMUTING_MODE = "TIME" // "TIME" or "LOCATION"
+    const val FONT_STYLE = "SYSTEM" // "SYSTEM" or "RETRO"
 }

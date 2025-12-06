@@ -354,4 +354,9 @@
     <string name="summary_commuting_location">Location based</string>
     <!-- Summary text showing the closest station. Length: 50 chars. -->
     <string name="location_closest_summary">Based on location - currently closest to %1$s</string>
+
+    <!-- Font Style -->
+    <string name="font_style_label">Font</string>
+    <string name="font_style_system">System</string>
+    <string name="font_style_retro">Retro</string>
 </resources>

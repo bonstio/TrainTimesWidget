@@ -1,48 +1,42 @@
 package net.bonstio.traintimes
 
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.os.SystemClock
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 
 /**
- * Helper object to schedule automatic widget updates using AlarmManager.
+ * Helper object to schedule automatic widget updates using WorkManager.
  */
 object WidgetUpdateScheduler {
-    const val ACTION_AUTO_UPDATE = "net.bonstio.traintimes.ACTION_AUTO_UPDATE"
+    private const val WORK_NAME = "widget_auto_update"
 
     /**
-     * Schedules or cancels the automatic update alarm based on the interval.
+     * Schedules or cancels the automatic update worker based on the interval.
      *
      * @param context The application context.
-     * @param intervalMinutes The update interval in minutes. If 0, the alarm is cancelled.
+     * @param intervalMinutes The update interval in minutes. If 0, the worker is cancelled.
+     * Note: WorkManager minimum interval is 15 minutes.
      */
     fun scheduleUpdate(context: Context, intervalMinutes: Int) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
-            action = ACTION_AUTO_UPDATE
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Always cancel existing alarm first
-        alarmManager.cancel(pendingIntent)
+        val workManager = WorkManager.getInstance(context)
 
         if (intervalMinutes > 0) {
-            val intervalMillis = intervalMinutes * 60 * 1000L
-            // Start the first update after one interval
-            val triggerAtMillis = SystemClock.elapsedRealtime() + intervalMillis
-            alarmManager.setInexactRepeating(
-                AlarmManager.ELAPSED_REALTIME,
-                triggerAtMillis,
-                intervalMillis,
-                pendingIntent
+            // WorkManager has a minimum interval of 15 minutes.
+            val interval = intervalMinutes.toLong().coerceAtLeast(15)
+            
+            val workRequest = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(
+                interval, TimeUnit.MINUTES
+            ).build()
+
+            workManager.enqueueUniquePeriodicWork(
+                WORK_NAME,
+                ExistingPeriodicWorkPolicy.UPDATE,
+                workRequest
             )
+        } else {
+            workManager.cancelUniqueWork(WORK_NAME)
         }
     }
 }

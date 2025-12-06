@@ -1,37 +1,22 @@
 package net.bonstio.traintimes
 
-import android.Manifest
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
-import android.location.Location
 import android.net.Uri
-import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.RemoteViews
-import androidx.core.content.ContextCompat
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import io.ktor.client.plugins.ClientRequestException
-import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import java.io.IOException
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import kotlin.coroutines.resume
 
 class TrainTimesWidgetProvider : AppWidgetProvider() {
 
@@ -77,11 +62,6 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 updateAppWidget(context, appWidgetManager, appWidgetId)
                 appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
             }
-        } else if (intent.action == WidgetUpdateScheduler.ACTION_AUTO_UPDATE) {
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val thisAppWidget = ComponentName(context.packageName, TrainTimesWidgetProvider::class.java.name)
-            val appWidgetIds = appWidgetManager.getAppWidgetIds(thisAppWidget)
-            onUpdate(context, appWidgetManager, appWidgetIds)
         }
     }
 
@@ -98,32 +78,19 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             if (config == null || apiKey.isNullOrEmpty()) {
                 val isApiKeyMissing = apiKey.isNullOrEmpty()
                 updateAppWidgetWithSetupRequest(context, appWidgetManager, appWidgetId, isApiKeyMissing)
-            } else {
-                // Do not show loading indicator proactively to avoid flickering/flashing
-                // showLoadingState(context, appWidgetManager, appWidgetId)
             }
         }
 
-        if (apiKey.isNullOrEmpty()) {
-            return
-        }
+        if (!apiKey.isNullOrEmpty()) {
+            val data = Data.Builder()
+                .putIntArray(WidgetUpdateWorker.KEY_WIDGET_IDS, appWidgetIds)
+                .build()
 
-        val client = NationalRailClient(apiKey)
-        val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                for (appWidgetId in appWidgetIds) {
-                    // Only fetch for configured widgets
-                    if (WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) != null) {
-                        updateSingleWidget(context, appWidgetManager, appWidgetId, client)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Global update error", e)
-                // Optionally, update UI to show a generic error state for all widgets
-            } finally {
-                pendingResult.finish()
-            }
+            val request = OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
+                .setInputData(data)
+                .build()
+
+            WorkManager.getInstance(context).enqueue(request)
         }
     }
 
@@ -209,129 +176,16 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
 
-        private suspend fun getLastLocation(context: Context): Location? {
-             if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                return null
-            }
-
-            return suspendCancellableCoroutine { cont ->
-                val client = LocationServices.getFusedLocationProviderClient(context)
-                // Use PRIORITY_HIGH_ACCURACY for better responsiveness when the user is moving (e.g. at a station)
-                // and a CancellationToken to ensure we don't hang indefinitely if location is unavailable.
-                // However, since we are in a coroutine, we can rely on standard timeouts if needed, but getCurrentLocation has its own.
-                client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                    .addOnSuccessListener { location: Location? ->
-                        cont.resume(location)
-                    }
-                    .addOnFailureListener {
-                        cont.resume(null)
-                    }
-                    .addOnCanceledListener {
-                        cont.resume(null)
-                    }
-            }
-        }
-
-        private suspend fun updateSingleWidget(
-            context: Context,
-            appWidgetManager: AppWidgetManager,
-            appWidgetId: Int,
-            client: NationalRailClient
-        ) {
-            val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
-
-            var handled = false
-            var trainServices: List<TrainService> = emptyList()
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            try {
-                var fromStation = config.fromStation
-                var toStation = config.toStation
-                
-                if (config.commutingMode == "LOCATION") {
-                    val location = getLastLocation(context)
-                    if (location != null) {
-                        val fromStationObj = StationRepository.getStation(context, fromStation)
-                        val toStationObj = StationRepository.getStation(context, toStation)
-                        
-                        if (fromStationObj != null && toStationObj != null) {
-                             val distFrom = FloatArray(1)
-                             Location.distanceBetween(location.latitude, location.longitude, fromStationObj.lat, fromStationObj.lon, distFrom)
-                             
-                             val distTo = FloatArray(1)
-                             Location.distanceBetween(location.latitude, location.longitude, toStationObj.lat, toStationObj.lon, distTo)
-                             
-                             // If closer to "To" station, assume we are departing from there
-                             if (distTo[0] < distFrom[0]) {
-                                 Log.d(TAG, "Location based swap: Closest to ${toStationObj.code} (${distTo[0]}m vs ${distFrom[0]}m)")
-                                 val temp = fromStation
-                                 fromStation = toStation
-                                 toStation = temp
-                             } else {
-                                 Log.d(TAG, "Location based keep: Closest to ${fromStationObj.code} (${distFrom[0]}m vs ${distTo[0]}m)")
-                             }
-                        }
-                    }
-                } else {
-                    val pair = WidgetUtils.determineDirection(config)
-                    fromStation = pair.first
-                    toStation = pair.second
-                }
-                
-                // Save effective stations so updateAppWidget can use the correct title
-                prefs.edit()
-                    .putString(PREF_EFFECTIVE_FROM + appWidgetId, fromStation)
-                    .putString(PREF_EFFECTIVE_TO + appWidgetId, toStation)
-                    .apply()
-
-                trainServices = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
-                if (config.hidePastDepartures) {
-                    trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }
-                }
-                WidgetCache.saveServices(context, appWidgetId, trainServices)
-                prefs.edit().remove(PREF_LAST_ERROR + appWidgetId).apply()
-            } catch (e: ClientRequestException) {
-                if (e.response.status == HttpStatusCode.Unauthorized) {
-                    Log.w(TAG, "Unauthorized API key for widget $appWidgetId")
-                    withContext(Dispatchers.Main) {
-                        updateAppWidgetWithSetupRequest(context, appWidgetManager, appWidgetId, isApiKeyMissing = false, showInvalidKeyError = true)
-                    }
-                    handled = true
-                } else {
-                    Log.e(TAG, "Failed to update widget $appWidgetId", e)
-                    WidgetCache.saveServices(context, appWidgetId, emptyList())
-                    prefs.edit().putString(PREF_LAST_ERROR + appWidgetId, "GENERIC").apply()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to update widget $appWidgetId", e)
-                WidgetCache.saveServices(context, appWidgetId, emptyList()) // Clear cache on error
-                val errorType = if (e is IOException) "NETWORK" else "GENERIC"
-                prefs.edit().putString(PREF_LAST_ERROR + appWidgetId, errorType).apply()
-            } finally {
-                if (!handled) {
-                    withContext(Dispatchers.Main) {
-                        updateAppWidget(context, appWidgetManager, appWidgetId, hasData = trainServices.isNotEmpty())
-                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
-                    }
-                }
-            }
-        }
-        
-        private fun showLoadingState(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
-            val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
-            val styling = WidgetUtils.resolveWidgetStyling(context, config)
-            val (fromStation, toStation) = WidgetUtils.determineDirection(config)
-            val title = WidgetUtils.calculateDisplayTitle(context, config.titleStyle, config.title, fromStation, toStation, config.fromStation)
-            
-            val views = createBaseWidgetView(context, appWidgetId, styling, title, config, fromStation, toStation, isLoading = true)
-            appWidgetManager.updateAppWidget(appWidgetId, views)
-        }
-
         private fun createBaseWidgetView(
             context: Context, appWidgetId: Int, styling: WidgetStyling,
             title: String, config: WidgetConfiguration, fromStation: String, toStation: String, isLoading: Boolean = false
         ): RemoteViews {
-            val layoutId = if (config.showDivider) R.layout.widget_layout else R.layout.widget_layout_no_divider
+            val useRetro = config.fontStyle == "RETRO"
+            val layoutId = if (useRetro) {
+                if (config.showDivider) R.layout.widget_layout_retro else R.layout.widget_layout_no_divider_retro
+            } else {
+                if (config.showDivider) R.layout.widget_layout else R.layout.widget_layout_no_divider
+            }
             val views = RemoteViews(context.packageName, layoutId)
 
             // Theming
@@ -368,16 +222,46 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.error_container, View.GONE)
 
             // Content
-            views.setTextViewText(R.id.widget_title, title)
-            views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, WidgetUtils.getTitleSize(config.fontSize))
-            val gravity = when (config.alignment) {
-                "CENTER" -> Gravity.CENTER_HORIZONTAL
-                "END" -> Gravity.END
-                else -> Gravity.START
+            if (useRetro) {
+                views.setViewVisibility(R.id.widget_title, View.GONE)
+                views.setViewVisibility(R.id.widget_title_image, View.VISIBLE)
+                
+                val titleSize = WidgetUtils.getTitleSize(config.fontSize)
+                val bitmap = BitmapGenerator.textAsBitmap(
+                    context, title, titleSize, styling.textColor, R.font.pixeloid_sans
+                )
+                if (bitmap != null) {
+                    views.setImageViewBitmap(R.id.widget_title_image, bitmap)
+                }
+                
+                // Set alignment gravity
+                val gravity = when (config.alignment) {
+                    "CENTER" -> Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
+                    "END" -> Gravity.END or Gravity.CENTER_VERTICAL
+                    else -> Gravity.START or Gravity.CENTER_VERTICAL
+                }
+                views.setInt(R.id.widget_title_wrapper, "setGravity", gravity)
+                
+            } else {
+                views.setTextViewText(R.id.widget_title, title)
+                views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, WidgetUtils.getTitleSize(config.fontSize))
+                val gravity = when (config.alignment) {
+                    "CENTER" -> Gravity.CENTER_HORIZONTAL
+                    "END" -> Gravity.END
+                    else -> Gravity.START
+                }
+                views.setInt(R.id.widget_title, "setGravity", gravity)
             }
-            views.setInt(R.id.widget_title, "setGravity", gravity)
 
+            // Icon
+            val iconResId = if (useRetro) R.drawable.train_pixel_24px else R.drawable.train_24px
+            views.setImageViewResource(R.id.widget_icon, iconResId)
             views.setViewVisibility(R.id.widget_icon, if (config.showIcon) View.VISIBLE else View.GONE)
+            
+            // Standard Settings and Refresh Icons
+            views.setImageViewResource(R.id.refresh_button, R.drawable.refresh_24px)
+            views.setImageViewResource(R.id.settings_button, R.drawable.settings)
+            
             views.setViewVisibility(R.id.refresh_button, if (config.showRefreshIcon) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.settings_button, if (config.showSettingsIcon) View.VISIBLE else View.GONE)
 
@@ -395,6 +279,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val refreshPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             views.setOnClickPendingIntent(R.id.refresh_button, refreshPendingIntent)
             views.setOnClickPendingIntent(R.id.widget_title, refreshPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_title_image, refreshPendingIntent)
             views.setOnClickPendingIntent(R.id.retry_button, refreshPendingIntent)
 
 

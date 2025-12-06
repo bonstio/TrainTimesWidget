@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/departure_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="0dp"
+    android:paddingEnd="0dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <!-- Time -->
+    <ImageView
+        android:id="@+id/departure_time_img"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:scaleType="fitStart"
+        android:contentDescription="Time"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/departure_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:visibility="gone" />
+
+    <!-- Destination -->
+    <ImageView
+        android:id="@+id/destination_img"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toEndOf="@+id/departure_time_img"
+        android:layout_toStartOf="@+id/platform_img"
+        android:layout_marginStart="8dp"
+        android:scaleType="fitStart"
+        android:contentDescription="Destination"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/destination"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toEndOf="@+id/departure_time"
+        android:layout_toStartOf="@+id/platform"
+        android:layout_marginStart="8dp"
+        android:visibility="gone" />
+
+    <!-- Platform -->
+    <ImageView
+        android:id="@+id/platform_img"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toStartOf="@+id/status_img"
+        android:layout_marginEnd="8dp"
+        android:scaleType="fitEnd"
+        android:contentDescription="Platform"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/platform"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toStartOf="@+id/status"
+        android:layout_marginEnd="8dp"
+        android:visibility="gone" />
+
+    <!-- Status -->
+    <ImageView
+        android:id="@+id/status_img"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:scaleType="fitEnd"
+        android:contentDescription="Status"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:visibility="gone" />
+
+    <!-- Calling Points -->
+    <ImageView
+        android:id="@+id/calling_points_img"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/destination_img"
+        android:layout_alignStart="@+id/destination_img"
+        android:scaleType="fitStart"
+        android:contentDescription="Calling points"
+        android:visibility="gone"
+        android:duplicateParentState="true" />
+
+    <TextView
+        android:id="@+id/calling_points"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/destination"
+        android:layout_alignStart="@+id/destination"
+        android:visibility="gone"
+        android:duplicateParentState="true" />
+
+</RelativeLayout>
