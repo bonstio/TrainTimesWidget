@@ -33,6 +33,7 @@
         android:layout_toEndOf="@+id/departure_time_img"
         android:layout_toStartOf="@+id/platform_img"
         android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
         android:scaleType="fitStart"
         android:contentDescription="Destination"
         android:visibility="gone" />
@@ -90,6 +91,7 @@
         android:layout_below="@+id/destination_img"
         android:layout_alignStart="@+id/destination_img"
         android:scaleType="fitStart"
+        android:adjustViewBounds="true"
         android:contentDescription="Calling points"
         android:visibility="gone"
         android:duplicateParentState="true" />

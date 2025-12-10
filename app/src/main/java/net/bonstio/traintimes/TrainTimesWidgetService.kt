@@ -92,7 +92,7 @@ class TrainTimesRemoteViewsFactory(
             // 1. Generate auxiliary columns first to know their widths
             val timeBitmap = genBitmap(service.std, bodySize)
             
-            val platformText = service.platform?.let { "Platform $it" } ?: ""
+            val platformText = service.platform?.let { "Pl. $it" } ?: ""
             val platformBitmap = genBitmap(platformText, smallBodySize)
             
             val statusBitmap = genBitmap(service.status, smallBodySize)
@@ -124,15 +124,27 @@ class TrainTimesRemoteViewsFactory(
             val screenWidth = displayMetrics.widthPixels
             val density = displayMetrics.density
             
+            // Get accurate widget width if possible, fallback to screen width
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+            val minWidthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+            val minWidthPx = if (minWidthDp > 0) {
+                 TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    minWidthDp.toFloat(),
+                    displayMetrics
+                ).toInt()
+            } else screenWidth
+            
             // Margins/Padding estimate (in pixels)
             // 8dp between Time and Dest
             // 8dp between Dest and Platform
             // 8dp between Platform and Status
             // Plus widget padding (~24dp total?)
-            val marginsApprox = (48 * density).toInt() 
+            val marginsApprox = (60 * density).toInt() 
             
             val occupiedWidth = (timeBitmap?.width ?: 0) + (platformBitmap?.width ?: 0) + (statusBitmap?.width ?: 0) + marginsApprox
-            val maxDestWidth = max(100, screenWidth - occupiedWidth) // Ensure at least some width
+            val maxDestWidth = max(100, minWidthPx - occupiedWidth) // Ensure at least some width
 
             // 4. Generate Destination Bitmap with limit
             val destBitmap = genBitmap(service.destination, bodySize, maxWidth = maxDestWidth)
