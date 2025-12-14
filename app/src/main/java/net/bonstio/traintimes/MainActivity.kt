@@ -6,8 +6,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.method.LinkMovementMethod
@@ -34,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
     private lateinit var doneButton: Button
     private lateinit var addToHomeButton: Button
+    private lateinit var batteryOptimizationBanner: View
 
     private val frequencyValues = intArrayOf(0, 30, 60, 120)
 
@@ -58,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         updateFrequencySpinner = findViewById(R.id.update_frequency_spinner)
         doneButton = findViewById(R.id.done_button)
         addToHomeButton = findViewById(R.id.add_to_home_button)
+        batteryOptimizationBanner = findViewById(R.id.battery_optimization_banner)
 
         // Setup Request API Key Link
         val requestApiKeyLink = findViewById<TextView>(R.id.request_api_key_link)
@@ -95,6 +100,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupAddToHomeButton()
+        setupBatteryOptimizationBanner()
 
         if (intent.getBooleanExtra(EXTRA_INVALID_API_KEY, false)) {
             apiKeyInputLayout.error = "Invalid API key"
@@ -128,10 +134,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupBatteryOptimizationBanner() {
+        batteryOptimizationBanner.setOnClickListener {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+            startActivity(intent)
+        }
+    }
+
     /**
      * Called when the system is about to start resuming a previous activity.
      * Saves the current settings.
      */
+    override fun onResume() {
+        super.onResume()
+        checkBatteryOptimization()
+    }
+
     override fun onPause() {
         super.onPause()
         saveSettings()
@@ -154,6 +174,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         WidgetUpdateScheduler.scheduleUpdate(this, frequency)
+    }
+
+    private fun checkBatteryOptimization() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isIgnoring = powerManager.isIgnoringBatteryOptimizations(packageName)
+
+        if (!isIgnoring) {
+            batteryOptimizationBanner.visibility = View.VISIBLE
+        } else {
+            batteryOptimizationBanner.visibility = View.GONE
+        }
     }
 
     /**
