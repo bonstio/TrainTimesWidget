@@ -14,8 +14,8 @@ android {
         applicationId = "net.bonstio.traintimes"
         minSdk = 33
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.3"
+        versionCode = 15
+        versionName = "1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
