@@ -22,8 +22,11 @@ import android.graphics.drawable.PaintDrawable
 import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RectShape
 import android.location.Location
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
@@ -120,6 +123,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
     private lateinit var addButton: Button
     private lateinit var cancelButton: Button
+    private lateinit var batteryOptimizationBanner: View
 
     // Color Views
     private lateinit var rowTextColor: View
@@ -137,6 +141,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var colorsContent: View
     private lateinit var advancedContent: View
     private lateinit var rootView: View
+    private lateinit var slidingSheet: View
 
     private var startTimeNormal = 360  // 06:00
     private var startTimeReverse = 960  // 16:00
@@ -204,10 +209,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val layoutParams = window.attributes
         layoutParams.gravity = Gravity.BOTTOM
         layoutParams.width = WindowManager.LayoutParams.MATCH_PARENT
-        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        layoutParams.height = WindowManager.LayoutParams.MATCH_PARENT
         window.attributes = layoutParams
 
         rootView = findViewById(R.id.config_root_layout)
+        slidingSheet = findViewById(R.id.sliding_sheet_container)
 
         // Route Tab Bindings
         rowDepartingFrom = findViewById(R.id.row_departing_from)
@@ -220,6 +226,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         
         addButton = findViewById(R.id.add_button)
         cancelButton = findViewById(R.id.cancel_button)
+        batteryOptimizationBanner = findViewById(R.id.battery_optimization_banner)
         
         // Layout Tab Bindings
         rowStyle = findViewById(R.id.row_style)
@@ -277,6 +284,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupLayoutListeners()
         setupAdvancedListeners()
         setupDragToMove()
+        setupBatteryOptimizationBanner()
 
         // Setup checkerboards for color previews
         previewTextColorCheckerboard.background = createCheckerboardDrawable(0f)
@@ -406,6 +414,31 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         updateTabVisibility(0)
     }
 
+    override fun onResume() {
+        super.onResume()
+        checkBatteryOptimization()
+    }
+
+    private fun checkBatteryOptimization() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isIgnoring = powerManager.isIgnoringBatteryOptimizations(packageName)
+
+        if (!isIgnoring) {
+            batteryOptimizationBanner.visibility = View.VISIBLE
+        } else {
+            batteryOptimizationBanner.visibility = View.GONE
+        }
+    }
+
+    private fun setupBatteryOptimizationBanner() {
+        batteryOptimizationBanner.setOnClickListener {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+            startActivity(intent)
+        }
+    }
+
     private fun performHapticFeedback() {
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -438,12 +471,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                         lastY = event.rawY
                         startY = event.rawY
                         isDragging = false
-                        val contentView = findViewById<View>(android.R.id.content)
-                        val maxTrans = calculateMaxTranslation()
                         
                         // Mark as already vibrated if starting in the trigger zones
-                        hasVibratedTop = contentView.translationY < 2f
-                        hasVibratedBottom = contentView.translationY > maxTrans - 2f
+                        hasVibratedTop = slidingSheet.translationY < 2f
+                        val maxTrans = calculateMaxTranslation()
+                        hasVibratedBottom = slidingSheet.translationY > maxTrans - 2f
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -455,12 +487,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                         }
                         
                         if (isDragging) {
-                            val contentView = findViewById<View>(android.R.id.content)
                             val maxTrans = calculateMaxTranslation()
-                            val newTranslationY = contentView.translationY + dy
+                            val newTranslationY = slidingSheet.translationY + dy
                             // Clamp between 0 and maxTranslation
                             val clampedTranslationY = min(maxTrans, max(0f, newTranslationY))
-                            contentView.translationY = clampedTranslationY
+                            slidingSheet.translationY = clampedTranslationY
 
                             // Vibration feedback when hitting top
                             if (clampedTranslationY < 2f && !hasVibratedTop) {
@@ -501,7 +532,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
     private fun getVisibleStripHeight(): Int {
         val contentView = findViewById<View>(android.R.id.content)
-        val scrollContainer = findViewById<View>(R.id.config_root_layout)
         val headerView = findViewById<View>(R.id.header_container) ?: return 0
 
         // Calculate bottom inset to ensure header is visible above nav bar
@@ -524,20 +554,18 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun calculateMaxTranslation(): Float {
-        val contentView = findViewById<View>(android.R.id.content)
         val visibleStripHeight = getVisibleStripHeight()
-        // contentView.height can be 0 if the view is not laid out yet.
-        if (contentView.height == 0) return 0f
-        return max(0f, (contentView.height - visibleStripHeight).toFloat())
+        // slidingSheet.height can be 0 if the view is not laid out yet.
+        if (slidingSheet.height == 0) return 0f
+        return max(0f, (slidingSheet.height - visibleStripHeight).toFloat())
     }
 
     private fun togglePosition() {
-        val contentView = findViewById<View>(android.R.id.content)
         val maxTranslation = calculateMaxTranslation()
         
-        val targetY = if (contentView.translationY < maxTranslation / 2) maxTranslation else 0f
+        val targetY = if (slidingSheet.translationY < maxTranslation / 2) maxTranslation else 0f
         
-        ObjectAnimator.ofFloat(contentView, "translationY", targetY).apply {
+        ObjectAnimator.ofFloat(slidingSheet, "translationY", targetY).apply {
             duration = 300
             start()
         }
@@ -906,6 +934,67 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             val radioGroup = view.findViewById<RadioGroup>(R.id.title_style_radio_group)
             val customTitleContainer = view.findViewById<LinearLayout>(R.id.custom_title_container)
             val customTitleInput = view.findViewById<TextInputEditText>(R.id.custom_title_input)
+            val titlePreview = view.findViewById<TextView>(R.id.dialog_title_preview)
+
+            val helperf = view.findViewById<TextView>(R.id.helper_f)
+            val helperF = view.findViewById<TextView>(R.id.helper_F)
+            val helpert = view.findViewById<TextView>(R.id.helper_t)
+            val helperT = view.findViewById<TextView>(R.id.helper_T)
+            val helperC = view.findViewById<TextView>(R.id.helper_C)
+
+            val calendar = Calendar.getInstance()
+            val currentMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+            val isReversed = if (toStationCode.isNotEmpty()) {
+                WidgetUtils.isTimeReversed(currentMinutes, startTimeNormal, startTimeReverse)
+            } else {
+                false
+            }
+            val displayFrom = if (isReversed) toStationCode else fromStationCode
+            val displayTo = if (isReversed) fromStationCode else toStationCode
+
+            val valf = displayFrom.uppercase()
+            val valF = StationRepository.getStationName(this, displayFrom)
+            val valt = displayTo.uppercase()
+            val valT = if (displayTo.isNotEmpty()) StationRepository.getStationName(this, displayTo) else ""
+            val valC = if (isReversed) "home" else "to work"
+
+            helperf.text = "\$f [$valf]"
+            helperF.text = "\$F [$valF]"
+            helpert.text = "\$t [$valt]"
+            helperT.text = "\$T [$valT]"
+            helperC.text = "\$C [$valC]"
+
+            fun insertText(text: String) {
+                val start = max(customTitleInput.selectionStart, 0)
+                val end = max(customTitleInput.selectionEnd, 0)
+                customTitleInput.text?.replace(min(start, end), max(start, end), text)
+            }
+            
+            fun updatePreview() {
+                val selectedId = radioGroup.checkedRadioButtonId
+                val style = when (selectedId) {
+                    R.id.radio_short -> "SHORT"
+                    R.id.radio_long -> "LONG"
+                    R.id.radio_custom -> "CUSTOM"
+                    else -> selectedTitleStyle
+                }
+                val customText = customTitleInput.text.toString()
+
+                titlePreview.text = WidgetUtils.calculateDisplayTitle(
+                    this,
+                    style,
+                    if (customText.isEmpty()) getString(R.string.default_from_only_title) else customText,
+                    displayFrom,
+                    displayTo,
+                    fromStationCode
+                )
+            }
+
+            helperf.setOnClickListener { insertText("\$f") }
+            helperF.setOnClickListener { insertText("\$F") }
+            helpert.setOnClickListener { insertText("\$t") }
+            helperT.setOnClickListener { insertText("\$T") }
+            helperC.setOnClickListener { insertText("\$C") }
             
             customTitleInput.setText(customTitleText)
             
@@ -919,7 +1008,18 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             
             radioGroup.setOnCheckedChangeListener { _, checkedId ->
                 customTitleContainer.visibility = if (checkedId == R.id.radio_custom) View.VISIBLE else View.GONE
+                updatePreview()
             }
+            
+            customTitleInput.addTextChangedListener(object: TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    updatePreview()
+                }
+            })
+            
+            updatePreview()
             
             MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.heading_format)
@@ -1315,7 +1415,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
     private fun updateTabVisibility(position: Int) {
         val rootView = findViewById<View>(R.id.config_root_layout)
-        val startHeight = window.decorView.height
     
         routeContent.visibility = if (position == 0) View.VISIBLE else View.GONE
         layoutContent.visibility = if (position == 1) View.VISIBLE else View.GONE
@@ -1323,37 +1422,27 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         advancedContent.visibility = if (position == 3) View.VISIBLE else View.GONE
     
         rootView.post {
-            val measureWidth = if (rootView.width > 0) {
-                rootView.width
-            } else {
-                resources.displayMetrics.widthPixels
-            }
+            val slidingSheet = findViewById<View>(R.id.sliding_sheet_container)
+            // Safety check
+            if (slidingSheet == null || slidingSheet.width == 0 || slidingSheet.height == 0) return@post
+            
+            val availableHeight = slidingSheet.height
 
-            rootView.measure(
-                View.MeasureSpec.makeMeasureSpec(measureWidth, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-            )
-            val targetHeight = rootView.measuredHeight
-            val contentView = findViewById<View>(android.R.id.content)
+            // Measure the sheet content
+            val widthSpec = View.MeasureSpec.makeMeasureSpec(slidingSheet.width, View.MeasureSpec.EXACTLY)
+            // Use UNSPECIFIED to allow it to measure full desired height
+            val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            slidingSheet.measure(widthSpec, heightSpec)
+            val contentHeight = slidingSheet.measuredHeight
 
-            // Animate to fully expanded state when tab changes.
-            if (contentView.translationY != 0f) {
-                ObjectAnimator.ofFloat(contentView, "translationY", 0f).apply {
-                    duration = 250
-                    start()
-                }
-            }
-    
-            if (startHeight != targetHeight && targetHeight > 0) {
-                val animator = ValueAnimator.ofInt(startHeight, targetHeight)
-                animator.addUpdateListener { animation ->
-                    val params = window.attributes
-                    params.height = animation.animatedValue as Int
-                    window.attributes = params
-                }
-                animator.duration = 250
-                animator.start()
-            }
+            // Calculate target translation (bottom aligned to the available space)
+            // If content is smaller than available space, we translate down.
+            var targetTranslationY = (availableHeight - contentHeight).toFloat()
+            if (targetTranslationY < 0f) targetTranslationY = 0f
+
+            val animator = ObjectAnimator.ofFloat(slidingSheet, "translationY", targetTranslationY)
+            animator.duration = 250
+            animator.start()
         }
     }
 

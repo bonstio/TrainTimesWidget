@@ -359,4 +359,7 @@
     <string name="font_style_label">Font</string>
     <string name="font_style_system">System</string>
     <string name="font_style_retro">Retro</string>
+
+    <!-- Warning displayed when background activity is restricted. -->
+    <string name="battery_optimization_warning">Background updates may be unreliable. Tap to fix.</string>
 </resources>

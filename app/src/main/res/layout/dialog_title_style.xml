@@ -3,7 +3,21 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="20dp"
+    android:paddingBottom="24dp">
+
+    <TextView
+        android:id="@+id/dialog_title_preview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurfaceContainer"
+        android:padding="16dp"
+        android:layout_marginBottom="16dp"
+        android:textAppearance="?attr/textAppearanceTitleMedium"
+        android:gravity="center"
+        android:text="Preview" />
 
     <RadioGroup
         android:id="@+id/title_style_radio_group"
@@ -53,12 +67,50 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
+            android:id="@+id/helper_f"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/widget_title_helper"
-            android:textAppearance="?attr/textAppearanceCaption"
-            android:layout_marginTop="4dp"
-            android:layout_marginStart="4dp" />
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:layout_marginTop="8dp"
+            android:textColor="?attr/colorPrimary" />
+
+        <TextView
+            android:id="@+id/helper_F"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:textColor="?attr/colorPrimary" />
+
+        <TextView
+            android:id="@+id/helper_t"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:textColor="?attr/colorPrimary" />
+
+        <TextView
+            android:id="@+id/helper_T"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:textColor="?attr/colorPrimary" />
+
+        <TextView
+            android:id="@+id/helper_C"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:textColor="?attr/colorPrimary" />
     </LinearLayout>
 
 </LinearLayout>
