@@ -107,7 +107,9 @@ class WidgetUpdateWorker(
                 trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }
             }
             WidgetCache.saveServices(context, appWidgetId, trainServices)
-            prefs.edit().remove(TrainTimesWidgetProvider.PREF_LAST_ERROR + appWidgetId).apply()
+            prefs.edit().remove(TrainTimesWidgetProvider.PREF_LAST_ERROR + appWidgetId)
+                .putLong(TrainTimesWidgetProvider.PREF_LAST_SUCCESSFUL_UPDATE + appWidgetId, System.currentTimeMillis())
+                .apply()
             
             withContext(Dispatchers.Main) {
                 TrainTimesWidgetProvider.updateAppWidget(context, appWidgetManager, appWidgetId, hasData = trainServices.isNotEmpty())

@@ -31,6 +31,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             prefs.remove(PREF_LAST_ERROR + appWidgetId)
             prefs.remove(PREF_EFFECTIVE_FROM + appWidgetId)
             prefs.remove(PREF_EFFECTIVE_TO + appWidgetId)
+            prefs.remove(PREF_LAST_SUCCESSFUL_UPDATE + appWidgetId)
         }
         prefs.apply()
     }
@@ -107,6 +108,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         const val PREF_LAST_ERROR = "last_error_"
         const val PREF_EFFECTIVE_FROM = "effective_from_"
         const val PREF_EFFECTIVE_TO = "effective_to_"
+        const val PREF_LAST_SUCCESSFUL_UPDATE = "last_successful_update_"
 
         internal fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, hasData: Boolean? = null) {
             val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
@@ -266,8 +268,13 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.settings_button, if (config.showSettingsIcon) View.VISIBLE else View.GONE)
 
             // Footer
-            val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val lastUpdate = prefs.getLong(PREF_LAST_SUCCESSFUL_UPDATE + appWidgetId, 0L)
+            val displayTime = if (lastUpdate > 0) Date(lastUpdate) else Date()
+            
+            val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(displayTime)
             views.setTextViewText(R.id.last_updated, context.getString(R.string.last_update_format, currentTime))
+
             views.setViewVisibility(R.id.last_updated, if (config.showLastUpdateTime) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.open_in_maps, if (config.showMapsIcon) View.VISIBLE else View.GONE)
 

@@ -73,7 +73,19 @@ object WidgetUtils {
 
             val currentTotalMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
 
-            departureTotalMinutes < currentTotalMinutes
+            val diff = departureTotalMinutes - currentTotalMinutes
+
+            // Handle day wrap-around (e.g. 23:59 vs 00:01)
+            // Assuming trains are within a reasonable window (e.g. 12 hours)
+            if (diff > 720) {
+                // Departure is much larger than current (e.g. 23:00 vs 01:00) -> Yesterday -> Past
+                true
+            } else if (diff < -720) {
+                // Departure is much smaller than current (e.g. 01:00 vs 23:00) -> Tomorrow -> Future
+                false
+            } else {
+                diff < 0
+            }
         } catch (e: Exception) {
             false
         }
