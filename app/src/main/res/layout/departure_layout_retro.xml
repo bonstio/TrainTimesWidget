@@ -86,23 +86,22 @@
     <!-- Calling Points -->
     <ImageView
         android:id="@+id/calling_points_img"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/destination_img"
-        android:layout_alignStart="@+id/destination_img"
-        android:scaleType="fitStart"
-        android:adjustViewBounds="true"
-        android:contentDescription="Calling points"
-        android:visibility="gone"
-        android:duplicateParentState="true" />
+        android:layout_below="@+id/departure_time_img"
+        android:layout_toEndOf="@+id/departure_time_img"
+        android:layout_marginStart="8dp"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/calling_points"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/destination"
-        android:layout_alignStart="@+id/destination"
+        android:layout_below="@+id/departure_time_img"
+        android:layout_toEndOf="@+id/departure_time_img"
+        android:layout_marginStart="8dp"
         android:visibility="gone"
+        android:fontFamily="@font/pixeloid_sans"
         android:duplicateParentState="true" />
 
 </RelativeLayout>

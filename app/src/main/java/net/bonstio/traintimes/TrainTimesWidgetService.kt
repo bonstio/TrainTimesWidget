@@ -64,6 +64,10 @@ class TrainTimesRemoteViewsFactory(
         val service = services[position]
         
         val useRetro = config?.fontStyle == "RETRO"
+        
+        var widgetWidthPx = 0
+        var contentStartOffsetPx = 0
+        
         val layoutId = if (useRetro) R.layout.departure_layout_retro else R.layout.departure_layout
         val departureView = RemoteViews(context.packageName, layoutId)
 
@@ -136,6 +140,9 @@ class TrainTimesRemoteViewsFactory(
                 ).toInt()
             } else screenWidth
             
+            widgetWidthPx = minWidthPx
+            contentStartOffsetPx = (timeBitmap?.width ?: 0) + (8 * density).toInt()
+            
             // Margins/Padding estimate (in pixels)
             // 8dp between Time and Dest
             // 8dp between Dest and Platform
@@ -205,50 +212,26 @@ class TrainTimesRemoteViewsFactory(
         }
         departureView.setOnClickFillInIntent(R.id.departure_row, fillInIntent)
 
+        // Unified logic for calling points: Always use TextView
         if (service.subsequentCallingPoints.isNotEmpty() && shouldShowStops) {
             val callingPointsText = "Calling at ${service.subsequentCallingPoints.joinToString(", ")}"
             
-            if (useRetro) {
-                val displayMetrics = context.resources.displayMetrics
-                val screenWidth = displayMetrics.widthPixels
-                val padding = (32 * displayMetrics.density).toInt()
-                val maxWidth = screenWidth - padding
-                
-                val maxLines = if (isExpanded) 10 else 1
-                
-                val bitmap = BitmapGenerator.textAsBitmap(
-                    context, callingPointsText, bodySize, textColor, R.font.pixeloid_sans, 
-                    maxWidth = maxWidth, maxLines = maxLines
-                )
-                
-                if (bitmap != null) {
-                    departureView.setImageViewBitmap(R.id.calling_points_img, bitmap)
-                    departureView.setViewVisibility(R.id.calling_points_img, View.VISIBLE)
-                } else {
-                    departureView.setViewVisibility(R.id.calling_points_img, View.GONE)
-                }
-                
-                departureView.setViewVisibility(R.id.calling_points, View.GONE)
+            departureView.setTextViewText(R.id.calling_points, callingPointsText)
+
+            if (styling!!.useSystemTextColor) {
+                departureView.setColorAttr(R.id.calling_points, "setTextColor", com.google.android.material.R.attr.colorOnSurface)
             } else {
-                departureView.setTextViewText(R.id.calling_points, callingPointsText)
-
-                if (styling!!.useSystemTextColor) {
-                    departureView.setColorAttr(R.id.calling_points, "setTextColor", com.google.android.material.R.attr.colorOnSurface)
-                } else {
-                    departureView.setTextColor(R.id.calling_points, styling!!.textColor)
-                }
-                val sizeUnit = TypedValue.COMPLEX_UNIT_SP
-                departureView.setTextViewTextSize(R.id.calling_points, sizeUnit, bodySize)
-                departureView.setViewVisibility(R.id.calling_points, View.VISIBLE)
-
-                val maxLines = if (isExpanded) 100 else 1
-                departureView.setInt(R.id.calling_points, "setMaxLines", maxLines)
+                departureView.setTextColor(R.id.calling_points, styling!!.textColor)
             }
+            val sizeUnit = TypedValue.COMPLEX_UNIT_SP
+            departureView.setTextViewTextSize(R.id.calling_points, sizeUnit, bodySize)
+            departureView.setViewVisibility(R.id.calling_points, View.VISIBLE)
+
+            val maxLines = if (isExpanded) 100 else 1
+            departureView.setInt(R.id.calling_points, "setMaxLines", maxLines)
+            
         } else {
             departureView.setViewVisibility(R.id.calling_points, View.GONE)
-            if (useRetro) {
-                departureView.setViewVisibility(R.id.calling_points_img, View.GONE)
-            }
         }
 
         return departureView
