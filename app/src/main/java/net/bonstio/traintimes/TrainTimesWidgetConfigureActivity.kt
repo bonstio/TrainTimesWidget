@@ -119,6 +119,10 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var rowDepartureCount: View
     private lateinit var summaryDepartureCount: TextView
     private lateinit var switchHidePastDepartures: MaterialSwitch
+    private lateinit var rowMaxJourneyDuration: View
+    private lateinit var switchMaxJourneyDuration: MaterialSwitch
+    private lateinit var summaryMaxJourneyDuration: TextView
+    private lateinit var sliderMaxJourneyDuration: Slider
     private lateinit var rowGlobalSettings: View
 
     private lateinit var addButton: Button
@@ -172,6 +176,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var selectedOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
     private var selectedDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
     private var selectedCommutingMode: String = WidgetConfigurationDefaults.COMMUTING_MODE
+    private var enableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
+    private var maxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
 
     // Initial config for comparison
     private var initialFromStationCode: String = ""
@@ -181,6 +187,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var initialOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
     private var initialDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
     private var initialHidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
+    private var initialEnableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
+    private var initialMaxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
 
     // Permission launcher
     private val locationPermissionRequest = registerForActivityResult(
@@ -260,6 +268,12 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         rowDepartureCount = findViewById(R.id.row_departure_count)
         summaryDepartureCount = findViewById(R.id.summary_departure_count)
         switchHidePastDepartures = findViewById(R.id.switch_hide_past_departures)
+        
+        rowMaxJourneyDuration = findViewById(R.id.row_max_journey_duration)
+        switchMaxJourneyDuration = findViewById(R.id.switch_max_journey_duration)
+        summaryMaxJourneyDuration = findViewById(R.id.summary_max_journey_duration)
+        sliderMaxJourneyDuration = findViewById(R.id.slider_max_journey_duration)
+        
         rowGlobalSettings = findViewById(R.id.row_global_settings)
 
         // Color Views
@@ -285,6 +299,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupAdvancedListeners()
         setupDragToMove()
         setupBatteryOptimizationBanner()
+        
+        setupFadeAnimation(sliderFontSize)
+        setupFadeAnimation(sliderMaxJourneyDuration)
 
         // Setup checkerboards for color previews
         previewTextColorCheckerboard.background = createCheckerboardDrawable(0f)
@@ -352,6 +369,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             selectedDepartureCount = existingConfig.departureCount
             switchHidePastDepartures.isChecked = existingConfig.hidePastDepartures
             selectedCommutingMode = existingConfig.commutingMode
+            
+            enableJourneyDurationFilter = existingConfig.enableJourneyDurationFilter
+            maxJourneyDuration = existingConfig.maxJourneyDuration
 
             currentTextColor = existingConfig.textColor
             currentBackgroundColor = ColorUtils.setAlphaComponent(
@@ -383,6 +403,10 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             selectedOffset = WidgetConfigurationDefaults.TIME_OFFSET
             selectedDepartureCount = WidgetConfigurationDefaults.DEPARTURE_COUNT
             switchHidePastDepartures.isChecked = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
+            
+            enableJourneyDurationFilter = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
+            maxJourneyDuration = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
+            
             currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
             currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
             isTextSystemColor = true
@@ -399,11 +423,21 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         initialOffset = selectedOffset
         initialDepartureCount = selectedDepartureCount
         initialHidePastDepartures = switchHidePastDepartures.isChecked
+        initialEnableJourneyDurationFilter = enableJourneyDurationFilter
+        initialMaxJourneyDuration = maxJourneyDuration
         
         // Sync switch state with loaded config
         switchShowDivider.isChecked = showDivider
         // Set initial slider value
         sliderFontSize.value = selectedFontSize.toFloat()
+        
+        switchMaxJourneyDuration.isChecked = enableJourneyDurationFilter
+        sliderMaxJourneyDuration.value = maxJourneyDuration.toFloat()
+        
+        // Visibility of journey duration elements
+        val durationVisible = if (enableJourneyDurationFilter) View.VISIBLE else View.GONE
+        summaryMaxJourneyDuration.visibility = durationVisible
+        sliderMaxJourneyDuration.visibility = durationVisible
 
         updateColorSummariesAndPreviews()
         updateLayoutSummaries()
@@ -417,6 +451,92 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         checkBatteryOptimization()
+    }
+    
+    private fun setUiFade(faded: Boolean, excludedView: View) {
+        val targetAlpha = if (faded) 0f else 1f
+        val duration = 200L
+
+        // Helper to animate alpha
+        fun animateView(v: View) {
+            v.animate().alpha(targetAlpha).setDuration(duration).start()
+        }
+
+        // Animate sliding sheet background transparency
+        val bg = slidingSheet.background
+        if (bg != null) {
+            bg.mutate()
+            val targetBgAlpha = if (faded) 0 else 255
+            val startBgAlpha = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                bg.alpha
+            } else {
+                if (faded) 255 else 0
+            }
+
+            ValueAnimator.ofInt(startBgAlpha, targetBgAlpha).apply {
+                this.duration = duration
+                addUpdateListener { animator ->
+                    bg.alpha = animator.animatedValue as Int
+                }
+                start()
+            }
+        }
+        
+        // Animate the window background dim
+        val window = window
+        val initialDim = window.attributes.dimAmount
+        val targetDim = if (faded) 0f else 0.5f // Assuming default dim is around 0.5-0.6
+        
+        // If we are starting fresh (not reversing mid-animation), assume current dim is what we want
+        // But dimAmount might not be readable on older APIs or reliable if we haven't set it.
+        // It's safer to just set the target dim.
+        
+        val valueAnimator = ValueAnimator.ofFloat(if (faded) 0.5f else 0f, targetDim)
+        valueAnimator.duration = duration
+        valueAnimator.addUpdateListener { animator ->
+            val dim = animator.animatedValue as Float
+            val layoutParams = window.attributes
+            layoutParams.dimAmount = dim
+            window.attributes = layoutParams
+        }
+        valueAnimator.start()
+
+        // Walk up from excludedView
+        var current: View = excludedView
+        while (current.parent is ViewGroup) {
+            val parent = current.parent as ViewGroup
+            if (parent.id == android.R.id.content) break // Stop at content root
+            if (parent.id == R.id.config_root_layout) {
+                 // Also fade siblings of sliding sheet (e.g. pinned buttons)
+                 for (i in 0 until parent.childCount) {
+                     val child = parent.getChildAt(i)
+                     if (child != slidingSheet) { 
+                         animateView(child)
+                     }
+                 }
+                 break
+            }
+
+            for (i in 0 until parent.childCount) {
+                val child = parent.getChildAt(i)
+                if (child != current) {
+                    animateView(child)
+                }
+            }
+            current = parent
+        }
+    }
+    
+    private fun setupFadeAnimation(slider: Slider) {
+        slider.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: Slider) {
+                setUiFade(true, slider)
+            }
+
+            override fun onStopTrackingTouch(slider: Slider) {
+                setUiFade(false, slider)
+            }
+        })
     }
 
     private fun checkBatteryOptimization() {
@@ -627,7 +747,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showLastUpdateTime,
             showDivider,
             selectedCommutingMode,
-            fontStyle
+            fontStyle,
+            enableJourneyDurationFilter,
+            maxJourneyDuration
         )
 
         // Check if data changed
@@ -637,7 +759,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 initialStartTimeReverse != startTimeReverse ||
                 initialOffset != timeOffset ||
                 initialDepartureCount != departureCount ||
-                initialHidePastDepartures != hidePastDepartures
+                initialHidePastDepartures != hidePastDepartures ||
+                initialEnableJourneyDurationFilter != enableJourneyDurationFilter ||
+                initialMaxJourneyDuration != maxJourneyDuration
 
         // If data changed, update our "initial" reference so subsequent style updates don't trigger data fetch
         if (dataChanged) {
@@ -648,6 +772,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             initialOffset = timeOffset
             initialDepartureCount = departureCount
             initialHidePastDepartures = hidePastDepartures
+            initialEnableJourneyDurationFilter = enableJourneyDurationFilter
+            initialMaxJourneyDuration = maxJourneyDuration
         }
 
         val intent = Intent(context, TrainTimesWidgetProvider::class.java)
@@ -678,6 +804,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 updateRouteSummaries()
                 validateInputs()
                 updateLayoutSummaries()
+                if (addButton.isEnabled) {
+                    triggerUpdate()
+                }
             }
         }
 
@@ -690,6 +819,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 updateRouteSummaries()
                 validateInputs()
                 updateLayoutSummaries()
+                if (addButton.isEnabled) {
+                    triggerUpdate()
+                }
             }
         }
         
@@ -1309,6 +1441,20 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                  input.requestFocus()
             }
         }
+        
+        switchMaxJourneyDuration.setOnCheckedChangeListener { _, isChecked ->
+            enableJourneyDurationFilter = isChecked
+            val visibility = if (isChecked) View.VISIBLE else View.GONE
+            summaryMaxJourneyDuration.visibility = visibility
+            sliderMaxJourneyDuration.visibility = visibility
+            triggerUpdate()
+        }
+        
+        sliderMaxJourneyDuration.addOnChangeListener { _, value, _ ->
+            maxJourneyDuration = value.toInt()
+            updateAdvancedSummaries()
+            triggerUpdate()
+        }
 
         rowGlobalSettings.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
@@ -1318,6 +1464,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private fun updateAdvancedSummaries() {
         summaryOffset.text = getString(R.string.offset_summary_format, selectedOffset)
         summaryDepartureCount.text = selectedDepartureCount.toString()
+        summaryMaxJourneyDuration.text = getString(R.string.journey_duration_format, maxJourneyDuration)
     }
 
     private fun updateLayoutSummaries() {

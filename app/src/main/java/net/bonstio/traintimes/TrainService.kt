@@ -8,11 +8,13 @@ package net.bonstio.traintimes
  * @property platform The platform number (nullable as it might not be assigned yet).
  * @property status The status of the train (e.g., "On time", "Cancelled", "Exp HH:MM").
  * @property subsequentCallingPoints A list of names of subsequent stations this train will call at.
+ * @property duration The duration of the journey in minutes, if available.
  */
 data class TrainService(
     val std: String,
     val destination: String,
     val platform: String?,
     val status: String,
-    val subsequentCallingPoints: List<String>
+    val subsequentCallingPoints: List<String>,
+    val duration: Int? = null
 )

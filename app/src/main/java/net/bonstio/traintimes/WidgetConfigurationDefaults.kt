@@ -11,7 +11,7 @@ object WidgetConfigurationDefaults {
     const val START_TIME_NORMAL = -1
     const val START_TIME_REVERSE = -1
     const val TIME_OFFSET = 0
-    const val DEPARTURE_COUNT = 12
+    const val DEPARTURE_COUNT = 9
     const val TRANSPARENCY = 128
     const val TEXT_COLOR = Color.WHITE
     const val BG_COLOR = Color.BLACK
@@ -26,4 +26,6 @@ object WidgetConfigurationDefaults {
     const val SHOW_DIVIDER = true
     const val COMMUTING_MODE = "TIME" // "TIME" or "LOCATION"
     const val FONT_STYLE = "SYSTEM" // "SYSTEM" or "RETRO"
+    const val ENABLE_JOURNEY_DURATION_FILTER = false
+    const val MAX_JOURNEY_DURATION = 30
 }

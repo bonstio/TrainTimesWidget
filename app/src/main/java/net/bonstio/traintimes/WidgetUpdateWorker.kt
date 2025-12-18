@@ -103,11 +103,27 @@ class WidgetUpdateWorker(
 
         try {
             var trainServices = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
+            val originalCount = trainServices.size
+            
             if (config.hidePastDepartures) {
                 trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }
             }
+            
+            if (config.enableJourneyDurationFilter) {
+                trainServices = trainServices.filter {
+                    it.duration == null || it.duration <= config.maxJourneyDuration
+                }
+            }
+            
+            if (trainServices.isEmpty() && originalCount > 0) {
+                // Trains were found but filtered out
+                prefs.edit().putString(TrainTimesWidgetProvider.PREF_LAST_ERROR + appWidgetId, "FILTERED").apply()
+            } else {
+                prefs.edit().remove(TrainTimesWidgetProvider.PREF_LAST_ERROR + appWidgetId).apply()
+            }
+
             WidgetCache.saveServices(context, appWidgetId, trainServices)
-            prefs.edit().remove(TrainTimesWidgetProvider.PREF_LAST_ERROR + appWidgetId)
+            prefs.edit()
                 .putLong(TrainTimesWidgetProvider.PREF_LAST_SUCCESSFUL_UPDATE + appWidgetId, System.currentTimeMillis())
                 .apply()
             

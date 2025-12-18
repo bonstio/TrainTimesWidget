@@ -154,6 +154,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val errorMessage = when (errorState) {
                 "NETWORK" -> context.getString(R.string.network_error)
                 "GENERIC" -> context.getString(R.string.widget_error)
+                "FILTERED" -> context.getString(R.string.trains_filtered_out)
                 else -> {
                     if (toStation.isNotEmpty()) {
                         context.getString(R.string.no_trains_found_from_to, fromStation, toStation)
@@ -163,6 +164,29 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 }
             }
             views.setTextViewText(R.id.error_message, errorMessage)
+            
+            if (errorState == "FILTERED") {
+                views.setTextViewText(R.id.error_details, context.getString(R.string.tap_to_change_filters))
+                views.setViewVisibility(R.id.error_details, View.VISIBLE)
+                
+                val settingsIntent = Intent(context, TrainTimesWidgetConfigureActivity::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                    data = Uri.parse("trainwidget://settings/$appWidgetId")
+                }
+                val settingsPendingIntent = PendingIntent.getActivity(context, appWidgetId, settingsIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                views.setOnClickPendingIntent(R.id.error_message, settingsPendingIntent)
+                views.setOnClickPendingIntent(R.id.error_details, settingsPendingIntent)
+            } else {
+                views.setViewVisibility(R.id.error_details, View.GONE)
+                
+                // Keep refresh intent for other errors
+                val refreshIntent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
+                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
+                }
+                val refreshPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                views.setOnClickPendingIntent(R.id.error_message, refreshPendingIntent)
+            }
 
             val toggleIntent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
                 action = ACTION_TOGGLE_EXPAND

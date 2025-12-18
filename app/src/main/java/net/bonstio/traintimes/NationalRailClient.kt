@@ -81,10 +81,10 @@ class NationalRailClient(private val apiKey: String) {
         Log.d("NationalRailClient", "Response Status: ${response.status}")
         Log.d("NationalRailClient", "Response Body length: ${responseBody.length}")
 
-        return parseTrainServices(responseBody)
+        return parseTrainServices(responseBody, toStation)
     }
 
-    private fun parseTrainServices(xml: String): List<TrainService> {
+    private fun parseTrainServices(xml: String, toStation: String): List<TrainService> {
         val services = mutableListOf<TrainService>()
         val factory = XmlPullParserFactory.newInstance()
         factory.isNamespaceAware = true
@@ -95,7 +95,7 @@ class NationalRailClient(private val apiKey: String) {
         while (eventType != XmlPullParser.END_DOCUMENT) {
             if (eventType == XmlPullParser.START_TAG && parser.name == "service") {
                 try {
-                    readService(parser)?.let { services.add(it) }
+                    readService(parser, toStation)?.let { services.add(it) }
                 } catch (e: Exception) {
                     Log.e("NationalRailClient", "Error parsing service", e)
                 }
@@ -106,7 +106,7 @@ class NationalRailClient(private val apiKey: String) {
         return services
     }
 
-    private fun readService(parser: XmlPullParser): TrainService? {
+    private fun readService(parser: XmlPullParser, toStation: String): TrainService? {
         // parser is at <service>
         var std: String? = null
         var destination: String? = null
@@ -114,6 +114,7 @@ class NationalRailClient(private val apiKey: String) {
         var etd: String? = null
         var isCancelled = false
         val callingPoints = mutableListOf<String>()
+        var arrivalTime: String? = null
 
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.eventType != XmlPullParser.START_TAG) {
@@ -125,7 +126,13 @@ class NationalRailClient(private val apiKey: String) {
                 "platform" -> platform = parser.nextText()
                 "isCancelled" -> isCancelled = parser.nextText().toBoolean()
                 "destination" -> destination = readDestination(parser)
-                "subsequentCallingPoints" -> callingPoints.addAll(readCallingPoints(parser))
+                "subsequentCallingPoints" -> {
+                    val result = readCallingPoints(parser, toStation)
+                    callingPoints.addAll(result.first)
+                    if (result.second != null) {
+                        arrivalTime = result.second
+                    }
+                }
                 else -> skip(parser)
             }
         }
@@ -136,10 +143,28 @@ class NationalRailClient(private val apiKey: String) {
                 etd != null && etd != "On time" && etd != std -> "Exp $etd"
                 else -> "On time"
             }
-            TrainService(std, destination, platform, status, callingPoints)
+            
+            var duration: Int? = null
+            if (arrivalTime != null) {
+                duration = calculateDuration(std, arrivalTime)
+            }
+            
+            TrainService(std, destination, platform, status, callingPoints, duration)
         } else {
             Log.w("NationalRailClient", "Incomplete service data: std=$std, dest=$destination")
             null
+        }
+    }
+
+    private fun calculateDuration(start: String, end: String): Int? {
+        try {
+            val (h1, m1) = start.split(":").map { it.toInt() }
+            val (h2, m2) = end.split(":").map { it.toInt() }
+            var diff = (h2 * 60 + m2) - (h1 * 60 + m1)
+            if (diff < 0) diff += 24 * 60 // Next day
+            return diff
+        } catch (e: Exception) {
+            return null
         }
     }
 
@@ -166,9 +191,11 @@ class NationalRailClient(private val apiKey: String) {
         return locationName
     }
 
-    private fun readCallingPoints(parser: XmlPullParser): List<String> {
+    private fun readCallingPoints(parser: XmlPullParser, targetCrs: String): Pair<List<String>, String?> {
         // parser is at <subsequentCallingPoints>
         val callingPoints = mutableListOf<String>()
+        var foundArrivalTime: String? = null
+        
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.eventType != XmlPullParser.START_TAG) continue
             
@@ -177,7 +204,11 @@ class NationalRailClient(private val apiKey: String) {
                     if (parser.eventType != XmlPullParser.START_TAG) continue
                     
                     if (parser.name == "callingPoint") {
-                        readCallingPoint(parser)?.let { callingPoints.add(it) }
+                        val result = readCallingPoint(parser, targetCrs)
+                        result.first?.let { callingPoints.add(it) }
+                        if (result.second != null) {
+                            foundArrivalTime = result.second
+                        }
                     } else {
                         skip(parser)
                     }
@@ -186,22 +217,33 @@ class NationalRailClient(private val apiKey: String) {
                 skip(parser)
             }
         }
-        return callingPoints
+        return Pair(callingPoints, foundArrivalTime)
     }
 
-    private fun readCallingPoint(parser: XmlPullParser): String? {
+    private fun readCallingPoint(parser: XmlPullParser, targetCrs: String): Pair<String?, String?> {
         // parser is at <callingPoint>
         var locationName: String? = null
+        var crs: String? = null
+        var st: String? = null
+        
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.eventType != XmlPullParser.START_TAG) continue
             
-            if (parser.name == "locationName") {
-                locationName = parser.nextText()
-            } else {
-                skip(parser)
+            when (parser.name) {
+                "locationName" -> locationName = parser.nextText()
+                "crs" -> crs = parser.nextText()
+                "st" -> st = parser.nextText()
+                else -> skip(parser)
             }
         }
-        return locationName
+        
+        val arrivalTime = if (crs != null && crs.equals(targetCrs, ignoreCase = true)) {
+            st
+        } else {
+            null
+        }
+        
+        return Pair(locationName, arrivalTime)
     }
 
     private fun skip(parser: XmlPullParser) {
