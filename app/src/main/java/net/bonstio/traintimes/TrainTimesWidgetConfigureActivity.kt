@@ -1027,6 +1027,10 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 summaryCommuteTimes.text = getString(R.string.commute_times_summary_format, outboundStr, returnStr)
             }
         }
+
+        rowMaxJourneyDuration.isEnabled = hasToStation
+        switchMaxJourneyDuration.isEnabled = hasToStation
+        rowMaxJourneyDuration.alpha = if (hasToStation) 1.0f else 0.5f
     }
     
     private fun findClosestStation(location: Location, fromCode: String, toCode: String): Station? {
