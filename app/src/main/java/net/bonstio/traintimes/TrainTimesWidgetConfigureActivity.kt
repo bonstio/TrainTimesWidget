@@ -528,13 +528,24 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
     
     private fun setupFadeAnimation(slider: Slider) {
+        var isFaded = false
+        val fadeRunnable = Runnable { 
+            isFaded = true
+            setUiFade(true, slider) 
+        }
+        
         slider.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
             override fun onStartTrackingTouch(slider: Slider) {
-                setUiFade(true, slider)
+                isFaded = false
+                slider.postDelayed(fadeRunnable, 750L)
             }
 
             override fun onStopTrackingTouch(slider: Slider) {
-                setUiFade(false, slider)
+                slider.removeCallbacks(fadeRunnable)
+                if (isFaded) {
+                    setUiFade(false, slider)
+                    isFaded = false
+                }
             }
         })
     }
