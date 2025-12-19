@@ -73,6 +73,10 @@ import kotlin.math.min
  */
 class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_OPEN_TAB = "extra_open_tab"
+    }
+
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     
     // Route Tab Views
@@ -445,7 +449,12 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         updateAdvancedSummaries()
 
         validateInputs()
-        updateTabVisibility(0)
+        
+        // Handle initial tab selection from intent
+        val initialTab = intent.getIntExtra(EXTRA_OPEN_TAB, 0)
+        val tab = tabLayout.getTabAt(initialTab)
+        tab?.select()
+        updateTabVisibility(initialTab)
     }
 
     override fun onResume() {
@@ -552,8 +561,10 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
     private fun setupBatteryOptimizationBanner() {
         batteryOptimizationBanner.setOnClickListener {
-            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = Uri.fromParts("package", packageName, null)
+            val intent = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS.let { action ->
+                 Intent(action).apply {
+                     data = Uri.fromParts("package", packageName, null)
+                 }
             }
             startActivity(intent)
         }
@@ -759,9 +770,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 initialStartTimeReverse != startTimeReverse ||
                 initialOffset != timeOffset ||
                 initialDepartureCount != departureCount ||
-                initialHidePastDepartures != hidePastDepartures ||
-                initialEnableJourneyDurationFilter != enableJourneyDurationFilter ||
-                initialMaxJourneyDuration != maxJourneyDuration
+                initialHidePastDepartures != hidePastDepartures
 
         // If data changed, update our "initial" reference so subsequent style updates don't trigger data fetch
         if (dataChanged) {

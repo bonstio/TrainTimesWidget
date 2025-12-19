@@ -42,8 +42,17 @@ class TrainTimesRemoteViewsFactory(
         config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
         
         // Load from cache instead of network
-        services = WidgetCache.loadServices(context, appWidgetId)
-        Log.d(TAG, "onDataSetChanged: Loaded ${services.size} services from cache for widgetId=$appWidgetId")
+        val allServices = WidgetCache.loadServices(context, appWidgetId)
+        
+        if (config != null && config!!.enableJourneyDurationFilter) {
+            services = allServices.filter {
+                it.duration == null || it.duration <= config!!.maxJourneyDuration
+            }
+        } else {
+            services = allServices
+        }
+        
+        Log.d(TAG, "onDataSetChanged: Loaded ${allServices.size} services from cache, filtered to ${services.size} for widgetId=$appWidgetId")
 
         if (config != null) {
             styling = WidgetUtils.resolveWidgetStyling(context, config!!)

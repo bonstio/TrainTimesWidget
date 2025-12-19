@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
+import android.text.Html
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -143,13 +145,25 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             }
             views.setRemoteAdapter(R.id.departures_list, intent)
             
-            val effectiveHasData = hasData ?: WidgetCache.loadServices(context, appWidgetId).isNotEmpty()
+            val cachedServices = WidgetCache.loadServices(context, appWidgetId)
+            val filteredServices = if (config.enableJourneyDurationFilter) {
+                 cachedServices.filter { it.duration == null || it.duration <= config.maxJourneyDuration }
+            } else {
+                 cachedServices
+            }
+
+            val effectiveHasData = filteredServices.isNotEmpty()
+            
             if (!effectiveHasData) {
                 views.setEmptyView(R.id.departures_list, R.id.error_container)
             }
             
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val errorState = prefs.getString(PREF_LAST_ERROR + appWidgetId, null)
+            var errorState = prefs.getString(PREF_LAST_ERROR + appWidgetId, null)
+            
+            if (!effectiveHasData && cachedServices.isNotEmpty() && errorState == null) {
+                errorState = "FILTERED"
+            }
 
             val errorMessage = when (errorState) {
                 "NETWORK" -> context.getString(R.string.network_error)
@@ -166,11 +180,13 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.error_message, errorMessage)
             
             if (errorState == "FILTERED") {
-                views.setTextViewText(R.id.error_details, context.getString(R.string.tap_to_change_filters))
+                views.setTextViewText(R.id.error_details, Html.fromHtml("<u>" + context.getString(R.string.tap_to_change_filters) + "</u>", Html.FROM_HTML_MODE_LEGACY))
+                views.setColorAttr(R.id.error_details, "setTextColor", android.R.attr.colorAccent)
                 views.setViewVisibility(R.id.error_details, View.VISIBLE)
                 
                 val settingsIntent = Intent(context, TrainTimesWidgetConfigureActivity::class.java).apply {
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                    putExtra(TrainTimesWidgetConfigureActivity.EXTRA_OPEN_TAB, 3) // Tab Index 3 = Advanced
                     data = Uri.parse("trainwidget://settings/$appWidgetId")
                 }
                 val settingsPendingIntent = PendingIntent.getActivity(context, appWidgetId, settingsIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -231,7 +247,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 }
             }
             
-            val allImageViewIds = intArrayOf(R.id.widget_icon, R.id.refresh_button, R.id.settings_button)
+            // Note: refresh_button removed from here to handle separately with system color
+            val allImageViewIds = intArrayOf(R.id.widget_icon, R.id.settings_button)
             for (id in allImageViewIds) {
                 if (styling.useSystemTextColor) {
                     views.setColorAttr(id, "setColorFilter", com.google.android.material.R.attr.colorOnSurface)
@@ -239,6 +256,9 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                     views.setInt(id, "setColorFilter", styling.textColor)
                 }
             }
+            
+            // Handle refresh button with system palette (colorAccent)
+            views.setColorAttr(R.id.refresh_button, "setColorFilter", android.R.attr.colorAccent)
 
             // Visibility
             views.setViewVisibility(R.id.content_container, View.VISIBLE)
@@ -346,7 +366,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
             
             views.setColorAttr(R.id.widget_root, "setBackgroundColor", com.google.android.material.R.attr.colorSurfaceContainerHighest)
-            views.setColorAttr(R.id.setup_message, "setTextColor", com.google.android.material.R.attr.colorOnSurface)
+            // Removed text color override to allow layout attribute ?attr/colorOnPrimary to work
+            // views.setColorAttr(R.id.setup_message, "setTextColor", android.R.attr.colorAccent)
 
             views.setViewVisibility(R.id.content_container, View.GONE)
             views.setViewVisibility(R.id.loading_container, View.GONE)
