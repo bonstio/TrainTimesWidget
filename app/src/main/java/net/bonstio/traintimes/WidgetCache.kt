@@ -17,6 +17,9 @@ object WidgetCache {
             jsonObj.put("platform", service.platform)
             jsonObj.put("status", service.status)
             jsonObj.put("subsequentCallingPoints", JSONArray(service.subsequentCallingPoints))
+            if (service.duration != null) {
+                jsonObj.put("duration", service.duration)
+            }
             jsonArray.put(jsonObj)
         }
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -37,12 +40,16 @@ object WidgetCache {
                 for (j in 0 until callingPointsJson.length()) {
                     callingPoints.add(callingPointsJson.getString(j))
                 }
+                
+                val duration = if (obj.has("duration")) obj.getInt("duration") else null
+
                 list.add(TrainService(
                     std = obj.getString("std"),
                     destination = obj.getString("destination"),
                     platform = if (obj.has("platform") && !obj.isNull("platform")) obj.getString("platform") else null,
                     status = obj.getString("status"),
-                    subsequentCallingPoints = callingPoints
+                    subsequentCallingPoints = callingPoints,
+                    duration = duration
                 ))
             }
             list
