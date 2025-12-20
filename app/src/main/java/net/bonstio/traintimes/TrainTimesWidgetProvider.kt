@@ -238,7 +238,12 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 views.setInt(R.id.widget_root, "setBackgroundColor", backgroundColor)
             }
 
-            val allTextViewIds = intArrayOf(R.id.widget_title, R.id.last_updated, R.id.open_in_maps, R.id.error_message, R.id.error_details)
+            val allTextViewIds = if (useRetro) {
+                intArrayOf(R.id.error_message, R.id.error_details)
+            } else {
+                intArrayOf(R.id.widget_title, R.id.last_updated, R.id.open_in_maps, R.id.error_message, R.id.error_details)
+            }
+            
             for (id in allTextViewIds) {
                 if (styling.useSystemTextColor) {
                     views.setColorAttr(id, "setTextColor", com.google.android.material.R.attr.colorOnSurface)
@@ -317,7 +322,26 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val displayTime = if (lastUpdate > 0) Date(lastUpdate) else Date()
             
             val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(displayTime)
-            views.setTextViewText(R.id.last_updated, context.getString(R.string.last_update_format, currentTime))
+            val lastUpdateText = context.getString(R.string.last_update_format, currentTime)
+
+            if (useRetro) {
+                 val lastUpdateBitmap = BitmapGenerator.textAsBitmap(
+                     context, lastUpdateText, 10f, styling.textColor, R.font.pixeloid_sans
+                )
+                if (lastUpdateBitmap != null) {
+                    views.setImageViewBitmap(R.id.last_updated, lastUpdateBitmap)
+                }
+
+                 val openInMapsText = context.getString(R.string.open_in_maps)
+                 val openInMapsBitmap = BitmapGenerator.textAsBitmap(
+                     context, openInMapsText, 10f, styling.textColor, R.font.pixeloid_sans
+                )
+                if (openInMapsBitmap != null) {
+                    views.setImageViewBitmap(R.id.open_in_maps, openInMapsBitmap)
+                }
+            } else {
+                views.setTextViewText(R.id.last_updated, lastUpdateText)
+            }
 
             views.setViewVisibility(R.id.last_updated, if (config.showLastUpdateTime) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.open_in_maps, if (config.showMapsIcon) View.VISIBLE else View.GONE)
