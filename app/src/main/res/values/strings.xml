@@ -293,7 +293,7 @@
     <string name="icon_settings">Settings</string>
 
     <!-- Option label for GPS Icon visibility. Length: 8 chars. -->
-    <string name="icon_gps">Toggle use nearest of <i>all</i> stations, not just those specified</string>
+    <string name="icon_gps">Toggle use nearest stations (advanced)</string>
 
     <!-- Option label for Google Maps link visibility. Length: 19 chars. -->
     <string name="item_maps">Show in Google Maps</string>
@@ -374,5 +374,5 @@
     <string name="tap_to_change_filters">Tap to change</string>
 
     <string name="use_nearest_station_return">Use nearest station</string>
-    <string name="use_nearest_station_return_summary">Use the nearest station for outbound or return journeys.</string>
+    <string name="use_nearest_station_return_summary">Use the nearest station of <i> all </i> stations (not just those specified) for outbound or return journeys</string>
 </resources>
