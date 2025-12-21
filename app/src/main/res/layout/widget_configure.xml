@@ -306,23 +306,30 @@
                                 android:text="@string/font_size_row_label"
                                 android:textAppearance="?attr/textAppearanceBodyLarge" />
 
-                            <TextView
-                                android:id="@+id/summary_font_size"
+                            <LinearLayout
+                                android:id="@+id/container_font_size"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="@string/font_size_regular"
-                                android:textAppearance="?attr/textAppearanceBodyMedium"
-                                android:textColor="?android:attr/textColorSecondary" />
+                                android:orientation="vertical">
 
-                            <com.google.android.material.slider.Slider
-                                android:id="@+id/slider_font_size"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="8dp"
-                                android:stepSize="1.0"
-                                android:valueFrom="0.0"
-                                android:valueTo="6.0"
-                                app:labelBehavior="gone" />
+                                <TextView
+                                    android:id="@+id/summary_font_size"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/font_size_regular"
+                                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                                    android:textColor="?android:attr/textColorSecondary" />
+
+                                <com.google.android.material.slider.Slider
+                                    android:id="@+id/slider_font_size"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="8dp"
+                                    android:stepSize="1.0"
+                                    android:valueFrom="0.0"
+                                    android:valueTo="6.0"
+                                    app:labelBehavior="gone" />
+                            </LinearLayout>
                         </LinearLayout>
 
                         <!-- Station Stops Row -->

@@ -100,6 +100,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var rowFontSize: View
     private lateinit var summaryFontSize: TextView
     private lateinit var sliderFontSize: Slider
+    private lateinit var containerFontSize: View
     private lateinit var rowStationStops: View
     private lateinit var summaryStationStops: TextView
     private lateinit var rowDivider: View
@@ -154,6 +155,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var startTimeNormal = 360  // 06:00
     private var startTimeReverse = 960  // 16:00
     private var originalDurationTextColor: android.content.res.ColorStateList? = null
+    private var originalFontSizeTextColor: android.content.res.ColorStateList? = null
 
     private enum class ColorMode { TEXT, BACKGROUND }
 
@@ -251,6 +253,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         summaryFontSize = findViewById(R.id.summary_font_size)
         // sliderFontSize bind
         sliderFontSize = findViewById(R.id.slider_font_size)
+        containerFontSize = findViewById(R.id.container_font_size)
+        originalFontSizeTextColor = summaryFontSize.textColors
         
         rowStationStops = findViewById(R.id.row_station_stops)
         summaryStationStops = findViewById(R.id.summary_station_stops)
@@ -304,7 +308,15 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupDragToMove()
         setupBatteryOptimizationBanner()
         
-        setupFadeAnimation(sliderFontSize)
+        setupFadeAnimation(sliderFontSize, containerFontSize) { isFaded ->
+            if (isFaded) {
+                summaryFontSize.setTextColor(Color.WHITE)
+                summaryFontSize.setShadowLayer(10f, 0f, 0f, Color.BLACK)
+            } else {
+                originalFontSizeTextColor?.let { summaryFontSize.setTextColor(it) }
+                summaryFontSize.setShadowLayer(0f, 0f, 0f, 0)
+            }
+        }
         setupFadeAnimation(sliderMaxJourneyDuration, containerMaxJourneyDuration) { isFaded ->
             if (isFaded) {
                 summaryMaxJourneyDuration.setTextColor(Color.WHITE)
