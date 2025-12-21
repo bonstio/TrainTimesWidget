@@ -824,6 +824,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             setResult(RESULT_OK, resultValue)
             finish()
         }
+        
+        LocationService.update(context)
     }
 
     private fun setupRouteListeners() {
@@ -1494,13 +1496,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             5 -> getString(R.string.font_size_extra_large)
             6 -> getString(R.string.font_size_massive)
             else -> getString(R.string.font_size_regular)
-        }
-        
-        summaryStationStops.text = when (selectedStationStopsMode) {
-            "FIRST" -> getString(R.string.stops_first)
-            "ALL" -> getString(R.string.stops_all)
-            "NONE" -> getString(R.string.stops_hidden)
-            else -> getString(R.string.stops_first)
         }
         
         summaryFontStyle.text = when(selectedFontStyle) {

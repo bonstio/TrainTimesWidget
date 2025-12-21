@@ -38,6 +38,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             prefs.remove(PREF_LAST_SUCCESSFUL_UPDATE + appWidgetId)
         }
         prefs.apply()
+        LocationService.update(context)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -110,6 +111,9 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                     val appWidgetManager = AppWidgetManager.getInstance(context)
                     updateAppWidget(context, appWidgetManager, appWidgetId)
                     
+                    // Update location service state
+                    LocationService.update(context)
+
                     // Trigger data refresh as direction might have changed
                     val data = Data.Builder()
                         .putIntArray(WidgetUpdateWorker.KEY_WIDGET_IDS, intArrayOf(appWidgetId))
@@ -159,6 +163,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 request
             )
         }
+        
+        LocationService.update(context)
     }
 
     companion object {
