@@ -729,6 +729,15 @@
                             </LinearLayout>
 
                             <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/hide_journeys_longer_than_description"
+                                android:textAppearance="?attr/textAppearanceBodyMedium"
+                                android:textColor="?android:attr/textColorSecondary"
+                                android:layout_marginTop="4dp"
+                                android:layout_marginBottom="4dp"/>
+
+                            <TextView
                                 android:id="@+id/summary_max_journey_duration"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"

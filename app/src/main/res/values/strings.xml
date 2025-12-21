@@ -363,7 +363,8 @@
     <!-- Warning displayed when background activity is restricted. -->
     <string name="battery_optimization_warning">Background updates may be unreliable. Tap to fix.</string>
 
-    <string name="hide_journeys_longer_than">Hide journeys longer than</string>
+    <string name="hide_journeys_longer_than">Hide longer journeys</string>
+    <string name="hide_journeys_longer_than_description">Filter out journeys with durations exceeding</string>
     <string name="journey_duration_format">%d minutes</string>
 
     <string name="trains_filtered_out">Trains hidden by filters</string>
