@@ -28,4 +28,5 @@ object WidgetConfigurationDefaults {
     const val FONT_STYLE = "SYSTEM" // "SYSTEM" or "RETRO"
     const val ENABLE_JOURNEY_DURATION_FILTER = false
     const val MAX_JOURNEY_DURATION = 30
+    const val USE_NEAREST_STATION_FOR_RETURN = false
 }

@@ -661,6 +661,45 @@
                         android:orientation="vertical"
                         android:visibility="gone">
 
+                        <!-- Use Nearest Station Return Row -->
+                        <LinearLayout
+                            android:id="@+id/row_use_nearest_station_return"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:paddingHorizontal="4dp"
+                            android:paddingVertical="12dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <TextView
+                                    android:id="@+id/text_use_nearest_station_return"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="@string/use_nearest_station_return"
+                                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switch_use_nearest_station_return"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/summary_use_nearest_station_return"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/use_nearest_station_return_summary"
+                                android:textAppearance="?attr/textAppearanceBodyMedium"
+                                android:textColor="?android:attr/textColorSecondary"
+                                android:layout_marginTop="4dp"/>
+                        </LinearLayout>
+
                         <!-- Offset Row -->
                         <LinearLayout
                             android:id="@+id/row_offset"

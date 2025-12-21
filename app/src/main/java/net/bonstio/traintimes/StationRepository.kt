@@ -1,6 +1,7 @@
 package net.bonstio.traintimes
 
 import android.content.Context
+import android.location.Location
 
 /**
  * Data class representing a train station.
@@ -64,6 +65,33 @@ object StationRepository {
     fun getStation(context: Context, code: String): Station? {
         val stations = getStations(context)
         return stations.find { it.code.equals(code, ignoreCase = true) }
+    }
+    
+    /**
+     * Finds the nearest station to the given coordinates.
+     * 
+     * @param context The application context.
+     * @param lat Latitude.
+     * @param lon Longitude.
+     * @return The nearest [Station], or null if stations are not loaded.
+     */
+    fun findNearestStation(context: Context, lat: Double, lon: Double): Station? {
+        val allStations = getStations(context)
+        if (allStations.isEmpty()) return null
+        
+        var nearestStation: Station? = null
+        var minDistance = Float.MAX_VALUE
+        val results = FloatArray(1)
+        
+        for (station in allStations) {
+            Location.distanceBetween(lat, lon, station.lat, station.lon, results)
+            if (results[0] < minDistance) {
+                minDistance = results[0]
+                nearestStation = station
+            }
+        }
+        
+        return nearestStation
     }
 
     /**

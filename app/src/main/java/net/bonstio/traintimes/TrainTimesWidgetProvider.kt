@@ -16,6 +16,8 @@ import android.widget.RemoteViews
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.ExistingWorkPolicy
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -89,11 +91,20 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 .putIntArray(WidgetUpdateWorker.KEY_WIDGET_IDS, appWidgetIds)
                 .build()
 
+            // Using setExpedited to try and run immediately and bypass background restrictions if possible.
+            // This requires the worker to be expedited-aware (implementing getForegroundInfo).
+            // However, WorkManager's expedited jobs have a quota.
+            // Let's stick to standard enqueue for now but ensure we use a unique name to replace old jobs.
             val request = OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
                 .setInputData(data)
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
 
-            WorkManager.getInstance(context).enqueue(request)
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                "widget_manual_update_${System.currentTimeMillis()}",
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
         }
     }
 
@@ -121,7 +132,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             }
 
             // Logic duplicated here for display title consistency
-            val (fromStation, toStation) = if (config.commutingMode == "LOCATION") {
+            val (fromStation, toStation) = if (config.commutingMode == "LOCATION" || config.useNearestStationForReturn) {
                 val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 val ef = prefs.getString(PREF_EFFECTIVE_FROM + appWidgetId, null)
                 val et = prefs.getString(PREF_EFFECTIVE_TO + appWidgetId, null)
@@ -322,7 +333,19 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             val displayTime = if (lastUpdate > 0) Date(lastUpdate) else Date()
             
             val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(displayTime)
-            val lastUpdateText = context.getString(R.string.last_update_format, currentTime)
+            var lastUpdateText = context.getString(R.string.last_update_format, currentTime)
+            
+            // If commuting logic was used, append the station
+            if (config.commutingMode == "LOCATION" || config.useNearestStationForReturn) {
+                 // Check if effectiveFrom != original from/to? Or just always show effectiveFrom station name?
+                 // Let's show effectiveFrom station name if it differs from the default or just always for clarity.
+                 // Showing the station name is helpful context.
+                 if (fromStation.isNotEmpty()) {
+                     val fromStationName = StationRepository.getStationName(context, fromStation)
+                     // Using a bullet point separator
+                     lastUpdateText += " • $fromStationName"
+                 }
+            }
 
             if (useRetro) {
                  val lastUpdateBitmap = BitmapGenerator.textAsBitmap(

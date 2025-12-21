@@ -128,6 +128,10 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var summaryMaxJourneyDuration: TextView
     private lateinit var sliderMaxJourneyDuration: Slider
     private lateinit var rowGlobalSettings: View
+    private lateinit var rowUseNearestStationReturn: View
+    private lateinit var switchUseNearestStationReturn: MaterialSwitch
+    private lateinit var textUseNearestStationReturn: TextView
+    private lateinit var summaryUseNearestStationReturn: TextView
 
     private lateinit var addButton: Button
     private lateinit var cancelButton: Button
@@ -182,6 +186,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var selectedCommutingMode: String = WidgetConfigurationDefaults.COMMUTING_MODE
     private var enableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
     private var maxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
+    private var useNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
 
     // Initial config for comparison
     private var initialFromStationCode: String = ""
@@ -193,6 +198,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var initialHidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
     private var initialEnableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
     private var initialMaxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
+    private var initialUseNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
 
     // Permission launcher
     private val locationPermissionRequest = registerForActivityResult(
@@ -279,6 +285,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         sliderMaxJourneyDuration = findViewById(R.id.slider_max_journey_duration)
         
         rowGlobalSettings = findViewById(R.id.row_global_settings)
+
+        rowUseNearestStationReturn = findViewById(R.id.row_use_nearest_station_return)
+        switchUseNearestStationReturn = findViewById(R.id.switch_use_nearest_station_return)
+        textUseNearestStationReturn = findViewById(R.id.text_use_nearest_station_return)
+        summaryUseNearestStationReturn = findViewById(R.id.summary_use_nearest_station_return)
 
         // Color Views
         rowTextColor = findViewById(R.id.row_text_color)
@@ -376,6 +387,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             
             enableJourneyDurationFilter = existingConfig.enableJourneyDurationFilter
             maxJourneyDuration = existingConfig.maxJourneyDuration
+            useNearestStationForReturn = existingConfig.useNearestStationForReturn
 
             currentTextColor = existingConfig.textColor
             currentBackgroundColor = ColorUtils.setAlphaComponent(
@@ -410,6 +422,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             
             enableJourneyDurationFilter = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
             maxJourneyDuration = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
+            useNearestStationForReturn = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
             
             currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
             currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
@@ -429,6 +442,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         initialHidePastDepartures = switchHidePastDepartures.isChecked
         initialEnableJourneyDurationFilter = enableJourneyDurationFilter
         initialMaxJourneyDuration = maxJourneyDuration
+        initialUseNearestStationForReturn = useNearestStationForReturn
         
         // Sync switch state with loaded config
         switchShowDivider.isChecked = showDivider
@@ -442,6 +456,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val durationVisible = if (enableJourneyDurationFilter) View.VISIBLE else View.GONE
         summaryMaxJourneyDuration.visibility = durationVisible
         sliderMaxJourneyDuration.visibility = durationVisible
+        
+        switchUseNearestStationReturn.isChecked = useNearestStationForReturn
 
         updateColorSummariesAndPreviews()
         updateLayoutSummaries()
@@ -771,7 +787,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             selectedCommutingMode,
             fontStyle,
             enableJourneyDurationFilter,
-            maxJourneyDuration
+            maxJourneyDuration,
+            useNearestStationForReturn
         )
 
         // Check if data changed
@@ -781,7 +798,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 initialStartTimeReverse != startTimeReverse ||
                 initialOffset != timeOffset ||
                 initialDepartureCount != departureCount ||
-                initialHidePastDepartures != hidePastDepartures
+                initialHidePastDepartures != hidePastDepartures ||
+                initialUseNearestStationForReturn != useNearestStationForReturn
 
         // If data changed, update our "initial" reference so subsequent style updates don't trigger data fetch
         if (dataChanged) {
@@ -794,6 +812,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             initialHidePastDepartures = hidePastDepartures
             initialEnableJourneyDurationFilter = enableJourneyDurationFilter
             initialMaxJourneyDuration = maxJourneyDuration
+            initialUseNearestStationForReturn = useNearestStationForReturn
         }
 
         val intent = Intent(context, TrainTimesWidgetProvider::class.java)
@@ -1021,7 +1040,15 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                         if (location != null) {
                             val closestStation = findClosestStation(location, fromStationCode, toStationCode)
                             if (closestStation != null) {
-                                summaryCommuteTimes.text = getString(R.string.location_closest_summary, closestStation.code)
+                                var displayCode = closestStation.code
+                                
+                                if (useNearestStationForReturn) {
+                                     val absoluteNearest = StationRepository.findNearestStation(this, location.latitude, location.longitude)
+                                     if (absoluteNearest != null) {
+                                         displayCode = absoluteNearest.code
+                                     }
+                                }
+                                summaryCommuteTimes.text = getString(R.string.location_closest_summary, displayCode)
                             }
                         }
                     }
@@ -1040,6 +1067,13 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         rowMaxJourneyDuration.isEnabled = hasToStation
         switchMaxJourneyDuration.isEnabled = hasToStation
         rowMaxJourneyDuration.alpha = if (hasToStation) 1.0f else 0.5f
+
+        val hasFromStation = fromStationCode.isNotEmpty()
+        val canUseNearestReturn = hasFromStation && hasToStation
+        
+        switchUseNearestStationReturn.isEnabled = canUseNearestReturn
+        textUseNearestStationReturn.alpha = if (canUseNearestReturn) 1.0f else 0.5f
+        summaryUseNearestStationReturn.alpha = if (canUseNearestReturn) 1.0f else 0.5f
     }
     
     private fun findClosestStation(location: Location, fromCode: String, toCode: String): Station? {
@@ -1478,6 +1512,18 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             maxJourneyDuration = value.toInt()
             updateAdvancedSummaries()
             triggerUpdate()
+        }
+        
+        rowUseNearestStationReturn.setOnClickListener {
+             if (switchUseNearestStationReturn.isEnabled) {
+                 switchUseNearestStationReturn.toggle()
+             }
+        }
+        
+        switchUseNearestStationReturn.setOnCheckedChangeListener { _, isChecked ->
+             useNearestStationForReturn = isChecked
+             updateRouteSummaries()
+             triggerUpdate()
         }
 
         rowGlobalSettings.setOnClickListener {

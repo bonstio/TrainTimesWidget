@@ -368,4 +368,7 @@
 
     <string name="trains_filtered_out">Trains hidden by filters</string>
     <string name="tap_to_change_filters">Tap to change</string>
+
+    <string name="use_nearest_station_return">Use nearest station for return journey</string>
+    <string name="use_nearest_station_return_summary">If you are away from the destination station, show trains from the nearest station back to your starting point.</string>
 </resources>

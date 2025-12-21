@@ -34,5 +34,6 @@ data class WidgetConfiguration(
     val commutingMode: String = WidgetConfigurationDefaults.COMMUTING_MODE,
     val fontStyle: String = WidgetConfigurationDefaults.FONT_STYLE,
     val enableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER,
-    val maxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
+    val maxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION,
+    val useNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
 )
