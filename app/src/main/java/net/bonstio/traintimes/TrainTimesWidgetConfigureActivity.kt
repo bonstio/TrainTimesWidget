@@ -893,6 +893,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         MaterialAlertDialogBuilder(this)
             .setTitle(titleRes)
             .setView(view)
+            .setCancelable(false)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val stationCode = extractStationCode(stationInput.text.toString(), stations)
                 onConfirm(stationCode)
