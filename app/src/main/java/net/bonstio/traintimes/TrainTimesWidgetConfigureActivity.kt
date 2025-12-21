@@ -113,6 +113,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var showWidgetIcon = WidgetConfigurationDefaults.SHOW_ICON
     private var showRefreshIcon = WidgetConfigurationDefaults.SHOW_REFRESH_ICON
     private var showSettingsIcon = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON
+    private var showGpsIcon = WidgetConfigurationDefaults.SHOW_GPS_ICON
     
     private var showMapsIcon = WidgetConfigurationDefaults.SHOW_MAPS_ICON
     private var showLastUpdateTime = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME
@@ -380,6 +381,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showWidgetIcon = existingConfig.showIcon
             showRefreshIcon = existingConfig.showRefreshIcon
             showSettingsIcon = existingConfig.showSettingsIcon
+            showGpsIcon = existingConfig.showGpsIcon
             showMapsIcon = existingConfig.showMapsIcon
             showLastUpdateTime = existingConfig.showLastUpdateTime
             showDivider = existingConfig.showDivider
@@ -417,6 +419,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showWidgetIcon = WidgetConfigurationDefaults.SHOW_ICON
             showRefreshIcon = WidgetConfigurationDefaults.SHOW_REFRESH_ICON
             showSettingsIcon = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON
+            showGpsIcon = WidgetConfigurationDefaults.SHOW_GPS_ICON
             showMapsIcon = WidgetConfigurationDefaults.SHOW_MAPS_ICON
             showLastUpdateTime = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME
             showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
@@ -763,6 +766,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showWidgetIcon,
             showRefreshIcon,
             showSettingsIcon,
+            showGpsIcon,
             showStops,
             stationStopsMode,
             fromStationCode,
@@ -1336,9 +1340,10 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val iconOptions = mapOf(
             getString(R.string.icon_widget) to { b: Boolean -> showWidgetIcon = b },
             getString(R.string.icon_refresh) to { b: Boolean -> showRefreshIcon = b },
-            getString(R.string.icon_settings) to { b: Boolean -> showSettingsIcon = b }
+            getString(R.string.icon_settings) to { b: Boolean -> showSettingsIcon = b },
+            getString(R.string.icon_gps) to { b: Boolean -> showGpsIcon = b }
         )
-        val initialValues = listOf(showWidgetIcon, showRefreshIcon, showSettingsIcon)
+        val initialValues = listOf(showWidgetIcon, showRefreshIcon, showSettingsIcon, showGpsIcon)
 
         iconOptions.keys.forEachIndexed { index, text ->
             val switch = MaterialSwitch(this)
@@ -1525,6 +1530,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         if (showWidgetIcon) visibleIcons.add(getString(R.string.icon_widget))
         if (showRefreshIcon) visibleIcons.add(getString(R.string.icon_refresh))
         if (showSettingsIcon) visibleIcons.add(getString(R.string.icon_settings))
+        if (showGpsIcon) visibleIcons.add(getString(R.string.icon_gps))
 
         summaryIconVisibility.text = when {
             visibleIcons.isEmpty() -> getString(R.string.summary_no_icons)

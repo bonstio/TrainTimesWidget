@@ -27,6 +27,7 @@ data class WidgetConfiguration(
     val fontSize: Int = WidgetConfigurationDefaults.FONT_SIZE, // 0-6 scale
     val showRefreshIcon: Boolean = WidgetConfigurationDefaults.SHOW_REFRESH_ICON,
     val showSettingsIcon: Boolean = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON,
+    val showGpsIcon: Boolean = WidgetConfigurationDefaults.SHOW_GPS_ICON,
     val hidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES,
     val showMapsIcon: Boolean = WidgetConfigurationDefaults.SHOW_MAPS_ICON,
     val showLastUpdateTime: Boolean = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME,

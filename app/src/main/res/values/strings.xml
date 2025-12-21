@@ -292,6 +292,9 @@
     <!-- Option label for Settings Icon visibility. Length: 8 chars. -->
     <string name="icon_settings">Settings</string>
 
+    <!-- Option label for GPS Icon visibility. Length: 8 chars. -->
+    <string name="icon_gps">Toggle use nearest</string>
+
     <!-- Option label for Google Maps link visibility. Length: 19 chars. -->
     <string name="item_maps">Show in Google Maps</string>
 

@@ -67,6 +67,59 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 updateAppWidget(context, appWidgetManager, appWidgetId)
                 appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
             }
+        } else if (intent.action == ACTION_TOGGLE_USE_NEAREST) {
+            val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
+                if (config != null) {
+                    val newState = !config.useNearestStationForReturn
+                    
+                    WidgetConfigurationStorage.saveConfiguration(
+                        context,
+                        appWidgetId,
+                        config.title,
+                        config.titleStyle,
+                        config.showIcon,
+                        config.showRefreshIcon,
+                        config.showSettingsIcon,
+                        config.showGpsIcon,
+                        config.showStops,
+                        config.stationStopsMode,
+                        config.fromStation,
+                        config.toStation,
+                        config.alignment,
+                        config.startTimeNormal,
+                        config.startTimeReverse,
+                        config.transparency,
+                        config.textColor,
+                        config.bgColor,
+                        config.useSystemTextColor,
+                        config.useSystemBgColor,
+                        config.fontSize,
+                        config.showMapsIcon,
+                        config.showLastUpdateTime,
+                        config.showDivider,
+                        config.commutingMode,
+                        config.fontStyle,
+                        config.enableJourneyDurationFilter,
+                        config.maxJourneyDuration,
+                        newState
+                    )
+                    
+                    // Trigger UI update immediately
+                    val appWidgetManager = AppWidgetManager.getInstance(context)
+                    updateAppWidget(context, appWidgetManager, appWidgetId)
+                    
+                    // Trigger data refresh as direction might have changed
+                    val data = Data.Builder()
+                        .putIntArray(WidgetUpdateWorker.KEY_WIDGET_IDS, intArrayOf(appWidgetId))
+                        .build()
+                    val request = OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
+                        .setInputData(data)
+                        .build()
+                    WorkManager.getInstance(context).enqueue(request)
+                }
+            }
         }
     }
 
@@ -113,6 +166,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         const val ACTION_TOGGLE_EXPAND = "net.bonstio.traintimes.ACTION_TOGGLE_EXPAND"
         const val ACTION_WIDGET_PINNED = "net.bonstio.traintimes.ACTION_WIDGET_PINNED"
         const val ACTION_WIDGET_STYLE_UPDATE = "net.bonstio.traintimes.ACTION_WIDGET_STYLE_UPDATE"
+        const val ACTION_TOGGLE_USE_NEAREST = "net.bonstio.traintimes.ACTION_TOGGLE_USE_NEAREST"
         const val EXTRA_SERVICE_INDEX = "service_index"
         const val PREFS_NAME = "net.bonstio.traintimes.widget"
         const val PREF_API_KEY = "api_key"
@@ -263,7 +317,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
                 }
             }
             
-            // Note: refresh_button removed from here to handle separately with system color
+            // Note: refresh_button and gps_button removed from here to handle separately
             val allImageViewIds = intArrayOf(R.id.widget_icon, R.id.settings_button)
             for (id in allImageViewIds) {
                 if (styling.useSystemTextColor) {
@@ -275,6 +329,31 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             
             // Handle refresh button with system palette (colorAccent)
             views.setColorAttr(R.id.refresh_button, "setColorFilter", android.R.attr.colorAccent)
+
+            // GPS Button
+            views.setImageViewResource(R.id.gps_button, R.drawable.ic_my_location)
+            views.setViewVisibility(R.id.gps_button, if (config.showGpsIcon) View.VISIBLE else View.GONE)
+            
+            // Set appearance based on state
+            val gpsAlpha = if (config.useNearestStationForReturn) 255 else 77 // 77 is approx 30% alpha
+            
+            // For color, use standard text color (themed or custom)
+            if (styling.useSystemTextColor) {
+                 views.setColorAttr(R.id.gps_button, "setColorFilter", com.google.android.material.R.attr.colorOnSurface)
+            } else {
+                 views.setInt(R.id.gps_button, "setColorFilter", styling.textColor)
+            }
+            views.setInt(R.id.gps_button, "setImageAlpha", gpsAlpha)
+
+            // Intent for GPS button
+            val gpsIntent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
+                action = ACTION_TOGGLE_USE_NEAREST
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+            }
+            val gpsPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, gpsIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            views.setOnClickPendingIntent(R.id.gps_button, gpsPendingIntent)
+
 
             // Visibility
             views.setViewVisibility(R.id.content_container, View.VISIBLE)

@@ -13,6 +13,7 @@ object WidgetConfigurationStorage {
     private const val PREF_SHOW_ICON_KEY = "show_icon_"
     private const val PREF_SHOW_REFRESH_ICON_KEY = "show_refresh_icon_"
     private const val PREF_SHOW_SETTINGS_ICON_KEY = "show_settings_icon_"
+    private const val PREF_SHOW_GPS_ICON_KEY = "show_gps_icon_"
     private const val PREF_SHOW_STOPS_KEY = "show_stops_"
     private const val PREF_STATION_STOPS_MODE_KEY = "station_stops_mode_"
     private const val PREF_FROM_STATION_KEY = "from_station_"
@@ -46,6 +47,7 @@ object WidgetConfigurationStorage {
         showIcon: Boolean,
         showRefreshIcon: Boolean,
         showSettingsIcon: Boolean,
+        showGpsIcon: Boolean,
         showStops: Boolean,
         stationStopsMode: String,
         fromStation: String,
@@ -75,6 +77,7 @@ object WidgetConfigurationStorage {
         prefs.putBoolean(PREF_SHOW_ICON_KEY + appWidgetId, showIcon)
         prefs.putBoolean(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId, showRefreshIcon)
         prefs.putBoolean(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId, showSettingsIcon)
+        prefs.putBoolean(PREF_SHOW_GPS_ICON_KEY + appWidgetId, showGpsIcon)
         prefs.putBoolean(PREF_SHOW_STOPS_KEY + appWidgetId, showStops)
         prefs.putString(PREF_STATION_STOPS_MODE_KEY + appWidgetId, stationStopsMode)
         prefs.putString(PREF_FROM_STATION_KEY + appWidgetId, fromStation)
@@ -120,6 +123,7 @@ object WidgetConfigurationStorage {
         val showIcon = prefs.getBoolean(PREF_SHOW_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_ICON)
         val showRefreshIcon = prefs.getBoolean(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_REFRESH_ICON)
         val showSettingsIcon = prefs.getBoolean(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_SETTINGS_ICON)
+        val showGpsIcon = prefs.getBoolean(PREF_SHOW_GPS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_GPS_ICON)
         
         // Always true now
         val hidePastDepartures = true 
@@ -181,6 +185,7 @@ object WidgetConfigurationStorage {
                 fontSize,
                 showRefreshIcon,
                 showSettingsIcon,
+                showGpsIcon,
                 hidePastDepartures,
                 showMapsIcon,
                 showLastUpdateTime,
@@ -207,6 +212,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_SHOW_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId)
+        prefs.remove(PREF_SHOW_GPS_ICON_KEY + appWidgetId)
         // PREF_HIDE_PAST_DEPARTURES_KEY is now legacy/unused
         prefs.remove(PREF_SHOW_STOPS_KEY + appWidgetId)
         prefs.remove(PREF_STATION_STOPS_MODE_KEY + appWidgetId)
