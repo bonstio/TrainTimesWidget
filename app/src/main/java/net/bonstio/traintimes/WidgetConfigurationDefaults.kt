@@ -20,7 +20,7 @@ object WidgetConfigurationDefaults {
     const val FONT_SIZE = 3 // Regular
     const val SHOW_REFRESH_ICON = true
     const val SHOW_SETTINGS_ICON = false
-    const val HIDE_PAST_DEPARTURES = false
+    const val HIDE_PAST_DEPARTURES = true
     const val SHOW_MAPS_ICON = true
     const val SHOW_LAST_UPDATE_TIME = true
     const val SHOW_DIVIDER = true

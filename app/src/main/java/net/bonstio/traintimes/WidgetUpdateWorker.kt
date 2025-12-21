@@ -200,9 +200,8 @@ class WidgetUpdateWorker(
             
             val originalCount = trainServices.size
             
-            if (config.hidePastDepartures) {
-                trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }
-            }
+            // Always filter past departures with buffer
+            trainServices = trainServices.filter { !WidgetUtils.isDepartureInPast(it, Calendar.getInstance()) }
             
             if (trainServices.isEmpty() && originalCount > 0) {
                 // Trains were found but filtered out

@@ -13,7 +13,6 @@ object WidgetConfigurationStorage {
     private const val PREF_SHOW_ICON_KEY = "show_icon_"
     private const val PREF_SHOW_REFRESH_ICON_KEY = "show_refresh_icon_"
     private const val PREF_SHOW_SETTINGS_ICON_KEY = "show_settings_icon_"
-    private const val PREF_HIDE_PAST_DEPARTURES_KEY = "hide_past_departures_"
     private const val PREF_SHOW_STOPS_KEY = "show_stops_"
     private const val PREF_STATION_STOPS_MODE_KEY = "station_stops_mode_"
     private const val PREF_FROM_STATION_KEY = "from_station_"
@@ -47,7 +46,6 @@ object WidgetConfigurationStorage {
         showIcon: Boolean,
         showRefreshIcon: Boolean,
         showSettingsIcon: Boolean,
-        hidePastDepartures: Boolean,
         showStops: Boolean,
         stationStopsMode: String,
         fromStation: String,
@@ -77,7 +75,6 @@ object WidgetConfigurationStorage {
         prefs.putBoolean(PREF_SHOW_ICON_KEY + appWidgetId, showIcon)
         prefs.putBoolean(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId, showRefreshIcon)
         prefs.putBoolean(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId, showSettingsIcon)
-        prefs.putBoolean(PREF_HIDE_PAST_DEPARTURES_KEY + appWidgetId, hidePastDepartures)
         prefs.putBoolean(PREF_SHOW_STOPS_KEY + appWidgetId, showStops)
         prefs.putString(PREF_STATION_STOPS_MODE_KEY + appWidgetId, stationStopsMode)
         prefs.putString(PREF_FROM_STATION_KEY + appWidgetId, fromStation)
@@ -123,7 +120,10 @@ object WidgetConfigurationStorage {
         val showIcon = prefs.getBoolean(PREF_SHOW_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_ICON)
         val showRefreshIcon = prefs.getBoolean(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_REFRESH_ICON)
         val showSettingsIcon = prefs.getBoolean(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_SETTINGS_ICON)
-        val hidePastDepartures = prefs.getBoolean(PREF_HIDE_PAST_DEPARTURES_KEY + appWidgetId, WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES)
+        
+        // Always true now
+        val hidePastDepartures = true 
+        
         val showStops = prefs.getBoolean(PREF_SHOW_STOPS_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_STOPS)
         
         var stationStopsMode = prefs.getString(PREF_STATION_STOPS_MODE_KEY + appWidgetId, null)
@@ -207,7 +207,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_SHOW_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId)
-        prefs.remove(PREF_HIDE_PAST_DEPARTURES_KEY + appWidgetId)
+        // PREF_HIDE_PAST_DEPARTURES_KEY is now legacy/unused
         prefs.remove(PREF_SHOW_STOPS_KEY + appWidgetId)
         prefs.remove(PREF_STATION_STOPS_MODE_KEY + appWidgetId)
         prefs.remove(PREF_FROM_STATION_KEY + appWidgetId)

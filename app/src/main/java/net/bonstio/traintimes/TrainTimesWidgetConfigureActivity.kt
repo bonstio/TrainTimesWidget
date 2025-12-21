@@ -1,6 +1,5 @@
 package net.bonstio.traintimes
 
-import android.Manifest
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
@@ -66,6 +65,7 @@ import kotlin.math.roundToInt
 import kotlin.math.max
 import kotlin.math.abs
 import kotlin.math.min
+import android.Manifest
 
 /**
  * Activity for configuring the Train Times widget.
@@ -118,7 +118,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
 
     // Advanced Tab Views
-    private lateinit var switchHidePastDepartures: MaterialSwitch
     private lateinit var rowMaxJourneyDuration: View
     private lateinit var switchMaxJourneyDuration: MaterialSwitch
     private lateinit var summaryMaxJourneyDuration: TextView
@@ -187,7 +186,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var initialToStationCode: String = ""
     private var initialStartTimeNormal: Int = 360
     private var initialStartTimeReverse: Int = 960
-    private var initialHidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
     private var initialEnableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
     private var initialMaxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
     private var initialUseNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
@@ -265,7 +263,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         rowCustomTitle.visibility = View.GONE
         
         // Advanced Tab Bindings
-        switchHidePastDepartures = findViewById(R.id.switch_hide_past_departures)
         
         rowMaxJourneyDuration = findViewById(R.id.row_max_journey_duration)
         switchMaxJourneyDuration = findViewById(R.id.switch_max_journey_duration)
@@ -368,7 +365,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             
             startTimeNormal = existingConfig.startTimeNormal
             startTimeReverse = existingConfig.startTimeReverse
-            switchHidePastDepartures.isChecked = existingConfig.hidePastDepartures
             selectedCommutingMode = existingConfig.commutingMode
             
             enableJourneyDurationFilter = existingConfig.enableJourneyDurationFilter
@@ -402,8 +398,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
             selectedStationStopsMode = WidgetConfigurationDefaults.STATION_STOPS_MODE
             
-            switchHidePastDepartures.isChecked = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
-            
             enableJourneyDurationFilter = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
             maxJourneyDuration = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
             useNearestStationForReturn = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
@@ -421,7 +415,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         initialToStationCode = toStationCode
         initialStartTimeNormal = startTimeNormal
         initialStartTimeReverse = startTimeReverse
-        initialHidePastDepartures = switchHidePastDepartures.isChecked
         initialEnableJourneyDurationFilter = enableJourneyDurationFilter
         initialMaxJourneyDuration = maxJourneyDuration
         initialUseNearestStationForReturn = useNearestStationForReturn
@@ -725,7 +718,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val stationStopsMode = selectedStationStopsMode
         val showStops = (stationStopsMode != "NONE") 
         
-        val hidePastDepartures = switchHidePastDepartures.isChecked
+        // hidePastDepartures removed
 
         val transparency = Color.alpha(currentBackgroundColor)
         val bgColor = Color.rgb(
@@ -745,7 +738,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showWidgetIcon,
             showRefreshIcon,
             showSettingsIcon,
-            hidePastDepartures,
             showStops,
             stationStopsMode,
             fromStationCode,
@@ -774,7 +766,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 initialToStationCode != toStationCode ||
                 initialStartTimeNormal != startTimeNormal ||
                 initialStartTimeReverse != startTimeReverse ||
-                initialHidePastDepartures != hidePastDepartures ||
                 initialUseNearestStationForReturn != useNearestStationForReturn
 
         // If data changed, update our "initial" reference so subsequent style updates don't trigger data fetch
@@ -783,7 +774,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             initialToStationCode = toStationCode
             initialStartTimeNormal = startTimeNormal
             initialStartTimeReverse = startTimeReverse
-            initialHidePastDepartures = hidePastDepartures
             initialEnableJourneyDurationFilter = enableJourneyDurationFilter
             initialMaxJourneyDuration = maxJourneyDuration
             initialUseNearestStationForReturn = useNearestStationForReturn

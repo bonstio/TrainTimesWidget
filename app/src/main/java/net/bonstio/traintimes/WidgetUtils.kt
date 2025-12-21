@@ -84,7 +84,7 @@ object WidgetUtils {
                 // Departure is much smaller than current (e.g. 01:00 vs 23:00) -> Tomorrow -> Future
                 false
             } else {
-                diff < 0
+                diff < -10
             }
         } catch (e: Exception) {
             false

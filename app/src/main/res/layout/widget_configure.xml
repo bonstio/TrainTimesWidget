@@ -700,29 +700,6 @@
                                 android:layout_marginTop="4dp"/>
                         </LinearLayout>
 
-                        <!-- Hide Past Departures Row -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:paddingVertical="12dp"
-                            android:paddingHorizontal="4dp"
-                            android:gravity="center_vertical">
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:text="@string/hide_past_departures"
-                                android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                            <com.google.android.material.materialswitch.MaterialSwitch
-                                android:id="@+id/switch_hide_past_departures"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:checked="false"/>
-                        </LinearLayout>
-
                         <!-- Max Journey Duration Row -->
                         <LinearLayout
                             android:id="@+id/row_max_journey_duration"
