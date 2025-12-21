@@ -122,6 +122,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var switchMaxJourneyDuration: MaterialSwitch
     private lateinit var summaryMaxJourneyDuration: TextView
     private lateinit var sliderMaxJourneyDuration: Slider
+    private lateinit var containerMaxJourneyDuration: View
     private lateinit var rowGlobalSettings: View
     private lateinit var rowUseNearestStationReturn: View
     private lateinit var switchUseNearestStationReturn: MaterialSwitch
@@ -152,6 +153,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
     private var startTimeNormal = 360  // 06:00
     private var startTimeReverse = 960  // 16:00
+    private var originalDurationTextColor: android.content.res.ColorStateList? = null
 
     private enum class ColorMode { TEXT, BACKGROUND }
 
@@ -268,6 +270,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         switchMaxJourneyDuration = findViewById(R.id.switch_max_journey_duration)
         summaryMaxJourneyDuration = findViewById(R.id.summary_max_journey_duration)
         sliderMaxJourneyDuration = findViewById(R.id.slider_max_journey_duration)
+        containerMaxJourneyDuration = findViewById(R.id.container_max_journey_duration)
+        originalDurationTextColor = summaryMaxJourneyDuration.textColors
         
         rowGlobalSettings = findViewById(R.id.row_global_settings)
 
@@ -301,7 +305,15 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupBatteryOptimizationBanner()
         
         setupFadeAnimation(sliderFontSize)
-        setupFadeAnimation(sliderMaxJourneyDuration)
+        setupFadeAnimation(sliderMaxJourneyDuration, containerMaxJourneyDuration) { isFaded ->
+            if (isFaded) {
+                summaryMaxJourneyDuration.setTextColor(Color.WHITE)
+                summaryMaxJourneyDuration.setShadowLayer(10f, 0f, 0f, Color.BLACK)
+            } else {
+                originalDurationTextColor?.let { summaryMaxJourneyDuration.setTextColor(it) }
+                summaryMaxJourneyDuration.setShadowLayer(0f, 0f, 0f, 0)
+            }
+        }
 
         // Setup checkerboards for color previews
         previewTextColorCheckerboard.background = createCheckerboardDrawable(0f)
@@ -429,8 +441,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         
         // Visibility of journey duration elements
         val durationVisible = if (enableJourneyDurationFilter) View.VISIBLE else View.GONE
-        summaryMaxJourneyDuration.visibility = durationVisible
-        sliderMaxJourneyDuration.visibility = durationVisible
+        containerMaxJourneyDuration.visibility = durationVisible
         
         switchUseNearestStationReturn.isChecked = useNearestStationForReturn
 
@@ -527,11 +538,12 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
     }
     
-    private fun setupFadeAnimation(slider: Slider) {
+    private fun setupFadeAnimation(slider: Slider, excludedView: View = slider, onFadeStateChanged: ((Boolean) -> Unit)? = null) {
         var isFaded = false
         val fadeRunnable = Runnable { 
             isFaded = true
-            setUiFade(true, slider) 
+            setUiFade(true, excludedView) 
+            onFadeStateChanged?.invoke(true)
         }
         
         slider.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
@@ -543,7 +555,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(slider: Slider) {
                 slider.removeCallbacks(fadeRunnable)
                 if (isFaded) {
-                    setUiFade(false, slider)
+                    setUiFade(false, excludedView)
+                    onFadeStateChanged?.invoke(false)
                     isFaded = false
                 }
             }
@@ -1394,8 +1407,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         switchMaxJourneyDuration.setOnCheckedChangeListener { _, isChecked ->
             enableJourneyDurationFilter = isChecked
             val visibility = if (isChecked) View.VISIBLE else View.GONE
-            summaryMaxJourneyDuration.visibility = visibility
-            sliderMaxJourneyDuration.visibility = visibility
+            containerMaxJourneyDuration.visibility = visibility
             triggerUpdate()
         }
         
