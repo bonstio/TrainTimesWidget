@@ -11,7 +11,7 @@ object WidgetConfigurationDefaults {
     const val START_TIME_NORMAL = -1
     const val START_TIME_REVERSE = -1
     const val TIME_OFFSET = 0
-    const val DEPARTURE_COUNT = 9
+    const val DEPARTURE_COUNT = 10
     const val TRANSPARENCY = 128
     const val TEXT_COLOR = Color.WHITE
     const val BG_COLOR = Color.BLACK

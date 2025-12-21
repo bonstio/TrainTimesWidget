@@ -21,8 +21,6 @@ object WidgetConfigurationStorage {
     private const val PREF_ALIGNMENT_KEY = "alignment_"
     private const val PREF_START_NORMAL_KEY = "start_normal_"
     private const val PREF_START_REVERSE_KEY = "start_reverse_"
-    private const val PREF_TIME_OFFSET_KEY = "time_offset_"
-    private const val PREF_DEPARTURE_COUNT_KEY = "departure_count_"
     private const val PREF_TRANSPARENCY_KEY = "transparency_"
     private const val PREF_TEXT_COLOR_KEY = "text_color_"
     private const val PREF_BG_COLOR_KEY = "bg_color_"
@@ -57,8 +55,6 @@ object WidgetConfigurationStorage {
         alignment: String,
         startTimeNormal: Int,
         startTimeReverse: Int,
-        timeOffset: Int,
-        departureCount: Int,
         transparency: Int,
         textColor: Int,
         bgColor: Int,
@@ -89,8 +85,6 @@ object WidgetConfigurationStorage {
         prefs.putString(PREF_ALIGNMENT_KEY + appWidgetId, alignment)
         prefs.putInt(PREF_START_NORMAL_KEY + appWidgetId, startTimeNormal)
         prefs.putInt(PREF_START_REVERSE_KEY + appWidgetId, startTimeReverse)
-        prefs.putInt(PREF_TIME_OFFSET_KEY + appWidgetId, timeOffset)
-        prefs.putInt(PREF_DEPARTURE_COUNT_KEY + appWidgetId, departureCount)
         prefs.putInt(PREF_TRANSPARENCY_KEY + appWidgetId, transparency)
         prefs.putInt(PREF_TEXT_COLOR_KEY + appWidgetId, textColor)
         prefs.putInt(PREF_BG_COLOR_KEY + appWidgetId, bgColor)
@@ -142,8 +136,8 @@ object WidgetConfigurationStorage {
         val alignment = prefs.getString(PREF_ALIGNMENT_KEY + appWidgetId, WidgetConfigurationDefaults.ALIGNMENT)
         val startTimeNormal = prefs.getInt(PREF_START_NORMAL_KEY + appWidgetId, WidgetConfigurationDefaults.START_TIME_NORMAL)
         val startTimeReverse = prefs.getInt(PREF_START_REVERSE_KEY + appWidgetId, WidgetConfigurationDefaults.START_TIME_REVERSE)
-        val timeOffset = prefs.getInt(PREF_TIME_OFFSET_KEY + appWidgetId, WidgetConfigurationDefaults.TIME_OFFSET)
-        val departureCount = prefs.getInt(PREF_DEPARTURE_COUNT_KEY + appWidgetId, WidgetConfigurationDefaults.DEPARTURE_COUNT)
+        val timeOffset = WidgetConfigurationDefaults.TIME_OFFSET
+        val departureCount = WidgetConfigurationDefaults.DEPARTURE_COUNT
         val transparency = prefs.getInt(PREF_TRANSPARENCY_KEY + appWidgetId, WidgetConfigurationDefaults.TRANSPARENCY)
         val textColor = prefs.getInt(PREF_TEXT_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.TEXT_COLOR)
         val bgColor = prefs.getInt(PREF_BG_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.BG_COLOR)
@@ -221,8 +215,6 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_ALIGNMENT_KEY + appWidgetId)
         prefs.remove(PREF_START_NORMAL_KEY + appWidgetId)
         prefs.remove(PREF_START_REVERSE_KEY + appWidgetId)
-        prefs.remove(PREF_TIME_OFFSET_KEY + appWidgetId)
-        prefs.remove(PREF_DEPARTURE_COUNT_KEY + appWidgetId)
         prefs.remove(PREF_TRANSPARENCY_KEY + appWidgetId)
         prefs.remove(PREF_TEXT_COLOR_KEY + appWidgetId)
         prefs.remove(PREF_BG_COLOR_KEY + appWidgetId)

@@ -118,10 +118,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
 
     // Advanced Tab Views
-    private lateinit var rowOffset: View
-    private lateinit var summaryOffset: TextView
-    private lateinit var rowDepartureCount: View
-    private lateinit var summaryDepartureCount: TextView
     private lateinit var switchHidePastDepartures: MaterialSwitch
     private lateinit var rowMaxJourneyDuration: View
     private lateinit var switchMaxJourneyDuration: MaterialSwitch
@@ -181,8 +177,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var selectedFontStyle: String = WidgetConfigurationDefaults.FONT_STYLE
     private var customTitleText: String = ""
     private var selectedStationStopsMode: String = WidgetConfigurationDefaults.STATION_STOPS_MODE
-    private var selectedOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
-    private var selectedDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
     private var selectedCommutingMode: String = WidgetConfigurationDefaults.COMMUTING_MODE
     private var enableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
     private var maxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
@@ -193,8 +187,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var initialToStationCode: String = ""
     private var initialStartTimeNormal: Int = 360
     private var initialStartTimeReverse: Int = 960
-    private var initialOffset: Int = WidgetConfigurationDefaults.TIME_OFFSET
-    private var initialDepartureCount: Int = WidgetConfigurationDefaults.DEPARTURE_COUNT
     private var initialHidePastDepartures: Boolean = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
     private var initialEnableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
     private var initialMaxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
@@ -273,10 +265,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         rowCustomTitle.visibility = View.GONE
         
         // Advanced Tab Bindings
-        rowOffset = findViewById(R.id.row_offset)
-        summaryOffset = findViewById(R.id.summary_offset)
-        rowDepartureCount = findViewById(R.id.row_departure_count)
-        summaryDepartureCount = findViewById(R.id.summary_departure_count)
         switchHidePastDepartures = findViewById(R.id.switch_hide_past_departures)
         
         rowMaxJourneyDuration = findViewById(R.id.row_max_journey_duration)
@@ -380,8 +368,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             
             startTimeNormal = existingConfig.startTimeNormal
             startTimeReverse = existingConfig.startTimeReverse
-            selectedOffset = existingConfig.timeOffset
-            selectedDepartureCount = existingConfig.departureCount
             switchHidePastDepartures.isChecked = existingConfig.hidePastDepartures
             selectedCommutingMode = existingConfig.commutingMode
             
@@ -416,8 +402,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
             selectedStationStopsMode = WidgetConfigurationDefaults.STATION_STOPS_MODE
             
-            selectedOffset = WidgetConfigurationDefaults.TIME_OFFSET
-            selectedDepartureCount = WidgetConfigurationDefaults.DEPARTURE_COUNT
             switchHidePastDepartures.isChecked = WidgetConfigurationDefaults.HIDE_PAST_DEPARTURES
             
             enableJourneyDurationFilter = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
@@ -437,8 +421,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         initialToStationCode = toStationCode
         initialStartTimeNormal = startTimeNormal
         initialStartTimeReverse = startTimeReverse
-        initialOffset = selectedOffset
-        initialDepartureCount = selectedDepartureCount
         initialHidePastDepartures = switchHidePastDepartures.isChecked
         initialEnableJourneyDurationFilter = enableJourneyDurationFilter
         initialMaxJourneyDuration = maxJourneyDuration
@@ -743,8 +725,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val stationStopsMode = selectedStationStopsMode
         val showStops = (stationStopsMode != "NONE") 
         
-        val timeOffset = selectedOffset
-        val departureCount = selectedDepartureCount
         val hidePastDepartures = switchHidePastDepartures.isChecked
 
         val transparency = Color.alpha(currentBackgroundColor)
@@ -773,8 +753,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             alignment,
             startTimeNormal,
             startTimeReverse,
-            timeOffset,
-            departureCount,
             transparency,
             currentTextColor,
             bgColor,
@@ -796,8 +774,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 initialToStationCode != toStationCode ||
                 initialStartTimeNormal != startTimeNormal ||
                 initialStartTimeReverse != startTimeReverse ||
-                initialOffset != timeOffset ||
-                initialDepartureCount != departureCount ||
                 initialHidePastDepartures != hidePastDepartures ||
                 initialUseNearestStationForReturn != useNearestStationForReturn
 
@@ -807,8 +783,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             initialToStationCode = toStationCode
             initialStartTimeNormal = startTimeNormal
             initialStartTimeReverse = startTimeReverse
-            initialOffset = timeOffset
-            initialDepartureCount = departureCount
             initialHidePastDepartures = hidePastDepartures
             initialEnableJourneyDurationFilter = enableJourneyDurationFilter
             initialMaxJourneyDuration = maxJourneyDuration
@@ -1426,79 +1400,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun setupAdvancedListeners() {
-        rowOffset.setOnClickListener {
-            val container = LinearLayout(this)
-            container.orientation = LinearLayout.VERTICAL
-            val margin = (24 * resources.displayMetrics.density).toInt()
-            container.setPadding(margin, margin / 2, margin, 0)
-
-            val input = TextInputEditText(this)
-            input.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
-            input.setText(selectedOffset.toString())
-            container.addView(input)
-
-            MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.offset_row_title)
-                .setView(container)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val value = input.text.toString().toIntOrNull() ?: 0
-                    if (value >= -120 && value <= 120) {
-                        selectedOffset = value
-                        updateAdvancedSummaries()
-                        validateInputs()
-                    }
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-                
-            input.post {
-                 input.selectAll()
-                 input.requestFocus()
-            }
-        }
-
-        rowDepartureCount.setOnClickListener {
-            val container = LinearLayout(this)
-            container.orientation = LinearLayout.VERTICAL
-            val margin = (24 * resources.displayMetrics.density).toInt()
-            container.setPadding(margin, margin / 2, margin, 0)
-
-            val input = TextInputEditText(this)
-            input.inputType = InputType.TYPE_CLASS_NUMBER
-            input.setText(selectedDepartureCount.toString())
-            container.addView(input)
-
-            val helperText = TextView(this)
-            helperText.text = getString(R.string.departure_count_helper)
-            val typedValue = TypedValue()
-            theme.resolveAttribute(com.google.android.material.R.attr.textAppearanceCaption, typedValue, true)
-            if (typedValue.resourceId != 0) {
-                helperText.setTextAppearance(typedValue.resourceId)
-            }
-            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            params.topMargin = (8 * resources.displayMetrics.density).toInt()
-            helperText.layoutParams = params
-            container.addView(helperText)
-
-            MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.departure_count_row_title)
-                .setView(container)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val value = input.text.toString().toIntOrNull() ?: 12
-                    if (value >= 1 && value <= 100) {
-                        selectedDepartureCount = value
-                        updateAdvancedSummaries()
-                        validateInputs()
-                    }
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-                
-            input.post {
-                 input.selectAll()
-                 input.requestFocus()
-            }
-        }
         
         switchMaxJourneyDuration.setOnCheckedChangeListener { _, isChecked ->
             enableJourneyDurationFilter = isChecked
@@ -1532,8 +1433,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun updateAdvancedSummaries() {
-        summaryOffset.text = getString(R.string.offset_summary_format, selectedOffset)
-        summaryDepartureCount.text = selectedDepartureCount.toString()
         summaryMaxJourneyDuration.text = getString(R.string.journey_duration_format, maxJourneyDuration)
     }
 

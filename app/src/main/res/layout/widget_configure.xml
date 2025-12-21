@@ -700,60 +700,6 @@
                                 android:layout_marginTop="4dp"/>
                         </LinearLayout>
 
-                        <!-- Offset Row -->
-                        <LinearLayout
-                            android:id="@+id/row_offset"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:background="?attr/selectableItemBackground"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:orientation="vertical"
-                            android:paddingHorizontal="4dp"
-                            android:paddingVertical="12dp">
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="@string/offset_row_title"
-                                android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                            <TextView
-                                android:id="@+id/summary_offset"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="0"
-                                android:textAppearance="?attr/textAppearanceBodyMedium"
-                                android:textColor="?android:attr/textColorSecondary" />
-                        </LinearLayout>
-
-                        <!-- Departure Count Row -->
-                        <LinearLayout
-                            android:id="@+id/row_departure_count"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:background="?attr/selectableItemBackground"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:orientation="vertical"
-                            android:paddingHorizontal="4dp"
-                            android:paddingVertical="12dp">
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="@string/departure_count_row_title"
-                                android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                            <TextView
-                                android:id="@+id/summary_departure_count"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="5"
-                                android:textAppearance="?attr/textAppearanceBodyMedium"
-                                android:textColor="?android:attr/textColorSecondary" />
-                        </LinearLayout>
-
                         <!-- Hide Past Departures Row -->
                         <LinearLayout
                             android:layout_width="match_parent"
