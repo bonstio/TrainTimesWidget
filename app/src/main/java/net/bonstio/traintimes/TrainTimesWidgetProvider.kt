@@ -416,13 +416,9 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             
             // If commuting logic was used, append the station
             if (config.commutingMode == "LOCATION" || config.useNearestStationForReturn) {
-                 // Check if effectiveFrom != original from/to? Or just always show effectiveFrom station name?
-                 // Let's show effectiveFrom station name if it differs from the default or just always for clarity.
-                 // Showing the station name is helpful context.
                  if (fromStation.isNotEmpty()) {
-                     val fromStationName = StationRepository.getStationName(context, fromStation)
-                     // Using a bullet point separator
-                     lastUpdateText += " • $fromStationName"
+                     // Using a bullet point separator and short code (uppercase)
+                     lastUpdateText += " • ${fromStation.uppercase()}"
                  }
             }
 
