@@ -349,6 +349,8 @@
     <string name="commuting_mode_location">Location based</string>
     <!-- Hint text explaining location-based commuting. Length: 110 chars. -->
     <string name="nearest_station_hint">Uses your location to determine which of your selected stations is closest, reversing the route automatically.</string>
+    <!-- Title for location explanation dialog. Length: 20 chars. -->
+    <string name="location_explanation_title">Location Access</string>
     <!-- Rationale for requesting location permission. Length: 60 chars. -->
     <string name="location_permission_rationale">Location access is needed to find your nearest station.</string>
     <!-- Button label to grant permission. Length: 10 chars. -->

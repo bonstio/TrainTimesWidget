@@ -114,7 +114,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var showRefreshIcon = WidgetConfigurationDefaults.SHOW_REFRESH_ICON
     private var showSettingsIcon = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON
     private var showGpsIcon = WidgetConfigurationDefaults.SHOW_GPS_ICON
-    
+
     private var showMapsIcon = WidgetConfigurationDefaults.SHOW_MAPS_ICON
     private var showLastUpdateTime = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME
     private var showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
@@ -256,7 +256,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         sliderFontSize = findViewById(R.id.slider_font_size)
         containerFontSize = findViewById(R.id.container_font_size)
         originalFontSizeTextColor = summaryFontSize.textColors
-        
+
         rowStationStops = findViewById(R.id.row_station_stops)
         summaryStationStops = findViewById(R.id.summary_station_stops)
         rowDivider = findViewById(R.id.row_divider)
@@ -277,7 +277,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         sliderMaxJourneyDuration = findViewById(R.id.slider_max_journey_duration)
         containerMaxJourneyDuration = findViewById(R.id.container_max_journey_duration)
         originalDurationTextColor = summaryMaxJourneyDuration.textColors
-        
+
         rowGlobalSettings = findViewById(R.id.row_global_settings)
 
         rowUseNearestStationReturn = findViewById(R.id.row_use_nearest_station_return)
@@ -424,11 +424,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showLastUpdateTime = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME
             showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
             selectedStationStopsMode = WidgetConfigurationDefaults.STATION_STOPS_MODE
-            
+
             enableJourneyDurationFilter = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
             maxJourneyDuration = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
             useNearestStationForReturn = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
-            
+
             currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
             currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
             isTextSystemColor = true
@@ -445,7 +445,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         initialEnableJourneyDurationFilter = enableJourneyDurationFilter
         initialMaxJourneyDuration = maxJourneyDuration
         initialUseNearestStationForReturn = useNearestStationForReturn
-        
+
         // Sync switch state with loaded config
         switchShowDivider.isChecked = showDivider
         // Set initial slider value
@@ -457,7 +457,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         // Visibility of journey duration elements
         val durationVisible = if (enableJourneyDurationFilter) View.VISIBLE else View.GONE
         containerMaxJourneyDuration.visibility = durationVisible
-        
+
         switchUseNearestStationReturn.isChecked = useNearestStationForReturn
 
         updateColorSummariesAndPreviews()
@@ -557,7 +557,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         var isFaded = false
         val fadeRunnable = Runnable { 
             isFaded = true
-            setUiFade(true, excludedView) 
+            setUiFade(true, excludedView)
             onFadeStateChanged?.invoke(true)
         }
         
@@ -824,7 +824,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             setResult(RESULT_OK, resultValue)
             finish()
         }
-        
+
         LocationService.update(context)
     }
 
@@ -891,6 +891,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupInputListeners(stationInput)
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(titleRes)
             .setView(view)
             .setCancelable(false)
@@ -911,20 +912,21 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.dialog_commute_times, null)
         val commutingModeGroup = view.findViewById<RadioGroup>(R.id.commuting_mode_radio_group)
         val timeModeContainer = view.findViewById<View>(R.id.time_mode_container)
-        val locationModeContainer = view.findViewById<View>(R.id.location_mode_container)
         val outboundInput = view.findViewById<TextInputEditText>(R.id.outbound_time_input)
         val outboundLayout = view.findViewById<TextInputLayout>(R.id.outbound_time_layout)
         val returnInput = view.findViewById<TextInputEditText>(R.id.return_time_input)
         val returnLayout = view.findViewById<TextInputLayout>(R.id.return_time_layout)
 
         fun updateVisibility(mode: String) {
-            if (mode == "LOCATION") {
-                timeModeContainer.visibility = View.INVISIBLE
-                locationModeContainer.visibility = View.VISIBLE
-            } else {
-                timeModeContainer.visibility = View.VISIBLE
-                locationModeContainer.visibility = View.INVISIBLE
-            }
+            val isTimeMode = mode == "TIME"
+            timeModeContainer.isEnabled = isTimeMode
+            timeModeContainer.alpha = if (isTimeMode) 1.0f else 0.5f
+
+            // Also need to explicitly disable children to ensure they are greyed out and not clickable
+            outboundInput.isEnabled = isTimeMode
+            outboundLayout.isEnabled = isTimeMode
+            returnInput.isEnabled = isTimeMode
+            returnLayout.isEnabled = isTimeMode
         }
 
         // Initial State
@@ -942,7 +944,21 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 updateVisibility("LOCATION")
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                     locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+
+                     MaterialAlertDialogBuilder(this)
+                        .setCancelable(false)
+                        .setTitle(R.string.location_explanation_title)
+                        .setMessage(R.string.nearest_station_hint)
+                        .setPositiveButton(R.string.grant_permission) { _, _ ->
+                            locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                        }
+                        .setNegativeButton(android.R.string.cancel) { _, _ ->
+                            commutingModeGroup.check(R.id.radio_time_mode)
+                        }
+                        .setOnCancelListener {
+                            commutingModeGroup.check(R.id.radio_time_mode)
+                        }
+                        .show()
                 }
             } else {
                 currentMode = "TIME"
@@ -986,6 +1002,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupTimeInput(returnInput, returnLayout, startTimeReverse, 960) { tempStartTimeReverse = it }
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(R.string.commute_times)
             .setView(view)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1037,7 +1054,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                             val closestStation = findClosestStation(location, fromStationCode, toStationCode)
                             if (closestStation != null) {
                                 var displayCode = closestStation.code
-                                
+
                                 if (useNearestStationForReturn) {
                                      val absoluteNearest = StationRepository.findNearestStation(this, location.latitude, location.longitude)
                                      if (absoluteNearest != null) {
@@ -1066,7 +1083,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         val hasFromStation = fromStationCode.isNotEmpty()
         val canUseNearestReturn = hasFromStation && hasToStation
-        
+
         switchUseNearestStationReturn.isEnabled = canUseNearestReturn
         textUseNearestStationReturn.alpha = if (canUseNearestReturn) 1.0f else 0.5f
         summaryUseNearestStationReturn.alpha = if (canUseNearestReturn) 1.0f else 0.5f
@@ -1208,6 +1225,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             updatePreview()
             
             MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.heading_format)
                 .setView(view)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1253,6 +1271,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
              val adapter = CheckedItemAdapter(this, items, selectedIndex)
              
              val dialog = MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.font_style_label)
                 .setAdapter(adapter) { dialog, which ->
                     selectedFontStyle = values[which]
@@ -1273,6 +1292,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
              val adapter = CheckedItemAdapter(this, items, selectedIndex)
              
              val dialog = MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.title_alignment)
                 .setAdapter(adapter) { dialog, which ->
                     selectedAlignment = values[which]
@@ -1304,6 +1324,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             val adapter = CheckedItemAdapter(this, items, selectedIndex)
             
             val dialog = MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.show_stops)
                 .setAdapter(adapter) { dialog, which ->
                     selectedStationStopsMode = values[which]
@@ -1369,6 +1390,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(R.string.header_items_title)
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1412,6 +1434,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(R.string.footer_items_title)
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1436,13 +1459,13 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             updateAdvancedSummaries()
             triggerUpdate()
         }
-        
+
         rowUseNearestStationReturn.setOnClickListener {
              if (switchUseNearestStationReturn.isEnabled) {
                  switchUseNearestStationReturn.toggle()
              }
         }
-        
+
         switchUseNearestStationReturn.setOnCheckedChangeListener { _, isChecked ->
              useNearestStationForReturn = isChecked
              updateRouteSummaries()
@@ -1498,7 +1521,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             6 -> getString(R.string.font_size_massive)
             else -> getString(R.string.font_size_regular)
         }
-        
+
         summaryFontStyle.text = when(selectedFontStyle) {
             "SYSTEM" -> getString(R.string.font_style_system)
             "RETRO" -> getString(R.string.font_style_retro)
@@ -1582,9 +1605,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val safeMinutes = if (minutes == -1) defaultMinutes else minutes
         val hour = safeMinutes / 60
         val minute = safeMinutes % 60
-        TimePickerDialog(this, { _, h, m ->
+        val dialog = TimePickerDialog(this, { _, h, m ->
             callback(h * 60 + m)
-        }, hour, minute, true).show()
+        }, hour, minute, true)
+        dialog.setCancelable(false)
+        dialog.show()
     }
 
     private fun updateTimeLabels() {
@@ -1852,6 +1877,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         })
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(if (mode == ColorMode.TEXT) R.string.text_color else R.string.background_color)
             .setView(dialogView)
             .setPositiveButton(android.R.string.ok) { _, _ ->
