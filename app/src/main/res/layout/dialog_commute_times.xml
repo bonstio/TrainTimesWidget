@@ -6,106 +6,80 @@
     android:orientation="vertical"
     android:paddingStart="24dp"
     android:paddingEnd="24dp"
-    android:paddingTop="8dp">
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
     <RadioGroup
         android:id="@+id/commuting_mode_radio_group"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
+        android:gravity="center"
         android:layout_marginBottom="16dp">
 
         <RadioButton
             android:id="@+id/radio_time_mode"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/commuting_mode_time"
+            android:layout_marginEnd="16dp"
             android:checked="true" />
 
         <RadioButton
             android:id="@+id/radio_location_mode"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/commuting_mode_location" />
     </RadioGroup>
 
-    <FrameLayout
+    <!-- Time Mode Container -->
+    <LinearLayout
+        android:id="@+id/time_mode_container"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:minHeight="140dp">
 
-        <!-- Time Mode Container -->
-        <LinearLayout
-            android:id="@+id/time_mode_container"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/outbound_time_layout"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:hint="@string/outbound_time"
+            app:endIconMode="custom"
+            app:endIconDrawable="@drawable/ic_close"
+            app:endIconContentDescription="@string/clear">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/display_times_helper"
-                android:textAppearance="?attr/textAppearanceCaption"
-                android:layout_marginBottom="16dp" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/outbound_time_layout"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/outbound_time_input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/outbound_time"
-                app:endIconMode="custom"
-                app:endIconDrawable="@drawable/ic_close"
-                app:endIconContentDescription="@string/clear">
+                android:focusable="false"
+                android:clickable="true"
+                android:inputType="none" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/outbound_time_input"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:focusable="false"
-                    android:clickable="true"
-                    android:inputType="none" />
+        </com.google.android.material.textfield.TextInputLayout>
 
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/return_time_layout"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:hint="@string/return_time"
-                app:endIconMode="custom"
-                app:endIconDrawable="@drawable/ic_close"
-                app:endIconContentDescription="@string/clear">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/return_time_input"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:focusable="false"
-                    android:clickable="true"
-                    android:inputType="none" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-        </LinearLayout>
-
-        <!-- Location Mode Container -->
-        <LinearLayout
-            android:id="@+id/location_mode_container"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/return_time_layout"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:visibility="invisible">
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="@string/return_time"
+            app:endIconMode="custom"
+            app:endIconDrawable="@drawable/ic_close"
+            app:endIconContentDescription="@string/clear">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/return_time_input"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/nearest_station_hint"
-                android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:textColor="?android:attr/textColorSecondary"
-                android:layout_marginTop="8dp" />
-        </LinearLayout>
-    </FrameLayout>
+                android:focusable="false"
+                android:clickable="true"
+                android:inputType="none" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+    </LinearLayout>
 
 </LinearLayout>

@@ -877,6 +877,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupInputListeners(stationInput)
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(titleRes)
             .setView(view)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -896,20 +897,21 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.dialog_commute_times, null)
         val commutingModeGroup = view.findViewById<RadioGroup>(R.id.commuting_mode_radio_group)
         val timeModeContainer = view.findViewById<View>(R.id.time_mode_container)
-        val locationModeContainer = view.findViewById<View>(R.id.location_mode_container)
         val outboundInput = view.findViewById<TextInputEditText>(R.id.outbound_time_input)
         val outboundLayout = view.findViewById<TextInputLayout>(R.id.outbound_time_layout)
         val returnInput = view.findViewById<TextInputEditText>(R.id.return_time_input)
         val returnLayout = view.findViewById<TextInputLayout>(R.id.return_time_layout)
 
         fun updateVisibility(mode: String) {
-            if (mode == "LOCATION") {
-                timeModeContainer.visibility = View.INVISIBLE
-                locationModeContainer.visibility = View.VISIBLE
-            } else {
-                timeModeContainer.visibility = View.VISIBLE
-                locationModeContainer.visibility = View.INVISIBLE
-            }
+            val isTimeMode = mode == "TIME"
+            timeModeContainer.isEnabled = isTimeMode
+            timeModeContainer.alpha = if (isTimeMode) 1.0f else 0.5f
+            
+            // Also need to explicitly disable children to ensure they are greyed out and not clickable
+            outboundInput.isEnabled = isTimeMode
+            outboundLayout.isEnabled = isTimeMode
+            returnInput.isEnabled = isTimeMode
+            returnLayout.isEnabled = isTimeMode
         }
 
         // Initial State
@@ -927,7 +929,21 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 updateVisibility("LOCATION")
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                     locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                     
+                     MaterialAlertDialogBuilder(this)
+                        .setCancelable(false)
+                        .setTitle(R.string.location_explanation_title)
+                        .setMessage(R.string.nearest_station_hint)
+                        .setPositiveButton(R.string.grant_permission) { _, _ ->
+                            locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                        }
+                        .setNegativeButton(android.R.string.cancel) { _, _ ->
+                            commutingModeGroup.check(R.id.radio_time_mode)
+                        }
+                        .setOnCancelListener {
+                            commutingModeGroup.check(R.id.radio_time_mode)
+                        }
+                        .show()
                 }
             } else {
                 currentMode = "TIME"
@@ -971,6 +987,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupTimeInput(returnInput, returnLayout, startTimeReverse, 960) { tempStartTimeReverse = it }
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(R.string.commute_times)
             .setView(view)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1178,6 +1195,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             updatePreview()
             
             MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.heading_format)
                 .setView(view)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1223,6 +1241,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
              val adapter = CheckedItemAdapter(this, items, selectedIndex)
              
              val dialog = MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.font_style_label)
                 .setAdapter(adapter) { dialog, which ->
                     selectedFontStyle = values[which]
@@ -1243,6 +1262,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
              val adapter = CheckedItemAdapter(this, items, selectedIndex)
              
              val dialog = MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.title_alignment)
                 .setAdapter(adapter) { dialog, which ->
                     selectedAlignment = values[which]
@@ -1274,6 +1294,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             val adapter = CheckedItemAdapter(this, items, selectedIndex)
             
             val dialog = MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.show_stops)
                 .setAdapter(adapter) { dialog, which ->
                     selectedStationStopsMode = values[which]
@@ -1338,6 +1359,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(R.string.header_items_title)
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1381,6 +1403,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(R.string.footer_items_title)
             .setView(container)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1404,6 +1427,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             container.addView(input)
 
             MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.offset_row_title)
                 .setView(container)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1447,6 +1471,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             container.addView(helperText)
 
             MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
                 .setTitle(R.string.departure_count_row_title)
                 .setView(container)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1621,9 +1646,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val safeMinutes = if (minutes == -1) defaultMinutes else minutes
         val hour = safeMinutes / 60
         val minute = safeMinutes % 60
-        TimePickerDialog(this, { _, h, m ->
+        val dialog = TimePickerDialog(this, { _, h, m ->
             callback(h * 60 + m)
-        }, hour, minute, true).show()
+        }, hour, minute, true)
+        dialog.setCancelable(false)
+        dialog.show()
     }
 
     private fun updateTimeLabels() {
@@ -1891,6 +1918,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         })
 
         MaterialAlertDialogBuilder(this)
+            .setCancelable(false)
             .setTitle(if (mode == ColorMode.TEXT) R.string.text_color else R.string.background_color)
             .setView(dialogView)
             .setPositiveButton(android.R.string.ok) { _, _ ->
