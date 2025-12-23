@@ -39,3 +39,8 @@ const val PREF_TEXT_COLOR = "text_color"
  * Key for storing the background color preference (deprecated/unused in new logic, moved to per-widget config).
  */
 const val PREF_BG_COLOR = "bg_color"
+
+/**
+ * Key for tracking if the prominent disclosure dialog has been shown.
+ */
+const val PREF_PROMINENT_DISCLOSURE_SHOWN = "prominent_disclosure_shown"

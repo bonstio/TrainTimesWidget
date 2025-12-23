@@ -21,6 +21,7 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.Spinner
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import com.google.android.material.textfield.TextInputEditText
@@ -104,6 +105,10 @@ class MainActivity : AppCompatActivity() {
 
         if (intent.getBooleanExtra(EXTRA_INVALID_API_KEY, false)) {
             apiKeyInputLayout.error = "Invalid API key"
+        }
+
+        if (!prefs.getBoolean(PREF_PROMINENT_DISCLOSURE_SHOWN, false)) {
+            showProminentDisclosure()
         }
     }
 
@@ -198,5 +203,19 @@ class MainActivity : AppCompatActivity() {
         )
         intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
         sendBroadcast(intent)
+    }
+
+    private fun showProminentDisclosure() {
+        AlertDialog.Builder(this)
+            .setTitle("Location Permission Disclosure")
+            .setMessage("Train Times Widget collects location data to enable finding the nearest train stations and updating widget information based on your current location, even when the app is closed or not in use.")
+            .setPositiveButton("Acknowledge") { _, _ ->
+                prefs.edit { putBoolean(PREF_PROMINENT_DISCLOSURE_SHOWN, true) }
+            }
+            .setNegativeButton("No thanks") { _, _ ->
+                prefs.edit { putBoolean(PREF_PROMINENT_DISCLOSURE_SHOWN, true) }
+            }
+            .setCancelable(false)
+            .show()
     }
 }
