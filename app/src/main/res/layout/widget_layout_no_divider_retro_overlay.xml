@@ -25,8 +25,8 @@
 
             <ImageView
                 android:id="@+id/widget_icon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/train_24px"
                 android:layout_marginEnd="8dp"
                 android:tint="?attr/colorOnSurface"
@@ -59,11 +59,11 @@
 
             <ImageView
                 android:id="@+id/gps_button"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:src="@drawable/ic_my_location"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="6dp"
+                android:padding="4dp"
                 android:tint="?attr/colorOnSurface"
                 android:contentDescription="@null"
                 android:layout_marginStart="8dp"
@@ -71,35 +71,59 @@
 
             <ImageView
                 android:id="@+id/settings_button"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:src="@drawable/settings"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="6dp"
+                android:padding="4dp"
                 android:tint="?attr/colorOnSurface"
                 android:contentDescription="@string/retry"
                 android:layout_marginStart="8dp" />
 
             <ImageView
                 android:id="@+id/refresh_button"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:src="@drawable/refresh_24px"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="6dp"
+                android:padding="4dp"
                 android:tint="?attr/colorOnSurface"
                 android:contentDescription="@string/retry"
                 android:layout_marginStart="8dp" />
         </LinearLayout>
 
-        <ListView
-            android:id="@+id/departures_list"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:requiresFadingEdge="vertical"
-            android:fadingEdgeLength="24dp"
-            tools:listitem="@layout/departure_layout_retro"/>
+            android:layout_weight="1">
+
+            <ListView
+                android:id="@+id/departures_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@null"
+                android:dividerHeight="0dp"
+                android:requiresFadingEdge="none"
+                tools:listitem="@layout/departure_layout_retro"/>
+
+            <ImageView
+                android:id="@+id/top_fade_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:layout_gravity="top"
+                android:src="@drawable/fade_gradient_system_top"
+                android:contentDescription="@null"
+                android:visibility="visible" />
+
+            <ImageView
+                android:id="@+id/bottom_fade_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:layout_gravity="bottom"
+                android:src="@drawable/fade_gradient_system_bottom"
+                android:contentDescription="@null"
+                android:visibility="visible" />
+        </FrameLayout>
 
         <FrameLayout
             android:id="@+id/loading_container"

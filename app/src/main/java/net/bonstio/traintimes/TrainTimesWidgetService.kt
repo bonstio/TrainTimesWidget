@@ -175,7 +175,7 @@ class TrainTimesRemoteViewsFactory(
             // Standard TextViews
             departureView.setTextViewText(R.id.departure_time, service.std)
             departureView.setTextViewText(R.id.destination, service.destination)
-            val platformText = service.platform?.let { "Platform $it" } ?: ""
+            val platformText = service.platform?.let { "Pl. $it" } ?: ""
             departureView.setTextViewText(R.id.platform, platformText)
             departureView.setTextViewText(R.id.status, service.status)
 

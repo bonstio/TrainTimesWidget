@@ -84,6 +84,8 @@
             android:layout_weight="1"
             android:divider="@null"
             android:dividerHeight="0dp"
+            android:requiresFadingEdge="vertical"
+            android:fadingEdgeLength="24dp"
             tools:listitem="@layout/departure_layout"/>
 
         <FrameLayout

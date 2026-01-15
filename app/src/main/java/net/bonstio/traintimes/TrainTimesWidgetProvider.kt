@@ -293,12 +293,29 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             context: Context, appWidgetId: Int, styling: WidgetStyling,
             title: String, config: WidgetConfiguration, fromStation: String, toStation: String, isLoading: Boolean = false
         ): RemoteViews {
+            // Determine if Footer is shown
+            val showFooter = config.showLastUpdateTime || config.showMapsIcon
+
+            // Use Standard layout (Vertical Fade) if Footer is HIDDEN.
+            // Use NoFade layout (No Fade) if Footer is SHOWN.
+            // This logic applies regardless of transparency.
+            val useStandard = !showFooter
+
             val useRetro = config.fontStyle == "RETRO"
-            val layoutId = if (useRetro) {
-                if (config.showDivider) R.layout.widget_layout_retro else R.layout.widget_layout_no_divider_retro
+            val layoutId = if (useStandard) {
+                if (useRetro) {
+                    if (config.showDivider) R.layout.widget_layout_retro else R.layout.widget_layout_no_divider_retro
+                } else {
+                    if (config.showDivider) R.layout.widget_layout else R.layout.widget_layout_no_divider
+                }
             } else {
-                if (config.showDivider) R.layout.widget_layout else R.layout.widget_layout_no_divider
+                if (useRetro) {
+                    if (config.showDivider) R.layout.widget_layout_retro_nofade else R.layout.widget_layout_no_divider_retro_nofade
+                } else {
+                    if (config.showDivider) R.layout.widget_layout_nofade else R.layout.widget_layout_no_divider_nofade
+                }
             }
+
             val views = RemoteViews(context.packageName, layoutId)
 
             // Theming
@@ -446,7 +463,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             } else {
                 views.setTextViewText(R.id.last_updated, lastUpdateText)
             }
-
+            
             views.setViewVisibility(R.id.last_updated, if (config.showLastUpdateTime) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.open_in_maps, if (config.showMapsIcon) View.VISIBLE else View.GONE)
 

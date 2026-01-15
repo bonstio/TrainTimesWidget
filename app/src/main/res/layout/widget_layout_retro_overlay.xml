@@ -92,14 +92,36 @@
                 android:layout_marginStart="8dp" />
         </LinearLayout>
 
-        <ListView
-            android:id="@+id/departures_list"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:requiresFadingEdge="vertical"
-            android:fadingEdgeLength="24dp"
-            tools:listitem="@layout/departure_layout_retro"/>
+            android:layout_weight="1">
+
+            <ListView
+                android:id="@+id/departures_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:requiresFadingEdge="none"
+                tools:listitem="@layout/departure_layout_retro"/>
+
+            <ImageView
+                android:id="@+id/top_fade_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:layout_gravity="top"
+                android:src="@drawable/fade_gradient_system_top"
+                android:contentDescription="@null"
+                android:visibility="visible" />
+
+            <ImageView
+                android:id="@+id/bottom_fade_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:layout_gravity="bottom"
+                android:src="@drawable/fade_gradient_system_bottom"
+                android:contentDescription="@null"
+                android:visibility="visible" />
+        </FrameLayout>
 
         <FrameLayout
             android:id="@+id/loading_container"

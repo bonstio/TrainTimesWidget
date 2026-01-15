@@ -4,7 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.StaticLayout
@@ -66,6 +68,39 @@ object BitmapGenerator {
         val canvas = Canvas(bitmap)
         layout.draw(canvas)
 
+        return bitmap
+    }
+
+    fun generateFadeGradient(context: Context, color: Int, isTop: Boolean): Bitmap? {
+        val width = 1
+        val height = (24 * context.resources.displayMetrics.density).toInt() // 24dp
+        
+        if (height <= 0) return null
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        
+        val r = Color.red(color)
+        val g = Color.green(color)
+        val b = Color.blue(color)
+        val a = Color.alpha(color)
+        
+        val transparent = Color.argb(0, r, g, b)
+        val solid = Color.argb(a, r, g, b)
+        
+        val startColor = if (isTop) solid else transparent
+        val endColor = if (isTop) transparent else solid
+        
+        val paint = Paint()
+        val shader = LinearGradient(
+            0f, 0f, 0f, height.toFloat(),
+            startColor,
+            endColor,
+            Shader.TileMode.CLAMP
+        )
+        paint.shader = shader
+        
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
         return bitmap
     }
 }
