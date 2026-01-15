@@ -10,6 +10,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -35,17 +36,64 @@ class LocationService : Service() {
             val am = AppWidgetManager.getInstance(context)
             val ids = am.getAppWidgetIds(ComponentName(context, TrainTimesWidgetProvider::class.java))
             
+            val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            
             var needsLocation = false
             for (id in ids) {
-                val config = WidgetConfigurationStorage.loadConfiguration(context, id)
-                if (config != null && (config.commutingMode == "LOCATION" || config.useNearestStationForReturn)) {
-                    needsLocation = true
-                    break
+                val config = WidgetConfigurationStorage.loadConfiguration(context, id) ?: continue
+                if (config.commutingMode == "LOCATION" || config.useNearestStationForReturn) {
+                    if (hasPermission) {
+                        needsLocation = true
+                    } else {
+                         // Fallback to TIME mode if permission denied
+                         val newCommutingMode = if (config.commutingMode == "LOCATION") "TIME" else config.commutingMode
+                         val newUseNearest = false
+                         
+                         WidgetConfigurationStorage.saveConfiguration(
+                            context,
+                            id,
+                            config.title,
+                            config.titleStyle,
+                            config.showIcon,
+                            config.showRefreshIcon,
+                            config.showSettingsIcon,
+                            config.showGpsIcon,
+                            config.showStops,
+                            config.stationStopsMode,
+                            config.fromStation,
+                            config.toStation,
+                            config.alignment,
+                            config.startTimeNormal,
+                            config.startTimeReverse,
+                            config.transparency,
+                            config.textColor,
+                            config.bgColor,
+                            config.useSystemTextColor,
+                            config.useSystemBgColor,
+                            config.fontSize,
+                            config.showMapsIcon,
+                            config.showLastUpdateTime,
+                            config.showDivider,
+                            newCommutingMode,
+                            config.fontStyle,
+                            config.enableJourneyDurationFilter,
+                            config.maxJourneyDuration,
+                            newUseNearest
+                        )
+                        
+                        // Notify widget to update UI (hide GPS/Location indicators)
+                        val intent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
+                            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(id))
+                        }
+                        context.sendBroadcast(intent)
+                    }
                 }
             }
 
-            Log.d(TAG, "update: needsLocation=$needsLocation")
-            if (needsLocation) {
+            Log.d(TAG, "update: needsLocation=$needsLocation, hasPermission=$hasPermission")
+            if (needsLocation && hasPermission) {
                 start(context)
             } else {
                 stop(context)
@@ -80,13 +128,35 @@ class LocationService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand")
-        startForeground(NOTIFICATION_ID, createNotification())
+
+        val hasPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasPermission) {
+             Log.e(TAG, "Missing location permissions, stopping service")
+             stopSelf()
+             return START_NOT_STICKY
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, createNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            } else {
+                startForeground(NOTIFICATION_ID, createNotification())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground service", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         requestLocationUpdates()
         return START_STICKY
     }
 
     private fun requestLocationUpdates() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "No location permission")
             stopSelf()
             return

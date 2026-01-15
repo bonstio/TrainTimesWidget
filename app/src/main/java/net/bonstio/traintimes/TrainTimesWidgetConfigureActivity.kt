@@ -48,6 +48,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.ColorUtils
 import com.google.android.gms.location.LocationServices
@@ -437,6 +438,19 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             selectedFontStyle = WidgetConfigurationDefaults.FONT_STYLE
         }
 
+        // Handle permission denial fallback immediately for UI
+        val hasLocationPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        
+        if (!hasLocationPermission) {
+            if (selectedCommutingMode == "LOCATION") {
+                selectedCommutingMode = "TIME"
+            }
+            if (useNearestStationForReturn) {
+                useNearestStationForReturn = false
+            }
+        }
+
         // Store initial data-affecting config
         initialFromStationCode = fromStationCode
         initialToStationCode = toStationCode
@@ -472,6 +486,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val tab = tabLayout.getTabAt(initialTab)
         tab?.select()
         updateTabVisibility(initialTab)
+
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(PREF_PROMINENT_DISCLOSURE_SHOWN, false)) {
+            showProminentDisclosure()
+        }
     }
 
     override fun onResume() {
@@ -938,25 +957,39 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
         updateVisibility(currentMode)
 
-        commutingModeGroup.setOnCheckedChangeListener { _, checkedId ->
-            if (checkedId == R.id.radio_location_mode) {
-                currentMode = "LOCATION"
-                updateVisibility("LOCATION")
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        var isUpdating = false
+        commutingModeGroup.setOnCheckedChangeListener { group, checkedId ->
+            if (isUpdating) return@setOnCheckedChangeListener
 
+            if (checkedId == R.id.radio_location_mode) {
+                // If permission is already granted, proceed. Otherwise, show explanation.
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    currentMode = "LOCATION"
+                    updateVisibility("LOCATION")
+                } else {
                      MaterialAlertDialogBuilder(this)
                         .setCancelable(false)
                         .setTitle(R.string.location_explanation_title)
                         .setMessage(R.string.nearest_station_hint)
                         .setPositiveButton(R.string.grant_permission) { _, _ ->
+                            currentMode = "LOCATION"
+                            updateVisibility("LOCATION")
                             locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                         }
                         .setNegativeButton(android.R.string.cancel) { _, _ ->
-                            commutingModeGroup.check(R.id.radio_time_mode)
+                            isUpdating = true
+                            group.check(R.id.radio_time_mode)
+                            isUpdating = false
+                            currentMode = "TIME"
+                            updateVisibility("TIME")
                         }
                         .setOnCancelListener {
-                            commutingModeGroup.check(R.id.radio_time_mode)
+                            isUpdating = true
+                            group.check(R.id.radio_time_mode)
+                            isUpdating = false
+                            currentMode = "TIME"
+                            updateVisibility("TIME")
                         }
                         .show()
                 }
@@ -1929,5 +1962,16 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
     private fun formatAlpha(alpha: Int): String {
         return ((alpha / 255f) * 100).roundToInt().toString()
+    }
+
+    private fun showProminentDisclosure() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Location Permission Disclosure")
+            .setMessage("Train Times Widget collects location data to enable finding the nearest train stations and updating widget information based on your current location, even when the app is closed or not in use.")
+            .setPositiveButton("Acknowledge") { _, _ ->
+                getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit { putBoolean(PREF_PROMINENT_DISCLOSURE_SHOWN, true) }
+            }
+            .setCancelable(false)
+            .show()
     }
 }
