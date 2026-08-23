@@ -233,7 +233,7 @@
     <string name="last_update_format">Updated at %s</string>
 
     <!-- Label for entering the API key. Length: 25 chars. -->
-    <string name="enter_api_key_label">National Rail API key</string>
+    <string name="enter_api_key_label">Rail Data API key</string>
 
     <!-- Hint for the API key input field. Length: 10 chars. -->
     <string name="api_key_hint">API Key</string>

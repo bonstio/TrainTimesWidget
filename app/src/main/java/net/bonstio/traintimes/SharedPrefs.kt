@@ -11,7 +11,7 @@ package net.bonstio.traintimes
 const val PREFS_NAME = "net.bonstio.traintimes.widget"
 
 /**
- * Key for storing the National Rail API key.
+ * Key for storing the Rail Data API key.
  */
 const val PREF_API_KEY = "api_key"
 

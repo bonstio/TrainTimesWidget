@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
 
         // Setup Request API Key Link
         val requestApiKeyLink = findViewById<TextView>(R.id.request_api_key_link)
-        val url = "https://realtime.nationalrail.co.uk/OpenLDBWSRegistration"
+        val url = "https://raildata.org.uk/registerPartner"
         val text = "Request API key"
         val spannable = SpannableString(text)
         spannable.setSpan(URLSpan(url), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)

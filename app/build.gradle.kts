@@ -6,9 +6,7 @@ plugins {
 
 android {
     namespace = "net.bonstio.traintimes"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "net.bonstio.traintimes"
