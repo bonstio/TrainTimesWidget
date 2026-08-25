@@ -67,6 +67,7 @@ import kotlin.math.max
 import kotlin.math.abs
 import kotlin.math.min
 import android.Manifest
+import com.google.android.material.color.DynamicColors
 
 /**
  * Activity for configuring the Train Times widget.
@@ -214,6 +215,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
      * @param savedInstanceState Bundle containing the activity's previously frozen state, if there was one.
      */
     public override fun onCreate(savedInstanceState: Bundle?) {
+        DynamicColors.applyToActivityIfAvailable(this)
         super.onCreate(savedInstanceState)
 
         setResult(RESULT_CANCELED)
@@ -1726,9 +1728,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private fun updateColorSummariesAndPreviews() {
         summaryTextColor.text = if (isTextSystemColor) getString(R.string.color_source_theme) else getString(R.string.color_source_custom)
         val textColor = if (isTextSystemColor) {
-            val typedValue = TypedValue()
-            theme.resolveAttribute(com.google.android.material.R.attr.colorOnSurface, typedValue, true)
-            typedValue.data
+            WidgetUtils.getThemeColor(this, com.google.android.material.R.attr.colorOnSurface)
         } else currentTextColor
         previewTextColor.setBackgroundColor(textColor)
         previewTextColorCheckerboard.visibility = if (Color.alpha(textColor) < 255) View.VISIBLE else View.GONE
@@ -1736,9 +1736,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         summaryBackgroundColor.text = if (isBackgroundSystemColor) getString(R.string.color_source_theme) else getString(R.string.color_source_custom)
         val bgColor = if (isBackgroundSystemColor) {
-            val typedValue = TypedValue()
-            theme.resolveAttribute(com.google.android.material.R.attr.colorSurfaceContainerHighest, typedValue, true)
-            typedValue.data
+            WidgetUtils.getThemeColor(this, com.google.android.material.R.attr.colorSurfaceContainer)
         } else currentBackgroundColor
         previewBackgroundColor.setBackgroundColor(bgColor)
         previewBackgroundColorCheckerboard.visibility = if (Color.alpha(bgColor) < 255) View.VISIBLE else View.GONE

@@ -129,8 +129,8 @@
     <!-- Hint for the To station input field (optional). Length: 10 chars. -->
     <string name="to_required">To</string>
 
-    <!-- Text for requesting an API key. Length: 20 chars. -->
-    <string name="request_api_key">Request API key</string>
+    <!-- Text for requesting an API key. Length: 25 chars. -->
+    <string name="request_api_key">Request Rail Data API key</string>
 
     <!-- Hint for the number of departures input field. Length: 20 chars. -->
     <string name="departure_count">Departure count</string>

@@ -12,11 +12,11 @@ object WidgetConfigurationDefaults {
     const val START_TIME_REVERSE = -1
     const val TIME_OFFSET = 0
     const val DEPARTURE_COUNT = 10
-    const val TRANSPARENCY = 128
+    const val TRANSPARENCY = 255
     const val TEXT_COLOR = Color.WHITE
     const val BG_COLOR = Color.BLACK
-    const val USE_SYSTEM_TEXT_COLOR = false
-    const val USE_SYSTEM_BG_COLOR = false
+    const val USE_SYSTEM_TEXT_COLOR = true
+    const val USE_SYSTEM_BG_COLOR = true
     const val FONT_SIZE = 3 // Regular
     const val SHOW_REFRESH_ICON = true
     const val SHOW_SETTINGS_ICON = false

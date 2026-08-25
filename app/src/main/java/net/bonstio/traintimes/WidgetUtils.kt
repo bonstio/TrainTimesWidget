@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.util.TypedValue
 import androidx.appcompat.view.ContextThemeWrapper
+import com.google.android.material.color.DynamicColors
 import java.util.Calendar
 
 /**
@@ -21,20 +22,26 @@ data class WidgetStyling(
 object WidgetUtils {
 
     fun resolveWidgetStyling(context: Context, config: WidgetConfiguration): WidgetStyling {
-        val textColor = if (config.useSystemTextColor) getThemeColor(context, com.google.android.material.R.attr.colorOnSurface) else config.textColor
-        val widgetBgColor = if (config.useSystemBgColor) getThemeColor(context, com.google.android.material.R.attr.colorSurfaceContainerHighest) else config.bgColor
+        val textColor = if (config.useSystemTextColor) {
+            getThemeColor(context, com.google.android.material.R.attr.colorOnSurface)
+        } else {
+            config.textColor
+        }
+        val widgetBgColor = if (config.useSystemBgColor) {
+            getThemeColor(context, com.google.android.material.R.attr.colorSurfaceContainer)
+        } else {
+            config.bgColor
+        }
         val transparency = if (config.useSystemBgColor) 255 else config.transparency
         return WidgetStyling(textColor, widgetBgColor, transparency, config.useSystemTextColor, config.useSystemBgColor)
     }
 
     fun getThemeColor(context: Context, attr: Int): Int {
-        // Explicitly use a configuration context to ensure the correct resources (Day/Night) are used.
-        // This fixes an issue where the Receiver context might have stale or incorrect Day/Night configuration.
         val configuration = context.resources.configuration
         val targetContext = context.createConfigurationContext(configuration)
-        val wrapper = ContextThemeWrapper(targetContext, R.style.Theme_TrainTimes)
+        val dynamicContext = DynamicColors.wrapContextIfAvailable(targetContext, R.style.Theme_TrainTimes)
         val typedValue = TypedValue()
-        wrapper.theme.resolveAttribute(attr, typedValue, true)
+        dynamicContext.theme.resolveAttribute(attr, typedValue, true)
         return typedValue.data
     }
 

@@ -24,6 +24,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
+import com.google.android.material.color.DynamicColors
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 
@@ -53,6 +54,7 @@ class MainActivity : AppCompatActivity() {
      * @param savedInstanceState If the activity is being re-initialized after previously being shut down, this Bundle contains the data it most recently supplied in onSaveInstanceState.
      */
     override fun onCreate(savedInstanceState: Bundle?) {
+        DynamicColors.applyToActivityIfAvailable(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -67,8 +69,8 @@ class MainActivity : AppCompatActivity() {
 
         // Setup Request API Key Link
         val requestApiKeyLink = findViewById<TextView>(R.id.request_api_key_link)
-        val url = "https://raildata.org.uk/registerPartner"
-        val text = "Request API key"
+        val url = "https://opendata.nationalrail.co.uk/registration"
+        val text = getString(R.string.request_api_key)
         val spannable = SpannableString(text)
         spannable.setSpan(URLSpan(url), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         requestApiKeyLink.text = spannable

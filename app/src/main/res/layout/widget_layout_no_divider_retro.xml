@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/widget_root"
+    android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:theme="@style/Theme.Material3.DynamicColors.DayNight"
-    android:background="?attr/colorSurfaceContainerHighest"
+    android:theme="@android:style/Theme.DeviceDefault.DayNight"
+    android:background="@color/widget_background_system"
     android:orientation="vertical"
     android:gravity="center"
     android:padding="12dp">
@@ -29,7 +29,7 @@
                 android:layout_height="20dp"
                 android:src="@drawable/train_24px"
                 android:layout_marginEnd="8dp"
-                android:tint="?attr/colorOnSurface"
+                android:tint="?android:attr/textColorPrimary"
                 android:contentDescription="@null" />
 
             <!-- Wrapper for alignment control -->
@@ -64,7 +64,7 @@
                 android:src="@drawable/ic_my_location"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:padding="4dp"
-                android:tint="?attr/colorOnSurface"
+                android:tint="?android:attr/textColorPrimary"
                 android:contentDescription="@null"
                 android:layout_marginStart="8dp"
                 android:visibility="gone" />
@@ -76,7 +76,7 @@
                 android:src="@drawable/settings"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:padding="4dp"
-                android:tint="?attr/colorOnSurface"
+                android:tint="?android:attr/textColorPrimary"
                 android:contentDescription="@string/retry"
                 android:layout_marginStart="8dp" />
 
@@ -87,7 +87,7 @@
                 android:src="@drawable/refresh_24px"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:padding="4dp"
-                android:tint="?attr/colorOnSurface"
+                android:tint="?android:attr/colorAccent"
                 android:contentDescription="@string/retry"
                 android:layout_marginStart="8dp" />
         </LinearLayout>
@@ -133,9 +133,9 @@
                 android:text="@string/retry"
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/rounded_button_shape"
-                android:backgroundTint="?attr/colorPrimary"
+                android:backgroundTint="?android:attr/colorAccent"
                 android:fontFamily="@font/pixeloid_sans"
-                android:textColor="?attr/colorOnPrimary" />
+                android:textColor="?android:attr/textColorPrimaryInverse" />
 
             <TextView
                 android:id="@+id/error_message"
@@ -144,7 +144,7 @@
                 android:gravity="center"
                 android:text="@string/widget_error"
                 android:fontFamily="@font/pixeloid_sans"
-                android:textColor="?attr/colorOnSurface" />
+                android:textColor="?android:attr/textColorPrimary" />
 
             <TextView
                 android:id="@+id/error_details"
@@ -153,7 +153,7 @@
                 android:gravity="center"
                 android:textSize="10sp"
                 android:fontFamily="@font/pixeloid_sans"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="?android:attr/textColorSecondary"
                 android:layout_marginTop="4dp" />
         </LinearLayout>
 
@@ -197,10 +197,11 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="@string/setup_api_key"
-        android:textColor="@android:color/white"
+        android:textColor="?android:attr/textColorPrimaryInverse"
         android:textSize="16sp"
         android:textStyle="bold"
         android:background="@drawable/widget_button_background"
+        android:backgroundTint="?android:attr/colorAccent"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
         android:paddingTop="12dp"

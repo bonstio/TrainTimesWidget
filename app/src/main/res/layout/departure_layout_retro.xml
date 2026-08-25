@@ -3,6 +3,7 @@
     android:id="@+id/departure_row"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:theme="@android:style/Theme.DeviceDefault.DayNight"
     android:paddingStart="0dp"
     android:paddingEnd="0dp"
     android:paddingTop="4dp"

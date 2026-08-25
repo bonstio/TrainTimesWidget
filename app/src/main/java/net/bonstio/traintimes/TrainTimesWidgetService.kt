@@ -181,11 +181,10 @@ class TrainTimesRemoteViewsFactory(
 
             // Styling for TextViews
             if (styling!!.useSystemTextColor) {
-                val attr = com.google.android.material.R.attr.colorOnSurface
-                departureView.setColorAttr(R.id.departure_time, "setTextColor", attr)
-                departureView.setColorAttr(R.id.destination, "setTextColor", attr)
-                departureView.setColorAttr(R.id.platform, "setTextColor", attr)
-                departureView.setColorAttr(R.id.status, "setTextColor", attr)
+                departureView.setColorAttr(R.id.departure_time, "setTextColor", android.R.attr.textColorPrimary)
+                departureView.setColorAttr(R.id.destination, "setTextColor", android.R.attr.textColorPrimary)
+                departureView.setColorAttr(R.id.platform, "setTextColor", android.R.attr.textColorSecondary)
+                departureView.setColorAttr(R.id.status, "setTextColor", android.R.attr.textColorPrimary)
             } else {
                 val tc = styling!!.textColor
                 departureView.setTextColor(R.id.departure_time, tc)
@@ -228,7 +227,7 @@ class TrainTimesRemoteViewsFactory(
             departureView.setTextViewText(R.id.calling_points, callingPointsText)
 
             if (styling!!.useSystemTextColor) {
-                departureView.setColorAttr(R.id.calling_points, "setTextColor", com.google.android.material.R.attr.colorOnSurface)
+                departureView.setColorAttr(R.id.calling_points, "setTextColor", android.R.attr.textColorSecondary)
             } else {
                 departureView.setTextColor(R.id.calling_points, styling!!.textColor)
             }

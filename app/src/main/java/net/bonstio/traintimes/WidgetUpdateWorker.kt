@@ -61,7 +61,7 @@ class WidgetUpdateWorker(
             return@withContext Result.failure()
         }
 
-        val client = RealtimeTrainsClient(apiKey)
+        val client = RailDataClient(apiKey)
         var success = true
 
         for (appWidgetId in widgetIds) {
@@ -111,7 +111,7 @@ class WidgetUpdateWorker(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
-        client: RealtimeTrainsClient
+        client: RailDataClient
     ) {
         val startTime = System.currentTimeMillis()
         val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
