@@ -1,6 +1,7 @@
 package net.bonstio.traintimes
 
 import android.content.Context
+import android.graphics.Color
 
 /**
  * Helper object to save and load widget configurations from SharedPreferences.
@@ -145,8 +146,16 @@ object WidgetConfigurationStorage {
         val transparency = prefs.getInt(PREF_TRANSPARENCY_KEY + appWidgetId, WidgetConfigurationDefaults.TRANSPARENCY)
         val textColor = prefs.getInt(PREF_TEXT_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.TEXT_COLOR)
         val bgColor = prefs.getInt(PREF_BG_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.BG_COLOR)
-        val useSystemTextColor = prefs.getBoolean(PREF_USE_SYSTEM_TEXT_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.USE_SYSTEM_TEXT_COLOR)
-        val useSystemBgColor = prefs.getBoolean(PREF_USE_SYSTEM_BG_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.USE_SYSTEM_BG_COLOR)
+        var useSystemTextColor = prefs.getBoolean(PREF_USE_SYSTEM_TEXT_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.USE_SYSTEM_TEXT_COLOR)
+        var useSystemBgColor = prefs.getBoolean(PREF_USE_SYSTEM_BG_COLOR_KEY + appWidgetId, WidgetConfigurationDefaults.USE_SYSTEM_BG_COLOR)
+
+        // Migrate legacy default widgets (which had black background and white text with useSystem=false)
+        if (!useSystemBgColor && bgColor == Color.BLACK && (transparency == 128 || transparency == 255)) {
+            useSystemBgColor = true
+        }
+        if (!useSystemTextColor && textColor == Color.WHITE) {
+            useSystemTextColor = true
+        }
         
         var fontSize = prefs.getInt(PREF_FONT_SIZE_KEY + appWidgetId, -1)
         if (fontSize == -1) {
