@@ -30,4 +30,6 @@ object WidgetConfigurationDefaults {
     const val ENABLE_JOURNEY_DURATION_FILTER = false
     const val MAX_JOURNEY_DURATION = 30
     const val USE_NEAREST_STATION_FOR_RETURN = false
+    const val SHOW_COMMUTE_NOTIFICATIONS = false
+    const val FORCE_SHOW_NOTIFICATION = false
 }

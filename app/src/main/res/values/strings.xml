@@ -383,4 +383,13 @@
 
     <string name="use_nearest_station_return">Use nearest station</string>
     <string name="use_nearest_station_return_summary">Use the nearest station of <i> all </i> stations (not just those specified) for outbound or return journeys</string>
+
+    <string name="show_commute_notifications">Show notifications during commute</string>
+    <string name="show_commute_notifications_summary">Show upcoming departures on your phone and watch when near the departure or arrival station</string>
+    <string name="force_show_commute_notifications">Force show notification</string>
+    <string name="force_show_commute_notifications_summary">Display notification now for testing or manual use</string>
+    <string name="notification_channel_commute">Commute Departures</string>
+    <string name="notification_channel_commute_description">Shows upcoming train departures during your commute near stations</string>
+    <string name="notification_action_refresh">Refresh</string>
+    <string name="notification_no_trains">No upcoming trains found.</string>
 </resources>

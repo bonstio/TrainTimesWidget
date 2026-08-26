@@ -36,6 +36,8 @@ object WidgetConfigurationStorage {
     private const val PREF_ENABLE_JOURNEY_DURATION_FILTER_KEY = "enable_journey_duration_filter_"
     private const val PREF_MAX_JOURNEY_DURATION_KEY = "max_journey_duration_"
     private const val PREF_USE_NEAREST_STATION_FOR_RETURN_KEY = "use_nearest_station_return_"
+    private const val PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY = "show_commute_notifications_"
+    private const val PREF_FORCE_SHOW_NOTIFICATION_KEY = "force_show_notification_"
 
     /**
      * Saves the configuration for a specific widget ID.
@@ -69,7 +71,9 @@ object WidgetConfigurationStorage {
         fontStyle: String,
         enableJourneyDurationFilter: Boolean,
         maxJourneyDuration: Int,
-        useNearestStationForReturn: Boolean
+        useNearestStationForReturn: Boolean,
+        showCommuteNotifications: Boolean = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS,
+        forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, 0).edit()
         prefs.putString(PREF_TITLE_KEY + appWidgetId, title)
@@ -100,6 +104,8 @@ object WidgetConfigurationStorage {
         prefs.putBoolean(PREF_ENABLE_JOURNEY_DURATION_FILTER_KEY + appWidgetId, enableJourneyDurationFilter)
         prefs.putInt(PREF_MAX_JOURNEY_DURATION_KEY + appWidgetId, maxJourneyDuration)
         prefs.putBoolean(PREF_USE_NEAREST_STATION_FOR_RETURN_KEY + appWidgetId, useNearestStationForReturn)
+        prefs.putBoolean(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId, showCommuteNotifications)
+        prefs.putBoolean(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId, forceShowNotification)
         // Use commit to ensure data is written before we broadcast the update
         prefs.commit()
     }
@@ -171,6 +177,8 @@ object WidgetConfigurationStorage {
         val enableJourneyDurationFilter = prefs.getBoolean(PREF_ENABLE_JOURNEY_DURATION_FILTER_KEY + appWidgetId, WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER)
         val maxJourneyDuration = prefs.getInt(PREF_MAX_JOURNEY_DURATION_KEY + appWidgetId, WidgetConfigurationDefaults.MAX_JOURNEY_DURATION)
         val useNearestStationForReturn = prefs.getBoolean(PREF_USE_NEAREST_STATION_FOR_RETURN_KEY + appWidgetId, WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN)
+        val showCommuteNotifications = prefs.getBoolean(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS)
+        val forceShowNotification = prefs.getBoolean(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId, WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION)
 
         return if (title != null && fromStation != null && toStation != null && alignment != null) {
             WidgetConfiguration(
@@ -203,7 +211,9 @@ object WidgetConfigurationStorage {
                 fontStyle,
                 enableJourneyDurationFilter,
                 maxJourneyDuration,
-                useNearestStationForReturn
+                useNearestStationForReturn,
+                showCommuteNotifications,
+                forceShowNotification
             )
         } else {
             null
@@ -244,6 +254,8 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_ENABLE_JOURNEY_DURATION_FILTER_KEY + appWidgetId)
         prefs.remove(PREF_MAX_JOURNEY_DURATION_KEY + appWidgetId)
         prefs.remove(PREF_USE_NEAREST_STATION_FOR_RETURN_KEY + appWidgetId)
+        prefs.remove(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId)
+        prefs.remove(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId)
         prefs.apply()
     }
 }

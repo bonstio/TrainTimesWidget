@@ -79,7 +79,9 @@ class LocationService : Service() {
                             config.fontStyle,
                             config.enableJourneyDurationFilter,
                             config.maxJourneyDuration,
-                            newUseNearest
+                            newUseNearest,
+                            config.showCommuteNotifications,
+                            config.forceShowNotification
                         )
                         
                         // Notify widget to update UI (hide GPS/Location indicators)

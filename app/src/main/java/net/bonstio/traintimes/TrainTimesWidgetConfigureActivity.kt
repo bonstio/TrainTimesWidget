@@ -133,6 +133,16 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var textUseNearestStationReturn: TextView
     private lateinit var summaryUseNearestStationReturn: TextView
 
+    private lateinit var rowCommuteNotifications: View
+    private lateinit var switchCommuteNotifications: MaterialSwitch
+    private lateinit var textCommuteNotifications: TextView
+    private lateinit var summaryCommuteNotifications: TextView
+
+    private lateinit var rowForceShowNotification: View
+    private lateinit var switchForceShowNotification: MaterialSwitch
+    private lateinit var textForceShowNotification: TextView
+    private lateinit var summaryForceShowNotification: TextView
+
     private lateinit var addButton: Button
     private lateinit var cancelButton: Button
     private lateinit var batteryOptimizationBanner: View
@@ -187,6 +197,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var enableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
     private var maxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
     private var useNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
+    private var showCommuteNotifications: Boolean = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS
+    private var forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
 
     // Initial config for comparison
     private var initialFromStationCode: String = ""
@@ -287,6 +299,16 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         switchUseNearestStationReturn = findViewById(R.id.switch_use_nearest_station_return)
         textUseNearestStationReturn = findViewById(R.id.text_use_nearest_station_return)
         summaryUseNearestStationReturn = findViewById(R.id.summary_use_nearest_station_return)
+
+        rowCommuteNotifications = findViewById(R.id.row_commute_notifications)
+        switchCommuteNotifications = findViewById(R.id.switch_commute_notifications)
+        textCommuteNotifications = findViewById(R.id.text_commute_notifications)
+        summaryCommuteNotifications = findViewById(R.id.summary_commute_notifications)
+
+        rowForceShowNotification = findViewById(R.id.row_force_show_notification)
+        switchForceShowNotification = findViewById(R.id.switch_force_show_notification)
+        textForceShowNotification = findViewById(R.id.text_force_show_notification)
+        summaryForceShowNotification = findViewById(R.id.summary_force_show_notification)
 
         // Color Views
         rowTextColor = findViewById(R.id.row_text_color)
@@ -399,6 +421,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             enableJourneyDurationFilter = existingConfig.enableJourneyDurationFilter
             maxJourneyDuration = existingConfig.maxJourneyDuration
             useNearestStationForReturn = existingConfig.useNearestStationForReturn
+            showCommuteNotifications = existingConfig.showCommuteNotifications
+            forceShowNotification = existingConfig.forceShowNotification
 
             currentTextColor = existingConfig.textColor
             currentBackgroundColor = ColorUtils.setAlphaComponent(
@@ -431,6 +455,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             enableJourneyDurationFilter = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
             maxJourneyDuration = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
             useNearestStationForReturn = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
+            showCommuteNotifications = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS
+            forceShowNotification = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
 
             currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
             currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
@@ -475,6 +501,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         containerMaxJourneyDuration.visibility = durationVisible
 
         switchUseNearestStationReturn.isChecked = useNearestStationForReturn
+        switchCommuteNotifications.isChecked = showCommuteNotifications
+        switchForceShowNotification.isChecked = forceShowNotification
+        rowForceShowNotification.visibility = if (showCommuteNotifications) View.VISIBLE else View.GONE
 
         updateColorSummariesAndPreviews()
         updateLayoutSummaries()
@@ -808,7 +837,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             fontStyle,
             enableJourneyDurationFilter,
             maxJourneyDuration,
-            useNearestStationForReturn
+            useNearestStationForReturn,
+            showCommuteNotifications,
+            forceShowNotification
         )
 
         // Check if data changed
@@ -847,6 +878,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
 
         LocationService.update(context)
+        CommuteGeofenceManager.updateGeofences(context)
     }
 
     private fun setupRouteListeners() {
@@ -1117,11 +1149,22 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         rowMaxJourneyDuration.alpha = if (hasToStation) 1.0f else 0.5f
 
         val hasFromStation = fromStationCode.isNotEmpty()
-        val canUseNearestReturn = hasFromStation && hasToStation
+        val canUseNearestReturn = hasFromStation && hasToStation && !showCommuteNotifications
 
         switchUseNearestStationReturn.isEnabled = canUseNearestReturn
         textUseNearestStationReturn.alpha = if (canUseNearestReturn) 1.0f else 0.5f
         summaryUseNearestStationReturn.alpha = if (canUseNearestReturn) 1.0f else 0.5f
+
+        val canUseCommuteNotifications = hasFromStation && !useNearestStationForReturn
+        switchCommuteNotifications.isEnabled = canUseCommuteNotifications
+        textCommuteNotifications.alpha = if (canUseCommuteNotifications) 1.0f else 0.5f
+        summaryCommuteNotifications.alpha = if (canUseCommuteNotifications) 1.0f else 0.5f
+
+        val canForceShow = showCommuteNotifications
+        switchForceShowNotification.isEnabled = canForceShow
+        textForceShowNotification.alpha = if (canForceShow) 1.0f else 0.5f
+        summaryForceShowNotification.alpha = if (canForceShow) 1.0f else 0.5f
+        rowForceShowNotification.visibility = if (showCommuteNotifications) View.VISIBLE else View.GONE
     }
     
     private fun findClosestStation(location: Location, fromCode: String, toCode: String): Station? {
@@ -1507,8 +1550,62 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         switchUseNearestStationReturn.setOnCheckedChangeListener { _, isChecked ->
              useNearestStationForReturn = isChecked
+             if (isChecked && showCommuteNotifications) {
+                 showCommuteNotifications = false
+                 switchCommuteNotifications.isChecked = false
+                 forceShowNotification = false
+                 switchForceShowNotification.isChecked = false
+             }
              updateRouteSummaries()
              triggerUpdate()
+        }
+
+        rowCommuteNotifications.setOnClickListener {
+            if (switchCommuteNotifications.isEnabled) {
+                switchCommuteNotifications.toggle()
+            }
+        }
+
+        switchCommuteNotifications.setOnCheckedChangeListener { _, isChecked ->
+            showCommuteNotifications = isChecked
+            if (isChecked && useNearestStationForReturn) {
+                useNearestStationForReturn = false
+                switchUseNearestStationReturn.isChecked = false
+            }
+            if (!isChecked) {
+                forceShowNotification = false
+                switchForceShowNotification.isChecked = false
+            }
+            // If turning ON, ensure notification and location permissions are requested if needed
+            if (isChecked) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 102)
+                    }
+                }
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                }
+            }
+            updateRouteSummaries()
+            triggerUpdate()
+        }
+
+        rowForceShowNotification.setOnClickListener {
+            if (switchForceShowNotification.isEnabled) {
+                switchForceShowNotification.toggle()
+            }
+        }
+
+        switchForceShowNotification.setOnCheckedChangeListener { _, isChecked ->
+            forceShowNotification = isChecked
+            if (isChecked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 102)
+                }
+            }
+            updateRouteSummaries()
+            triggerUpdate()
         }
 
         rowGlobalSettings.setOnClickListener {

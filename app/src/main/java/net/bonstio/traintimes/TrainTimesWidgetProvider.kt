@@ -40,6 +40,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
     }
     prefs.apply()
     LocationService.update(context)
+    CommuteGeofenceManager.updateGeofences(context)
   }
 
   override fun onReceive(context: Context, intent: Intent) {
@@ -117,15 +118,18 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             config.fontStyle,
             config.enableJourneyDurationFilter,
             config.maxJourneyDuration,
-            newState
+            newState,
+            if (newState) false else config.showCommuteNotifications,
+            if (newState) false else config.forceShowNotification
           )
 
           // Trigger UI update immediately
           val appWidgetManager = AppWidgetManager.getInstance(context)
           updateAppWidget(context, appWidgetManager, appWidgetId)
 
-          // Update location service state
+          // Update location service and geofences state
           LocationService.update(context)
+          CommuteGeofenceManager.updateGeofences(context)
 
           // Trigger data refresh as direction might have changed
           val data = Data.Builder()
@@ -178,6 +182,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
     }
 
     LocationService.update(context)
+    CommuteGeofenceManager.updateGeofences(context)
   }
 
   companion object {

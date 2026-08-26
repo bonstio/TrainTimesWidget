@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
@@ -63,6 +64,22 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".CommuteGeofenceReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="net.bonstio.traintimes.ACTION_GEOFENCE_TRANSITION" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".CommuteNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="net.bonstio.traintimes.ACTION_REFRESH_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
