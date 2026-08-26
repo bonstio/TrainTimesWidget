@@ -222,10 +222,17 @@ class WidgetUpdateWorker(
             Log.d(TAG, "Total update time: ${System.currentTimeMillis() - startTime}ms")
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching data for widget $appWidgetId", e)
-            val errorType = if (e is java.io.IOException) "NETWORK" else "GENERIC"
+            val errorType = when {
+                e is io.ktor.client.plugins.ClientRequestException && (e.response.status.value == 401 || e.response.status.value == 403) -> "INVALID_KEY"
+                e is java.io.IOException -> "NETWORK"
+                else -> "GENERIC"
+            }
+            // Clear cached services on error so stale data is not displayed
+            WidgetCache.saveServices(context, appWidgetId, emptyList())
             prefs.edit().putString(TrainTimesWidgetProvider.PREF_LAST_ERROR + appWidgetId, errorType).apply()
             withContext(Dispatchers.Main) {
                 TrainTimesWidgetProvider.updateAppWidget(context, appWidgetManager, appWidgetId, hasData = false)
+                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
             }
             throw e 
         }

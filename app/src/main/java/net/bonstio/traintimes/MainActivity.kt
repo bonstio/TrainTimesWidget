@@ -23,6 +23,11 @@ import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.core.content.edit
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.textfield.TextInputEditText
@@ -42,6 +47,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var batteryOptimizationBanner: View
 
     private val frequencyValues = intArrayOf(0, 30, 60, 120)
+
+    private var validationJob: Job? = null
 
     companion object {
         const val EXTRA_INVALID_API_KEY = "invalid_api_key"
@@ -106,11 +113,59 @@ class MainActivity : AppCompatActivity() {
         setupBatteryOptimizationBanner()
 
         if (intent.getBooleanExtra(EXTRA_INVALID_API_KEY, false)) {
-            apiKeyInputLayout.error = "Invalid API key"
+            apiKeyInputLayout.error = getString(R.string.invalid_api_key)
+        }
+
+        apiKeyInput.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                validateApiKey(apiKeyInput.text?.toString().orEmpty(), apiKeyInputLayout)
+            }
         }
 
         if (!prefs.getBoolean(PREF_PROMINENT_DISCLOSURE_SHOWN, false)) {
             showProminentDisclosure()
+        }
+    }
+
+    private fun validateApiKey(key: String, layout: TextInputLayout) {
+        val trimmedKey = key.trim()
+        if (trimmedKey.isEmpty()) {
+            layout.error = null
+            return
+        }
+
+        validationJob?.cancel()
+        validationJob = lifecycleScope.launch {
+            try {
+                val client = RailDataClient(trimmedKey)
+                // Test the key by requesting departures for a known station (e.g. MAN = Manchester Piccadilly)
+                withContext(Dispatchers.IO) {
+                    client.getNextTrain("MAN", "", numRows = 1)
+                }
+                layout.error = null
+                // Clear any stored INVALID_KEY errors across widgets so they refresh cleanly
+                clearWidgetInvalidKeyErrors()
+            } catch (e: Exception) {
+                if (e is io.ktor.client.plugins.ClientRequestException &&
+                    (e.response.status.value == 401 || e.response.status.value == 403)) {
+                    layout.error = getString(R.string.invalid_api_key)
+                }
+            }
+        }
+    }
+
+    private fun clearWidgetInvalidKeyErrors() {
+        val appWidgetManager = AppWidgetManager.getInstance(this)
+        val ids = appWidgetManager.getAppWidgetIds(
+            ComponentName(this, TrainTimesWidgetProvider::class.java)
+        )
+        prefs.edit {
+            for (id in ids) {
+                val lastError = prefs.getString(TrainTimesWidgetProvider.PREF_LAST_ERROR + id, null)
+                if (lastError == "INVALID_KEY") {
+                    remove(TrainTimesWidgetProvider.PREF_LAST_ERROR + id)
+                }
+            }
         }
     }
 

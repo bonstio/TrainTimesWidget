@@ -254,6 +254,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
       }
       views.setRemoteAdapter(R.id.departures_list, intent)
+      views.setEmptyView(R.id.departures_list, R.id.error_container)
 
       val cachedServices = WidgetCache.loadServices(context, appWidgetId)
       val filteredServices = if (config.enableJourneyDurationFilter) {
@@ -264,10 +265,6 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
 
       val effectiveHasData = filteredServices.isNotEmpty()
 
-      if (!effectiveHasData) {
-        views.setEmptyView(R.id.departures_list, R.id.error_container)
-      }
-
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       var errorState = prefs.getString(PREF_LAST_ERROR + appWidgetId, null)
 
@@ -276,6 +273,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       }
 
       val errorMessage = when (errorState) {
+        "INVALID_KEY" -> context.getString(R.string.invalid_api_key_error)
         "NETWORK" -> context.getString(R.string.network_error)
         "GENERIC" -> context.getString(R.string.widget_error)
         "FILTERED" -> context.getString(R.string.trains_filtered_out)
@@ -289,7 +287,30 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       }
       views.setTextViewText(R.id.error_message, errorMessage)
 
-      if (errorState == "FILTERED") {
+      if (errorState == "INVALID_KEY") {
+        views.setTextViewText(
+          R.id.error_details,
+          Html.fromHtml(
+            "<u>" + context.getString(R.string.setup_api_key) + "</u>",
+            Html.FROM_HTML_MODE_LEGACY
+          )
+        )
+        views.setColorAttr(R.id.error_details, "setTextColor", android.R.attr.colorAccent)
+        views.setViewVisibility(R.id.error_details, View.VISIBLE)
+
+        val mainIntent = Intent(context, MainActivity::class.java).apply {
+          putExtra(MainActivity.EXTRA_INVALID_API_KEY, true)
+        }
+        val mainPendingIntent = PendingIntent.getActivity(
+          context,
+          appWidgetId,
+          mainIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.error_message, mainPendingIntent)
+        views.setOnClickPendingIntent(R.id.error_details, mainPendingIntent)
+        views.setOnClickPendingIntent(R.id.retry_button, mainPendingIntent)
+      } else if (errorState == "FILTERED") {
         views.setTextViewText(
           R.id.error_details,
           Html.fromHtml(

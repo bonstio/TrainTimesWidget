@@ -328,6 +328,12 @@
     <!-- Error message for network issues. Length: 30 chars. -->
     <string name="network_error">Check internet connection.</string>
 
+    <!-- Error message for invalid API key. Length: 30 chars. -->
+    <string name="invalid_api_key_error">Invalid Rail Data API key.</string>
+
+    <!-- Error message displayed on text field for invalid API key. -->
+    <string name="invalid_api_key">Invalid API key</string>
+
     <!-- Commute times label. Length: 15 chars. -->
     <string name="commute_times">Commuting</string>
     <!-- Outbound time label. Length: 15 chars. -->
