@@ -496,40 +496,52 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.departures_list, if (isLoading) View.GONE else View.VISIBLE)
       views.setViewVisibility(R.id.error_container, View.GONE)
 
+      // Header Visibility: if title is empty/blank AND no header buttons/icons are shown, hide the header entirely to reclaim space
+      val hasTitle = title.isNotEmpty()
+      val hasHeaderIcons = config.showIcon || config.showGpsIcon || config.showSettingsIcon || config.showRefreshIcon
+      val showHeader = hasTitle || hasHeaderIcons
+      views.setViewVisibility(R.id.widget_header, if (showHeader) View.VISIBLE else View.GONE)
+
       // Content
       if (useRetro) {
         views.setViewVisibility(R.id.widget_title, View.GONE)
-        views.setViewVisibility(R.id.widget_title_image, View.VISIBLE)
+        views.setViewVisibility(R.id.widget_title_image, if (hasTitle) View.VISIBLE else View.GONE)
+        views.setViewVisibility(R.id.widget_title_wrapper, if (hasTitle) View.VISIBLE else View.GONE)
 
-        val titleSize = WidgetUtils.getTitleSize(config.fontSize)
-        val bitmap = BitmapGenerator.textAsBitmap(
-          context, title, titleSize, styling.textColor, R.font.pixeloid_sans
-        )
-        if (bitmap != null) {
-          views.setImageViewBitmap(R.id.widget_title_image, bitmap)
-        }
+        if (hasTitle) {
+          val titleSize = WidgetUtils.getTitleSize(config.fontSize)
+          val bitmap = BitmapGenerator.textAsBitmap(
+            context, title, titleSize, styling.textColor, R.font.pixeloid_sans
+          )
+          if (bitmap != null) {
+            views.setImageViewBitmap(R.id.widget_title_image, bitmap)
+          }
 
-        // Set alignment gravity
-        val gravity = when (config.alignment) {
-          "CENTER" -> Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
-          "END" -> Gravity.END or Gravity.CENTER_VERTICAL
-          else -> Gravity.START or Gravity.CENTER_VERTICAL
+          // Set alignment gravity
+          val gravity = when (config.alignment) {
+            "CENTER" -> Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
+            "END" -> Gravity.END or Gravity.CENTER_VERTICAL
+            else -> Gravity.START or Gravity.CENTER_VERTICAL
+          }
+          views.setInt(R.id.widget_title_wrapper, "setGravity", gravity)
         }
-        views.setInt(R.id.widget_title_wrapper, "setGravity", gravity)
 
       } else {
-        views.setTextViewText(R.id.widget_title, title)
-        views.setTextViewTextSize(
-          R.id.widget_title,
-          TypedValue.COMPLEX_UNIT_SP,
-          WidgetUtils.getTitleSize(config.fontSize)
-        )
-        val gravity = when (config.alignment) {
-          "CENTER" -> Gravity.CENTER_HORIZONTAL
-          "END" -> Gravity.END
-          else -> Gravity.START
+        views.setViewVisibility(R.id.widget_title, if (hasTitle) View.VISIBLE else View.GONE)
+        if (hasTitle) {
+          views.setTextViewText(R.id.widget_title, title)
+          views.setTextViewTextSize(
+            R.id.widget_title,
+            TypedValue.COMPLEX_UNIT_SP,
+            WidgetUtils.getTitleSize(config.fontSize)
+          )
+          val gravity = when (config.alignment) {
+            "CENTER" -> Gravity.CENTER_HORIZONTAL
+            "END" -> Gravity.END
+            else -> Gravity.START
+          }
+          views.setInt(R.id.widget_title, "setGravity", gravity)
         }
-        views.setInt(R.id.widget_title, "setGravity", gravity)
       }
 
       // Icon

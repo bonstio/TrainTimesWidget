@@ -127,6 +127,7 @@ object WidgetUtils {
 
     fun calculateDisplayTitle(context: Context, titleStyle: String, customTitle: String, fromStation: String, toStation: String, configFromStation: String? = null): String {
         return when (titleStyle) {
+            "EMPTY" -> ""
             "SHORT" -> if (toStation.isNotEmpty()) "${fromStation.uppercase()} -> ${toStation.uppercase()}" else fromStation.uppercase()
             "CUSTOM" -> {
                 var t = customTitle.replace("\$f", fromStation.uppercase()).replace("\$t", toStation.uppercase())

@@ -1214,11 +1214,12 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                     R.id.radio_short -> "SHORT"
                     R.id.radio_long -> "LONG"
                     R.id.radio_custom -> "CUSTOM"
+                    R.id.radio_empty -> "EMPTY"
                     else -> selectedTitleStyle
                 }
                 val customText = customTitleInput.text.toString()
 
-                titlePreview.text = WidgetUtils.calculateDisplayTitle(
+                val preview = WidgetUtils.calculateDisplayTitle(
                     this,
                     style,
                     if (customText.isEmpty()) getString(R.string.default_from_only_title) else customText,
@@ -1226,6 +1227,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                     displayTo,
                     fromStationCode
                 )
+                titlePreview.text = if (style == "EMPTY") "(Empty)" else preview
             }
 
             helperf.setOnClickListener { insertText("\$f") }
@@ -1240,6 +1242,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 "SHORT" -> radioGroup.check(R.id.radio_short)
                 "LONG" -> radioGroup.check(R.id.radio_long)
                 "CUSTOM" -> radioGroup.check(R.id.radio_custom)
+                "EMPTY" -> radioGroup.check(R.id.radio_empty)
             }
             
             customTitleContainer.visibility = if (selectedTitleStyle == "CUSTOM") View.VISIBLE else View.GONE
@@ -1269,6 +1272,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                         R.id.radio_short -> "SHORT"
                         R.id.radio_long -> "LONG"
                         R.id.radio_custom -> "CUSTOM"
+                        R.id.radio_empty -> "EMPTY"
                         else -> "SHORT"
                     }
                     
@@ -1528,7 +1532,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val displayFrom = if (isReversed) toStationCode else fromStationCode
         val displayTo = if (isReversed) fromStationCode else toStationCode
 
-        summaryStyle.text = WidgetUtils.calculateDisplayTitle(
+        val displayTitle = WidgetUtils.calculateDisplayTitle(
             this,
             selectedTitleStyle,
             if (customTitleText.isEmpty()) getString(R.string.default_from_only_title) else customTitleText,
@@ -1536,6 +1540,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             displayTo,
             fromStationCode
         )
+        summaryStyle.text = if (selectedTitleStyle == "EMPTY") getString(R.string.title_style_empty) else displayTitle
         
         // rowCustomTitle.visibility is handled in onCreate (GONE)
         

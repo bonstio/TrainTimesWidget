@@ -77,6 +77,9 @@
     <!-- Option for custom title style. Length: 10 chars. -->
     <string name="title_style_custom">Custom</string>
 
+    <!-- Option for empty title style. Length: 10 chars. -->
+    <string name="title_style_empty">Empty</string>
+
     <!-- Label for the station stops setting. Length: 25 chars. -->
     <string name="show_stops">Show \"Calling at\" for</string>
     

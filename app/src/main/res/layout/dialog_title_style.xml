@@ -42,7 +42,14 @@
             android:id="@+id/radio_custom"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
             android:text="@string/title_style_custom" />
+
+        <RadioButton
+            android:id="@+id/radio_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/title_style_empty" />
     </RadioGroup>
 
     <LinearLayout
