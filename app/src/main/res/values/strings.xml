@@ -1,7 +1,4 @@
 <resources>
-    <!-- Name of the application. Length: 15 chars. -->
-    <string name="app_name">Train Times</string>
-
     <!-- Title of the widget configuration screen. Length: 25 chars. -->
     <string name="configuration_title">Widget configuration</string>
 
