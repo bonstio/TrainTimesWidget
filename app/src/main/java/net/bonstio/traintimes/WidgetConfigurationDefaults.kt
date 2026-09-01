@@ -32,4 +32,5 @@ object WidgetConfigurationDefaults {
     const val USE_NEAREST_STATION_FOR_RETURN = false
     const val SHOW_COMMUTE_NOTIFICATIONS = false
     const val FORCE_SHOW_NOTIFICATION = false
+    const val GEOFENCE_RADIUS = 400
 }

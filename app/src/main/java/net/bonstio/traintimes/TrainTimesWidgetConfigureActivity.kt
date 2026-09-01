@@ -143,6 +143,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var textForceShowNotification: TextView
     private lateinit var summaryForceShowNotification: TextView
 
+    private lateinit var rowGeofenceRadius: View
+    private lateinit var summaryGeofenceRadius: TextView
+    private lateinit var sliderGeofenceRadius: Slider
+    private lateinit var textCurrentDistance: TextView
+
     private lateinit var addButton: Button
     private lateinit var cancelButton: Button
     private lateinit var batteryOptimizationBanner: View
@@ -199,6 +204,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var useNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
     private var showCommuteNotifications: Boolean = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS
     private var forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
+    private var geofenceRadius: Int = WidgetConfigurationDefaults.GEOFENCE_RADIUS
+
+    private val geofenceRadiusSteps = intArrayOf(100, 200, 400, 800, 1600, 3200)
 
     // Initial config for comparison
     private var initialFromStationCode: String = ""
@@ -309,6 +317,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         switchForceShowNotification = findViewById(R.id.switch_force_show_notification)
         textForceShowNotification = findViewById(R.id.text_force_show_notification)
         summaryForceShowNotification = findViewById(R.id.summary_force_show_notification)
+
+        rowGeofenceRadius = findViewById(R.id.row_geofence_radius)
+        summaryGeofenceRadius = findViewById(R.id.summary_geofence_radius)
+        sliderGeofenceRadius = findViewById(R.id.slider_geofence_radius)
+        textCurrentDistance = findViewById(R.id.text_current_distance)
 
         // Color Views
         rowTextColor = findViewById(R.id.row_text_color)
@@ -423,6 +436,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             useNearestStationForReturn = existingConfig.useNearestStationForReturn
             showCommuteNotifications = existingConfig.showCommuteNotifications
             forceShowNotification = existingConfig.forceShowNotification
+            geofenceRadius = existingConfig.geofenceRadius
 
             currentTextColor = existingConfig.textColor
             currentBackgroundColor = ColorUtils.setAlphaComponent(
@@ -457,6 +471,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             useNearestStationForReturn = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
             showCommuteNotifications = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS
             forceShowNotification = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
+            geofenceRadius = WidgetConfigurationDefaults.GEOFENCE_RADIUS
 
             currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
             currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
@@ -504,6 +519,14 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         switchCommuteNotifications.isChecked = showCommuteNotifications
         switchForceShowNotification.isChecked = forceShowNotification
         rowForceShowNotification.visibility = if (showCommuteNotifications) View.VISIBLE else View.GONE
+        rowGeofenceRadius.visibility = if (showCommuteNotifications) View.VISIBLE else View.GONE
+        
+        var radiusIndex = geofenceRadiusSteps.indexOf(geofenceRadius)
+        if (radiusIndex == -1) {
+            radiusIndex = 2 // Default to 400
+            geofenceRadius = 400
+        }
+        sliderGeofenceRadius.value = radiusIndex.toFloat()
 
         updateColorSummariesAndPreviews()
         updateLayoutSummaries()
@@ -839,7 +862,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             maxJourneyDuration,
             useNearestStationForReturn,
             showCommuteNotifications,
-            forceShowNotification
+            forceShowNotification,
+            geofenceRadius
         )
 
         // Check if data changed
@@ -1533,6 +1557,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             enableJourneyDurationFilter = isChecked
             val visibility = if (isChecked) View.VISIBLE else View.GONE
             containerMaxJourneyDuration.visibility = visibility
+            updateSheetTranslation()
             triggerUpdate()
         }
         
@@ -1576,6 +1601,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 forceShowNotification = false
                 switchForceShowNotification.isChecked = false
             }
+            rowForceShowNotification.visibility = if (isChecked) View.VISIBLE else View.GONE
+            rowGeofenceRadius.visibility = if (isChecked) View.VISIBLE else View.GONE
+            updateSheetTranslation()
             // If turning ON, ensure notification and location permissions are requested if needed
             if (isChecked) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -1608,6 +1636,13 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             triggerUpdate()
         }
 
+        sliderGeofenceRadius.addOnChangeListener { _, value, _ ->
+            val index = value.toInt().coerceIn(0, geofenceRadiusSteps.size - 1)
+            geofenceRadius = geofenceRadiusSteps[index]
+            updateAdvancedSummaries()
+            triggerUpdate()
+        }
+
         rowGlobalSettings.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
         }
@@ -1615,6 +1650,78 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
     private fun updateAdvancedSummaries() {
         summaryMaxJourneyDuration.text = getString(R.string.journey_duration_format, maxJourneyDuration)
+        summaryGeofenceRadius.text = getString(R.string.geofence_radius_format, geofenceRadius)
+        updateCurrentDistanceText()
+    }
+
+    private fun updateCurrentDistanceText() {
+        if (!showCommuteNotifications) {
+            textCurrentDistance.visibility = View.GONE
+            return
+        }
+
+        val hasLocationPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasLocationPermission) {
+            textCurrentDistance.visibility = View.GONE
+            return
+        }
+
+        val client = LocationServices.getFusedLocationProviderClient(this)
+        client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+            .addOnSuccessListener { location ->
+                if (location != null) {
+                    val fromStation = StationRepository.getStation(this, fromStationCode)
+                    val toStation = StationRepository.getStation(this, toStationCode)
+
+                    var minDistance = Float.MAX_VALUE
+                    var closestStationName = ""
+
+                    if (fromStation != null) {
+                        val dist = FloatArray(1)
+                        Location.distanceBetween(location.latitude, location.longitude, fromStation.lat, fromStation.lon, dist)
+                        if (dist[0] < minDistance) {
+                            minDistance = dist[0]
+                            closestStationName = fromStation.name
+                        }
+                    }
+
+                    if (toStation != null) {
+                        val dist = FloatArray(1)
+                        Location.distanceBetween(location.latitude, location.longitude, toStation.lat, toStation.lon, dist)
+                        if (dist[0] < minDistance) {
+                            minDistance = dist[0]
+                            closestStationName = toStation.name
+                        }
+                    }
+
+                    if (minDistance != Float.MAX_VALUE) {
+                        val status = if (minDistance <= geofenceRadius) getString(R.string.distance_status_inside) else getString(R.string.distance_status_outside)
+                        textCurrentDistance.text = getString(R.string.current_distance_format, closestStationName, minDistance.roundToInt(), status)
+                        if (textCurrentDistance.visibility != View.VISIBLE) {
+                            textCurrentDistance.visibility = View.VISIBLE
+                            updateSheetTranslation()
+                        }
+                    } else {
+                        if (textCurrentDistance.visibility != View.GONE) {
+                            textCurrentDistance.visibility = View.GONE
+                            updateSheetTranslation()
+                        }
+                    }
+                } else {
+                    if (textCurrentDistance.visibility != View.GONE) {
+                        textCurrentDistance.visibility = View.GONE
+                        updateSheetTranslation()
+                    }
+                }
+            }
+            .addOnFailureListener {
+                if (textCurrentDistance.visibility != View.GONE) {
+                    textCurrentDistance.visibility = View.GONE
+                    updateSheetTranslation()
+                }
+            }
     }
 
     private fun updateLayoutSummaries() {
@@ -1706,13 +1813,16 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun updateTabVisibility(position: Int) {
-        val rootView = findViewById<View>(R.id.config_root_layout)
-    
         routeContent.visibility = if (position == 0) View.VISIBLE else View.GONE
         layoutContent.visibility = if (position == 1) View.VISIBLE else View.GONE
         colorsContent.visibility = if (position == 2) View.VISIBLE else View.GONE
         advancedContent.visibility = if (position == 3) View.VISIBLE else View.GONE
     
+        updateSheetTranslation()
+    }
+
+    private fun updateSheetTranslation() {
+        val rootView = findViewById<View>(R.id.config_root_layout)
         rootView.post {
             val slidingSheet = findViewById<View>(R.id.sliding_sheet_container)
             // Safety check

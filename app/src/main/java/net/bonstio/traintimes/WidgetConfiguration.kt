@@ -38,5 +38,6 @@ data class WidgetConfiguration(
     val maxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION,
     val useNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN,
     val showCommuteNotifications: Boolean = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS,
-    val forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
+    val forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION,
+    val geofenceRadius: Int = WidgetConfigurationDefaults.GEOFENCE_RADIUS
 )

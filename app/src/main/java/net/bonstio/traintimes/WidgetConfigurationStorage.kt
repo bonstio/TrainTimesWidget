@@ -38,6 +38,7 @@ object WidgetConfigurationStorage {
     private const val PREF_USE_NEAREST_STATION_FOR_RETURN_KEY = "use_nearest_station_return_"
     private const val PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY = "show_commute_notifications_"
     private const val PREF_FORCE_SHOW_NOTIFICATION_KEY = "force_show_notification_"
+    private const val PREF_GEOFENCE_RADIUS_KEY = "geofence_radius_"
 
     /**
      * Saves the configuration for a specific widget ID.
@@ -73,7 +74,8 @@ object WidgetConfigurationStorage {
         maxJourneyDuration: Int,
         useNearestStationForReturn: Boolean,
         showCommuteNotifications: Boolean = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS,
-        forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
+        forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION,
+        geofenceRadius: Int = WidgetConfigurationDefaults.GEOFENCE_RADIUS
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, 0).edit()
         prefs.putString(PREF_TITLE_KEY + appWidgetId, title)
@@ -106,6 +108,7 @@ object WidgetConfigurationStorage {
         prefs.putBoolean(PREF_USE_NEAREST_STATION_FOR_RETURN_KEY + appWidgetId, useNearestStationForReturn)
         prefs.putBoolean(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId, showCommuteNotifications)
         prefs.putBoolean(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId, forceShowNotification)
+        prefs.putInt(PREF_GEOFENCE_RADIUS_KEY + appWidgetId, geofenceRadius)
         // Use commit to ensure data is written before we broadcast the update
         prefs.commit()
     }
@@ -179,6 +182,7 @@ object WidgetConfigurationStorage {
         val useNearestStationForReturn = prefs.getBoolean(PREF_USE_NEAREST_STATION_FOR_RETURN_KEY + appWidgetId, WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN)
         val showCommuteNotifications = prefs.getBoolean(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS)
         val forceShowNotification = prefs.getBoolean(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId, WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION)
+        val geofenceRadius = prefs.getInt(PREF_GEOFENCE_RADIUS_KEY + appWidgetId, WidgetConfigurationDefaults.GEOFENCE_RADIUS)
 
         return if (title != null && fromStation != null && toStation != null && alignment != null) {
             WidgetConfiguration(
@@ -213,7 +217,8 @@ object WidgetConfigurationStorage {
                 maxJourneyDuration,
                 useNearestStationForReturn,
                 showCommuteNotifications,
-                forceShowNotification
+                forceShowNotification,
+                geofenceRadius
             )
         } else {
             null
@@ -256,6 +261,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_USE_NEAREST_STATION_FOR_RETURN_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId)
         prefs.remove(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId)
+        prefs.remove(PREF_GEOFENCE_RADIUS_KEY + appWidgetId)
         prefs.apply()
     }
 }

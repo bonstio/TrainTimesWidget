@@ -392,4 +392,10 @@
     <string name="notification_channel_commute_description">Shows upcoming train departures during your commute near stations</string>
     <string name="notification_action_refresh">Refresh</string>
     <string name="notification_no_trains">No upcoming trains found.</string>
+
+    <string name="geofence_radius_label">Notification trigger distance</string>
+    <string name="geofence_radius_format">%d meters</string>
+    <string name="current_distance_format">Current distance to %1$s: %2$dm (%3$s)</string>
+    <string name="distance_status_inside">Inside</string>
+    <string name="distance_status_outside">Outside</string>
 </resources>

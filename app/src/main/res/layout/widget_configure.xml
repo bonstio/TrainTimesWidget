@@ -787,6 +787,52 @@
                                 android:layout_marginTop="4dp"/>
                         </LinearLayout>
 
+                        <!-- Geofence Radius Row -->
+                        <LinearLayout
+                            android:id="@+id/row_geofence_radius"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:paddingHorizontal="4dp"
+                            android:paddingVertical="12dp"
+                            android:layout_marginStart="16dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/geofence_radius_label"
+                                android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                            <TextView
+                                android:id="@+id/summary_geofence_radius"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="300 meters"
+                                android:textAppearance="?attr/textAppearanceBodyMedium"
+                                android:textColor="?android:attr/textColorSecondary"
+                                android:layout_marginTop="4dp"/>
+
+                            <com.google.android.material.slider.Slider
+                                android:id="@+id/slider_geofence_radius"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:valueFrom="0.0"
+                                android:valueTo="5.0"
+                                android:stepSize="1.0"
+                                app:labelBehavior="gone" />
+
+                            <TextView
+                                android:id="@+id/text_current_distance"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textAppearance="?attr/textAppearanceBodyMedium"
+                                android:textColor="?android:attr/textColorSecondary"
+                                android:layout_marginTop="4dp"
+                                android:visibility="gone" />
+                        </LinearLayout>
+
                         <!-- Max Journey Duration Row -->
                         <LinearLayout
                             android:id="@+id/row_max_journey_duration"
