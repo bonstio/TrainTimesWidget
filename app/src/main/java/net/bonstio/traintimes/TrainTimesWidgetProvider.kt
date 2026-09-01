@@ -120,7 +120,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             config.maxJourneyDuration,
             newState,
             if (newState) false else config.showCommuteNotifications,
-            if (newState) false else config.forceShowNotification
+            if (newState) false else config.forceShowNotification,
+            config.geofenceRadius
           )
 
           // Trigger UI update immediately

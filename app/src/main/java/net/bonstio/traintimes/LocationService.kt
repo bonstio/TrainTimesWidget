@@ -81,7 +81,8 @@ class LocationService : Service() {
                             config.maxJourneyDuration,
                             newUseNearest,
                             config.showCommuteNotifications,
-                            config.forceShowNotification
+                            config.forceShowNotification,
+                            config.geofenceRadius
                         )
                         
                         // Notify widget to update UI (hide GPS/Location indicators)

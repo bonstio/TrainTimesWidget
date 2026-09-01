@@ -27,6 +27,9 @@ object CommuteNotificationManager {
     const val ACTION_REFRESH_NOTIFICATION = "net.bonstio.traintimes.ACTION_REFRESH_NOTIFICATION"
     const val EXTRA_WIDGET_ID = "appWidgetId"
 
+    private const val MIN_AUTO_UPDATE_INTERVAL_MS = 15 * 60 * 1000L // 15 minutes throttle for automatic triggers
+    private val lastAutoUpdateTimes = java.util.concurrent.ConcurrentHashMap<Int, Long>()
+
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = context.getString(R.string.notification_channel_commute)
@@ -41,6 +44,7 @@ object CommuteNotificationManager {
     }
 
     fun cancelNotification(context: Context, appWidgetId: Int) {
+        lastAutoUpdateTimes.remove(appWidgetId)
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_ID_BASE + appWidgetId)
     }
@@ -70,9 +74,7 @@ object CommuteNotificationManager {
             toStation,
             config.fromStation
         )
-        val title = if (widgetTitle.isNotBlank()) {
-            widgetTitle
-        } else {
+        val title = widgetTitle.ifBlank {
             val fromName = StationRepository.getStationName(context, fromStation)
             val toName = if (toStation.isNotEmpty()) StationRepository.getStationName(context, toStation) else ""
             if (toName.isNotEmpty()) "$fromName -> $toName" else fromName
@@ -138,19 +140,53 @@ object CommuteNotificationManager {
 
     /**
      * Fetches fresh train departures asynchronously and updates the notification.
+     * @param triggeringStation Optional station code that triggered the geofence/proximity.
+     *                          If provided, departure direction is anchored to depart FROM this station.
      */
-    fun fetchAndUpdateNotification(context: Context, appWidgetId: Int) {
+    fun fetchAndUpdateNotification(
+        context: Context,
+        appWidgetId: Int,
+        isUserInitiated: Boolean = false,
+        triggeringStation: String? = null
+    ) {
         val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
         if (!config.showCommuteNotifications && !config.forceShowNotification) {
             cancelNotification(context, appWidgetId)
             return
         }
 
+        if (!isUserInitiated && !config.forceShowNotification) {
+            val now = System.currentTimeMillis()
+            val lastUpdate = lastAutoUpdateTimes[appWidgetId] ?: 0L
+            if ((now - lastUpdate) < MIN_AUTO_UPDATE_INTERVAL_MS) {
+                Log.d(TAG, "Skipping auto notification update for widget $appWidgetId: throttled (less than 15 mins since last auto update)")
+                return
+            }
+            lastAutoUpdateTimes[appWidgetId] = now
+        }
+
         val prefs = context.getSharedPreferences(TrainTimesWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
         val apiKey = prefs.getString(TrainTimesWidgetProvider.PREF_API_KEY, null)
-        if (apiKey.isNullOrEmpty()) return
+        if (apiKey.isNullOrEmpty()) {
+            Log.w(TAG, "Cannot fetch departures for notification: API key is null or empty")
+            return
+        }
 
-        val (fromStation, toStation) = WidgetUtils.determineDirection(config)
+        val (fromStation, toStation) = when {
+            // If commutingMode is LOCATION and we know which station triggered the notification
+            config.commutingMode == "LOCATION" && !triggeringStation.isNullOrEmpty() -> {
+                if (triggeringStation.equals(config.toStation, ignoreCase = true)) {
+                    Pair(config.toStation, config.fromStation)
+                } else {
+                    Pair(config.fromStation, config.toStation)
+                }
+            }
+            // Otherwise (TIME mode or no station override provided), follow the Time-based commute schedule
+            else -> {
+                WidgetUtils.determineDirection(config)
+            }
+        }
+        Log.d(TAG, "Fetching notification departures for widget $appWidgetId from $fromStation to $toStation (commutingMode=${config.commutingMode}, triggeredBy=$triggeringStation)")
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -163,6 +199,7 @@ object CommuteNotificationManager {
                     }
                 }
                 withContext(Dispatchers.Main) {
+                    Log.d(TAG, "Received ${services.size} departures, updating notification")
                     showOrUpdateNotification(context, appWidgetId, config, services, fromStation, toStation)
                 }
             } catch (e: Exception) {

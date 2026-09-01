@@ -35,8 +35,9 @@ class CommuteGeofenceReceiver : BroadcastReceiver() {
                 val parts = geofence.requestId.split("_")
                 if (parts.size >= 4 && parts[0] == "widget") {
                     val appWidgetId = parts[1].toIntOrNull() ?: continue
-                    Log.d(TAG, "Triggering notification update for widget $appWidgetId due to geofence ${geofence.requestId}")
-                    CommuteNotificationManager.fetchAndUpdateNotification(context, appWidgetId)
+                    val stationCode = parts[3]
+                    Log.d(TAG, "Triggering notification update for widget $appWidgetId due to geofence ${geofence.requestId} (station=$stationCode)")
+                    CommuteNotificationManager.fetchAndUpdateNotification(context, appWidgetId, triggeringStation = stationCode)
                 }
             }
         } else if (transition == Geofence.GEOFENCE_TRANSITION_EXIT) {

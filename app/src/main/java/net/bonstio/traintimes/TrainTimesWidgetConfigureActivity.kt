@@ -902,7 +902,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
 
         LocationService.update(context)
-        CommuteGeofenceManager.updateGeofences(context)
+        CommuteGeofenceManager.updateGeofences(context, appWidgetId)
     }
 
     private fun setupRouteListeners() {
@@ -1677,6 +1677,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
                     var minDistance = Float.MAX_VALUE
                     var closestStationName = ""
+                    var closestStationCode = ""
 
                     if (fromStation != null) {
                         val dist = FloatArray(1)
@@ -1684,6 +1685,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                         if (dist[0] < minDistance) {
                             minDistance = dist[0]
                             closestStationName = fromStation.name
+                            closestStationCode = fromStation.code
                         }
                     }
 
@@ -1693,15 +1695,31 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                         if (dist[0] < minDistance) {
                             minDistance = dist[0]
                             closestStationName = toStation.name
+                            closestStationCode = toStation.code
                         }
                     }
 
                     if (minDistance != Float.MAX_VALUE) {
-                        val status = if (minDistance <= geofenceRadius) getString(R.string.distance_status_inside) else getString(R.string.distance_status_outside)
+                        val isInside = minDistance <= geofenceRadius
+                        val status = if (isInside) getString(R.string.distance_status_inside) else getString(R.string.distance_status_outside)
                         textCurrentDistance.text = getString(R.string.current_distance_format, closestStationName, minDistance.roundToInt(), status)
                         if (textCurrentDistance.visibility != View.VISIBLE) {
                             textCurrentDistance.visibility = View.VISIBLE
                             updateSheetTranslation()
+                        }
+
+                        // Synchronize commute notification immediately based on this exact calculation
+                        if (showCommuteNotifications && !useNearestStationForReturn) {
+                            if (isInside) {
+                                CommuteNotificationManager.fetchAndUpdateNotification(
+                                    this@TrainTimesWidgetConfigureActivity,
+                                    appWidgetId,
+                                    isUserInitiated = true,
+                                    triggeringStation = closestStationCode
+                                )
+                            } else if (!forceShowNotification) {
+                                CommuteNotificationManager.cancelNotification(this@TrainTimesWidgetConfigureActivity, appWidgetId)
+                            }
                         }
                     } else {
                         if (textCurrentDistance.visibility != View.GONE) {

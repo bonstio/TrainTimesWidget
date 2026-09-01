@@ -15,7 +15,7 @@ class CommuteNotificationReceiver : BroadcastReceiver() {
             val appWidgetId = intent.getIntExtra(CommuteNotificationManager.EXTRA_WIDGET_ID, -1)
             Log.d("CommuteNotifReceiver", "Refresh requested for widget $appWidgetId")
             if (appWidgetId != -1) {
-                CommuteNotificationManager.fetchAndUpdateNotification(context, appWidgetId)
+                CommuteNotificationManager.fetchAndUpdateNotification(context, appWidgetId, isUserInitiated = true)
             }
         }
     }

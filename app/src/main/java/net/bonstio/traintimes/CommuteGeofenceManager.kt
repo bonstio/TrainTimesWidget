@@ -18,7 +18,6 @@ import com.google.android.gms.location.LocationServices
 object CommuteGeofenceManager {
 
     private const val TAG = "CommuteGeofenceManager"
-    private const val GEOFENCE_RADIUS_METERS = 300f // Close proximity to station
 
     private fun getGeofencePendingIntent(context: Context): PendingIntent {
         val intent = Intent(context, CommuteGeofenceReceiver::class.java).apply {
@@ -34,10 +33,14 @@ object CommuteGeofenceManager {
 
     /**
      * Updates geofences for all widgets or clears them if disabled.
+     * @param targetWidgetId Optional specific widget ID being configured (e.g. before it is in AppWidgetManager list)
      */
-    fun updateGeofences(context: Context) {
+    fun updateGeofences(context: Context, targetWidgetId: Int? = null) {
         val am = android.appwidget.AppWidgetManager.getInstance(context)
-        val ids = am.getAppWidgetIds(android.content.ComponentName(context, TrainTimesWidgetProvider::class.java))
+        val ids = am.getAppWidgetIds(android.content.ComponentName(context, TrainTimesWidgetProvider::class.java)).toMutableSet()
+        if ((targetWidgetId != null) && (targetWidgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID)) {
+            ids.add(targetWidgetId)
+        }
         val geofencingClient: GeofencingClient = LocationServices.getGeofencingClient(context)
 
         val hasFineLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -73,7 +76,7 @@ object CommuteGeofenceManager {
                         val requestId = "widget_${id}_station_${station.code}"
                         val geofence = Geofence.Builder()
                             .setRequestId(requestId)
-                            .setCircularRegion(station.lat, station.lon, GEOFENCE_RADIUS_METERS)
+                            .setCircularRegion(station.lat, station.lon, config.geofenceRadius.toFloat())
                             .setExpirationDuration(Geofence.NEVER_EXPIRE)
                             .setTransitionTypes(
                                 Geofence.GEOFENCE_TRANSITION_ENTER or
@@ -107,6 +110,81 @@ object CommuteGeofenceManager {
                 }
             } catch (e: SecurityException) {
                 Log.e(TAG, "SecurityException registering geofences", e)
+            }
+
+            // Immediately check current location to post or dismiss notification right away
+            checkCurrentLocationImmediate(context, activeWidgetIdsWithNotifications)
+        }
+
+        // If geofenceList became empty (e.g. notifications disabled), also evaluate cancellation
+        if (geofenceList.isEmpty()) {
+            for (id in ids) {
+                val config = WidgetConfigurationStorage.loadConfiguration(context, id)
+                if (config != null && !config.forceShowNotification) {
+                    CommuteNotificationManager.cancelNotification(context, id)
+                }
+            }
+        }
+    }
+
+    private fun checkCurrentLocationImmediate(context: Context, widgetIds: Set<Int>) {
+        val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) {
+            return
+        }
+
+        val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+        fusedClient.lastLocation.addOnSuccessListener { lastLoc ->
+            if (lastLoc != null) {
+                evaluateAndApply(context, widgetIds, lastLoc)
+            } else {
+                fusedClient.getCurrentLocation(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .addOnSuccessListener { currLoc ->
+                        if (currLoc != null) {
+                            evaluateAndApply(context, widgetIds, currLoc)
+                        }
+                    }
+            }
+        }
+    }
+
+    private fun evaluateAndApply(context: Context, widgetIds: Set<Int>, location: android.location.Location) {
+        for (id in widgetIds) {
+            val config = WidgetConfigurationStorage.loadConfiguration(context, id) ?: continue
+            if (config.forceShowNotification) continue // already handled
+            if (!config.showCommuteNotifications || config.useNearestStationForReturn) continue
+
+            val stations = mutableListOf<String>()
+            if (config.fromStation.isNotEmpty()) stations.add(config.fromStation)
+            if (config.toStation.isNotEmpty()) stations.add(config.toStation)
+
+            var matchedStationCode: String? = null
+            val results = FloatArray(1)
+
+            for (code in stations.distinct()) {
+                val station = StationRepository.getStation(context, code) ?: continue
+                if (station.lat != 0.0 && station.lon != 0.0) {
+                    android.location.Location.distanceBetween(
+                        location.latitude,
+                        location.longitude,
+                        station.lat,
+                        station.lon,
+                        results
+                    )
+                    if (results[0] <= config.geofenceRadius) {
+                        matchedStationCode = code
+                        break
+                    }
+                }
+            }
+
+            if (matchedStationCode != null) {
+                Log.d(TAG, "Immediate check: user inside geofence radius for widget $id near $matchedStationCode -> updating notification")
+                CommuteNotificationManager.fetchAndUpdateNotification(context, id, isUserInitiated = true, triggeringStation = matchedStationCode)
+            } else {
+                Log.d(TAG, "Immediate check: user outside geofence radius for widget $id -> cancelling notification")
+                CommuteNotificationManager.cancelNotification(context, id)
             }
         }
     }
