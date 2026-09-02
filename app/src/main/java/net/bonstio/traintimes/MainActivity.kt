@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity() {
 
         // Setup Request API Key Link
         val requestApiKeyLink = findViewById<TextView>(R.id.request_api_key_link)
-        val url = "https://opendata.nationalrail.co.uk/registration"
+        val url = "https://github.com/bonstio/TrainTimesWidget/blob/main/API_KEY_GUIDE.md"
         val text = getString(R.string.request_api_key)
         val spannable = SpannableString(text)
         spannable.setSpan(URLSpan(url), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
