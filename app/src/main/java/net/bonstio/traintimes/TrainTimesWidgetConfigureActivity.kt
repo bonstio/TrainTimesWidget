@@ -458,6 +458,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             selectedFontSize = existingConfig.fontSize
             selectedFontStyle = existingConfig.fontStyle
         } else {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .remove(PREF_DISMISSED_SHARED_KEY_BANNER + appWidgetId)
+                .remove(PREF_DISMISSED_SHARED_KEY_BANNER_TIME + appWidgetId)
+                .apply()
             selectedAlignment = WidgetConfigurationDefaults.ALIGNMENT
             
             isUpdatingTitleStyle = true
