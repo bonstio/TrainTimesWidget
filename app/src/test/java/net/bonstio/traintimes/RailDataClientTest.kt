@@ -139,4 +139,48 @@ class RailDataClientTest {
 
         assertTrue(services.isEmpty())
     }
+
+    @Test
+    fun testParseTrainServices_DestinationAnywhere() {
+        val json = """
+        {
+          "trainServices": [
+            {
+              "std": "14:15",
+              "etd": "On time",
+              "platform": "1",
+              "isCancelled": false,
+              "destination": [
+                {
+                  "locationName": "Brighton",
+                  "crs": "BTN"
+                }
+              ]
+            },
+            {
+              "std": "14:20",
+              "etd": "On time",
+              "platform": "2",
+              "isCancelled": false,
+              "destination": [
+                {
+                  "locationName": "Portsmouth Harbour",
+                  "crs": "PMH"
+                }
+              ]
+            }
+          ]
+        }
+        """.trimIndent()
+
+        val client = RailDataClient("dummy_key")
+        // Destination anywhere: toStation = ""
+        val services = client.parseTrainServices(json, "")
+
+        assertEquals(2, services.size)
+        assertEquals("14:15", services[0].std)
+        assertEquals("Brighton", services[0].destination)
+        assertEquals("14:20", services[1].std)
+        assertEquals("Portsmouth Harbour", services[1].destination)
+    }
 }

@@ -53,8 +53,7 @@ class WidgetUpdateWorker(
         val widgetIds = inputData.getIntArray(KEY_WIDGET_IDS) ?: AppWidgetManager.getInstance(context)
             .getAppWidgetIds(android.content.ComponentName(context, TrainTimesWidgetProvider::class.java))
 
-        val prefs = context.getSharedPreferences(TrainTimesWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
-        val apiKey = prefs.getString(TrainTimesWidgetProvider.PREF_API_KEY, null)
+        val apiKey = ApiKeyManager.getApiKey(context)
 
         if (apiKey.isNullOrEmpty()) {
             Log.w(TAG, "No API key found, skipping update")
@@ -115,6 +114,13 @@ class WidgetUpdateWorker(
     ) {
         val startTime = System.currentTimeMillis()
         val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
+        if (!TrainTimesWidgetProvider.isWidgetConfigured(config)) {
+            Log.w(TAG, "Widget $appWidgetId is not configured properly (From or To station missing based on nearest mode)")
+            withContext(Dispatchers.Main) {
+                TrainTimesWidgetProvider.updateAppWidget(context, appWidgetManager, appWidgetId, hasData = false)
+            }
+            return
+        }
         val prefs = context.getSharedPreferences(TrainTimesWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
 
         val originalFrom = config.fromStation
@@ -180,13 +186,50 @@ class WidgetUpdateWorker(
                   if (nearest != null) {
                       effectiveFrom = nearest.code
                       Log.d(TAG, "Overriding start station to nearest: ${nearest.code}")
+
+                      if (originalTo.isNotEmpty()) {
+                          val fromStationObj = StationRepository.getStation(context, originalFrom)
+                          val toStationObj = StationRepository.getStation(context, originalTo)
+                          if (fromStationObj != null && toStationObj != null) {
+                              val distFrom = FloatArray(1)
+                              Location.distanceBetween(location.latitude, location.longitude, fromStationObj.lat, fromStationObj.lon, distFrom)
+
+                              val distTo = FloatArray(1)
+                              Location.distanceBetween(location.latitude, location.longitude, toStationObj.lat, toStationObj.lon, distTo)
+
+                              // If closer to originalTo, we are at/near originalTo, so destination should be originalFrom
+                              // If closer to originalFrom, we are at/near originalFrom, so destination should be originalTo
+                              effectiveTo = if (distTo[0] < distFrom[0]) originalFrom else originalTo
+                          } else {
+                              if (effectiveFrom.equals(originalTo, ignoreCase = true)) {
+                                  effectiveTo = originalFrom
+                              } else if (effectiveFrom.equals(originalFrom, ignoreCase = true)) {
+                                  effectiveTo = originalTo
+                              }
+                          }
+                      }
                   }
              } else if (config.commutingMode != "LOCATION") {
                  Log.w(TAG, "Location unavailable for nearest station logic")
              }
         }
 
+        if (originalTo.isNotEmpty() && effectiveFrom.equals(effectiveTo, ignoreCase = true)) {
+            effectiveTo = if (effectiveFrom.equals(originalTo, ignoreCase = true)) originalFrom else originalTo
+        }
+
         Log.d(TAG, "Final route: $effectiveFrom -> $effectiveTo")
+
+        if (effectiveFrom.isEmpty()) {
+            Log.w(TAG, "Departure station is empty for widget $appWidgetId")
+            WidgetCache.saveServices(context, appWidgetId, emptyList())
+            prefs.edit().putString(TrainTimesWidgetProvider.PREF_LAST_ERROR + appWidgetId, "GENERIC").apply()
+            withContext(Dispatchers.Main) {
+                TrainTimesWidgetProvider.updateAppWidget(context, appWidgetManager, appWidgetId, hasData = false)
+                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
+            }
+            return
+        }
 
         prefs.edit()
             .putString(TrainTimesWidgetProvider.PREF_EFFECTIVE_FROM + appWidgetId, effectiveFrom)
@@ -223,7 +266,8 @@ class WidgetUpdateWorker(
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching data for widget $appWidgetId", e)
             val errorType = when {
-                e is io.ktor.client.plugins.ClientRequestException && (e.response.status.value == 401 || e.response.status.value == 403) -> "INVALID_KEY"
+                (e is io.ktor.client.plugins.ClientRequestException) && e.response.status.value == 429 -> "THROTTLED"
+                (e is io.ktor.client.plugins.ClientRequestException) && (e.response.status.value == 401 || e.response.status.value == 403) -> "INVALID_KEY"
                 e is java.io.IOException -> "NETWORK"
                 else -> "GENERIC"
             }

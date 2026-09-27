@@ -8,14 +8,23 @@ android {
     namespace = "net.bonstio.traintimes"
     compileSdk = 36
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "net.bonstio.traintimes"
         minSdk = 33
         targetSdk = 36
-        versionCode = 36
-        versionName = "2.2.0"
+        versionCode = 38
+        versionName = "2.2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val defaultApiKey = (project.findProperty("DEFAULT_RAIL_DATA_API_KEY") as? String ?: "")
+            .trim()
+            .trim('"')
+        buildConfigField("String", "DEFAULT_RAIL_DATA_API_KEY", "\"$defaultApiKey\"")
     }
 
     buildTypes {

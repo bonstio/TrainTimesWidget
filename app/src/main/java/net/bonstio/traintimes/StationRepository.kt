@@ -116,13 +116,13 @@ object StationRepository {
                         val lat = latStr.toDoubleOrNull() ?: 0.0
                         val lon = lonStr.toDoubleOrNull() ?: 0.0
 
-                        if (name.isNotEmpty() && code.length == 3 && code.all { it.isUpperCase() }) {
+                        if (name.isNotEmpty() && (code.length == 3) && code.all { it.isUpperCase() }) {
                             list.add(Station(name, code, lat, lon))
                         }
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // File might not exist yet or error reading
         }
         return list.sortedBy { it.name }

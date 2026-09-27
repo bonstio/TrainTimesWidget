@@ -125,9 +125,11 @@
 
     <!-- Hint for the From station input field (required). Length: 10 chars. -->
     <string name="from_required">From *</string>
+    <string name="from_optional">From</string>
 
     <!-- Hint for the To station input field (optional). Length: 10 chars. -->
-    <string name="to_required">To</string>
+    <string name="to_required">To *</string>
+    <string name="to_optional">To</string>
 
     <!-- Text for requesting an API key. Length: 25 chars. -->
     <string name="request_api_key">Request Rail Data API key</string>
@@ -255,6 +257,7 @@
 
     <!-- Summary text for required station field. Length: 16 chars. -->
     <string name="summary_station_required"><i>Required</i></string>
+    <string name="summary_station_optional"><i>Optional</i></string>
 
     <!-- Summary text for unspecified station field. Length: 16 chars. -->
     <string name="summary_station_unspecified"><i>Anywhere</i></string>
@@ -324,6 +327,7 @@
 
     <!-- Text displayed in an unconfigured widget. Length: 16 chars. -->
     <string name="configure_widget">Tap to configure</string>
+    <string name="widget_not_configured_station_missing">Tap to configure route stations</string>
 
     <!-- Error message for network issues. Length: 30 chars. -->
     <string name="network_error">Check internet connection.</string>
@@ -333,6 +337,17 @@
 
     <!-- Error message displayed on text field for invalid API key. -->
     <string name="invalid_api_key">Invalid API key</string>
+
+    <!-- Error message when rate limit or quota is exceeded (HTTP 429) -->
+    <string name="api_throttled_error">Shared rate limit reached.</string>
+    <string name="api_throttled_help">Tap here to add your own free API key</string>
+
+    <!-- Radio options for API key source -->
+    <string name="api_key_source_label">API Key Source</string>
+    <string name="api_key_source_default">Default (Shared key)</string>
+    <string name="api_key_source_default_summary">Uses the built-in shared key (subject to shared rate limits)</string>
+    <string name="api_key_source_custom">Custom (Your own free key)</string>
+    <string name="api_key_source_custom_summary">Use your own key from Rail Data Marketplace for dedicated limits</string>
 
     <!-- Commute times label. Length: 15 chars. -->
     <string name="commute_times">Commuting</string>
@@ -382,7 +397,21 @@
     <string name="tap_to_change_filters">Tap to change</string>
 
     <string name="use_nearest_station_return">Use nearest station</string>
+    <string name="use_nearest_format">Use nearest (%s)</string>
     <string name="use_nearest_station_return_summary">Use the nearest station of <i> all </i> stations (not just those specified) for outbound or return journeys</string>
+
+    <string name="fixed_station_required">Fixed station (required)</string>
+    <string name="fixed_station_format">Fixed station: %s</string>
+
+    <string name="nearest_button_format">Nearest (currently %s)</string>
+    <string name="nearest_button_default">Nearest station</string>
+
+    <string name="shared_key_warning">You are using the shared API key. If the widget stops updating during busy hours, please sign up for your own free key in settings.</string>
+    <string name="shared_key_instructions_link"><u>View instructions on getting a free key</u></string>
+    <string name="shared_key_settings_link"><u>Open settings to enter your own key</u></string>
+    <string name="widget_shared_key_banner">Warning: using shared key</string>
+
+    <string name="enter_station_prompt">Enter station</string>
 
     <string name="show_commute_notifications">Show notifications during commute</string>
     <string name="show_commute_notifications_summary">Show upcoming departures on your phone and watch when near the departure or arrival station</string>
@@ -398,4 +427,14 @@
     <string name="current_distance_format">Current distance to %1$s: %2$dm (%3$s)</string>
     <string name="distance_status_inside">Inside</string>
     <string name="distance_status_outside">Outside</string>
+
+    <string name="background_location_permission_title">Allow Location All The Time</string>
+    <string name="background_location_permission_message">To automatically detect when you approach your station and show live train times while your phone is in your pocket, please tap Continue, go to Permissions -> Location, and choose \"Allow all the time\".</string>
+    <string name="background_location_permission_positive">Open Settings</string>
+    <string name="background_location_permission_negative">Cancel</string>
+
+    <string name="battery_optimization_dialog_title">Disable Battery Optimizations</string>
+    <string name="battery_optimization_dialog_message">To ensure background geofencing and commute notifications arrive on time as you approach the station, please set battery usage to \"Unrestricted\".</string>
+    <string name="battery_optimization_dialog_positive">Open Settings</string>
+    <string name="battery_optimization_dialog_negative">Later</string>
 </resources>

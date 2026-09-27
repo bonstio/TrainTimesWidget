@@ -115,7 +115,7 @@ object CommuteNotificationManager {
             inboxStyle.setBigContentTitle(title)
 
             var firstLine = ""
-            for ((index, service) in services.take(4).withIndex()) {
+            for ((index, service) in services.asSequence().take(4).withIndex()) {
                 val plat = if (!service.platform.isNullOrEmpty()) " [Plat ${service.platform}]" else ""
                 val line = "${service.std} (${service.status})$plat → ${service.destination}"
                 if (index == 0) {
@@ -165,8 +165,7 @@ object CommuteNotificationManager {
             lastAutoUpdateTimes[appWidgetId] = now
         }
 
-        val prefs = context.getSharedPreferences(TrainTimesWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
-        val apiKey = prefs.getString(TrainTimesWidgetProvider.PREF_API_KEY, null)
+        val apiKey = ApiKeyManager.getApiKey(context)
         if (apiKey.isNullOrEmpty()) {
             Log.w(TAG, "Cannot fetch departures for notification: API key is null or empty")
             return
@@ -174,7 +173,7 @@ object CommuteNotificationManager {
 
         val (fromStation, toStation) = when {
             // If commutingMode is LOCATION and we know which station triggered the notification
-            config.commutingMode == "LOCATION" && !triggeringStation.isNullOrEmpty() -> {
+            (config.commutingMode == "LOCATION") && !triggeringStation.isNullOrEmpty() -> {
                 if (triggeringStation.equals(config.toStation, ignoreCase = true)) {
                     Pair(config.toStation, config.fromStation)
                 } else {

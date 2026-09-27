@@ -78,6 +78,8 @@
                 android:layout_marginStart="8dp" />
         </LinearLayout>
 
+        <include layout="@layout/widget_shared_key_banner" />
+
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"

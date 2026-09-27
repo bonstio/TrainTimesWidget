@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
@@ -21,6 +20,7 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -42,9 +42,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var apiKeyInput: TextInputEditText
     private lateinit var updateFrequencySpinner: Spinner
     private lateinit var prefs: SharedPreferences
-    private lateinit var doneButton: Button
     private lateinit var addToHomeButton: Button
     private lateinit var batteryOptimizationBanner: View
+    private lateinit var apiKeySourceRadioGroup: android.widget.RadioGroup
+    private lateinit var radioApiKeyDefault: com.google.android.material.radiobutton.MaterialRadioButton
+    private lateinit var radioApiKeyCustom: com.google.android.material.radiobutton.MaterialRadioButton
+    private lateinit var customApiKeyContainer: View
 
     private val frequencyValues = intArrayOf(0, 30, 60, 120)
 
@@ -52,6 +55,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_INVALID_API_KEY = "invalid_api_key"
+        const val EXTRA_THROTTLED_API_KEY = "throttled_api_key"
     }
 
     /**
@@ -65,14 +69,18 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
         apiKeyInput = findViewById(R.id.api_key_input)
         val apiKeyInputLayout = findViewById<TextInputLayout>(R.id.api_key_input_layout)
         updateFrequencySpinner = findViewById(R.id.update_frequency_spinner)
-        doneButton = findViewById(R.id.done_button)
         addToHomeButton = findViewById(R.id.add_to_home_button)
         batteryOptimizationBanner = findViewById(R.id.battery_optimization_banner)
+
+        apiKeySourceRadioGroup = findViewById(R.id.api_key_source_radio_group)
+        radioApiKeyDefault = findViewById(R.id.radio_api_key_default)
+        radioApiKeyCustom = findViewById(R.id.radio_api_key_custom)
+        customApiKeyContainer = findViewById(R.id.custom_api_key_container)
 
         // Setup Request API Key Link
         val requestApiKeyLink = findViewById<TextView>(R.id.request_api_key_link)
@@ -82,6 +90,29 @@ class MainActivity : AppCompatActivity() {
         spannable.setSpan(URLSpan(url), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         requestApiKeyLink.text = spannable
         requestApiKeyLink.movementMethod = LinkMovementMethod.getInstance()
+
+        // Setup API Key Source Radio Group
+        val savedSource = prefs.getString(PREF_API_KEY_SOURCE, API_KEY_SOURCE_DEFAULT)
+        val isCustom = savedSource == API_KEY_SOURCE_CUSTOM
+        radioApiKeyCustom.isChecked = isCustom
+        radioApiKeyDefault.isChecked = !isCustom
+        customApiKeyContainer.visibility = if (isCustom) View.VISIBLE else View.GONE
+        
+        val sharedKeyWarningBanner = findViewById<View>(R.id.shared_key_warning_banner)
+        sharedKeyWarningBanner.visibility = if (isCustom) View.GONE else View.VISIBLE
+
+        val sharedKeyInstructionsLink = findViewById<View>(R.id.shared_key_instructions_link)
+        sharedKeyInstructionsLink.setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bonstio/TrainTimesWidget/blob/main/API_KEY_GUIDE.md"))
+            startActivity(intent)
+        }
+
+        apiKeySourceRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val customSelected = checkedId == R.id.radio_api_key_custom
+            customApiKeyContainer.visibility = if (customSelected) View.VISIBLE else View.GONE
+            sharedKeyWarningBanner.visibility = if (customSelected) View.GONE else View.VISIBLE
+            apiKeyInputLayout.error = null
+        }
 
         // Setup Spinner
         ArrayAdapter.createFromResource(
@@ -103,21 +134,19 @@ class MainActivity : AppCompatActivity() {
             updateFrequencySpinner.setSelection(1) // Default to 30m
         }
 
-        doneButton.setOnClickListener {
-            saveSettings()
-            updateWidgets()
-            finish()
-        }
-
         setupAddToHomeButton()
         setupBatteryOptimizationBanner()
 
         if (intent.getBooleanExtra(EXTRA_INVALID_API_KEY, false)) {
+            radioApiKeyCustom.isChecked = true
             apiKeyInputLayout.error = getString(R.string.invalid_api_key)
+        } else if (intent.getBooleanExtra(EXTRA_THROTTLED_API_KEY, false)) {
+            radioApiKeyCustom.isChecked = true
+            apiKeyInputLayout.error = getString(R.string.api_throttled_error)
         }
 
         apiKeyInput.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
+            if (!hasFocus && radioApiKeyCustom.isChecked) {
                 validateApiKey(apiKeyInput.text?.toString().orEmpty(), apiKeyInputLayout)
             }
         }
@@ -146,7 +175,7 @@ class MainActivity : AppCompatActivity() {
                 // Clear any stored INVALID_KEY errors across widgets so they refresh cleanly
                 clearWidgetInvalidKeyErrors()
             } catch (e: Exception) {
-                if (e is io.ktor.client.plugins.ClientRequestException &&
+                if ((e is io.ktor.client.plugins.ClientRequestException) &&
                     (e.response.status.value == 401 || e.response.status.value == 403)) {
                     layout.error = getString(R.string.invalid_api_key)
                 }
@@ -171,28 +200,47 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupAddToHomeButton() {
         val appWidgetManager = AppWidgetManager.getInstance(this)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && appWidgetManager.isRequestPinAppWidgetSupported) {
+        val myProvider = ComponentName(this, TrainTimesWidgetProvider::class.java)
+        val widgetIds = appWidgetManager.getAppWidgetIds(myProvider)
+        val hasExistingWidget = widgetIds.any { id ->
+            WidgetConfigurationStorage.loadConfiguration(this, id) != null
+        }
+
+        if (hasExistingWidget) {
+            addToHomeButton.text = getString(R.string.done)
+            addToHomeButton.isEnabled = true
+            addToHomeButton.visibility = View.VISIBLE
             addToHomeButton.setOnClickListener {
-                Log.d("TrainWidgetDebug", "Requesting pin widget...")
-                val myProvider = ComponentName(this, TrainTimesWidgetProvider::class.java)
-                
-                val intent = Intent(this, TrainTimesWidgetProvider::class.java).apply {
-                    action = TrainTimesWidgetProvider.ACTION_WIDGET_PINNED
-                }
-                
-                val successCallback = PendingIntent.getBroadcast(
-                    this,
-                    0,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-                )
-                
-                appWidgetManager.requestPinAppWidget(myProvider, null, successCallback)
+                saveSettings()
+                updateWidgets()
                 finish()
             }
         } else {
-            addToHomeButton.isEnabled = false
-            addToHomeButton.visibility = View.GONE
+            addToHomeButton.text = getString(R.string.add_to_home_screen)
+            addToHomeButton.isEnabled = true
+            addToHomeButton.visibility = View.VISIBLE
+            addToHomeButton.setOnClickListener {
+                saveSettings()
+                updateWidgets()
+                if (appWidgetManager.isRequestPinAppWidgetSupported) {
+                    Log.d("TrainWidgetDebug", "Requesting pin widget...")
+                    val intent = Intent(this, TrainTimesWidgetProvider::class.java).apply {
+                        action = TrainTimesWidgetProvider.ACTION_WIDGET_PINNED
+                    }
+
+                    val successCallback = PendingIntent.getBroadcast(
+                        this,
+                        0,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    )
+
+                    appWidgetManager.requestPinAppWidget(myProvider, null, successCallback)
+                    finish()
+                } else {
+                    Toast.makeText(this, R.string.pinning_not_supported, Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -211,12 +259,14 @@ class MainActivity : AppCompatActivity() {
      */
     override fun onResume() {
         super.onResume()
+        setupAddToHomeButton()
         checkBatteryOptimization()
     }
 
     override fun onPause() {
         super.onPause()
         saveSettings()
+        updateWidgets()
     }
 
     /**
@@ -230,8 +280,11 @@ class MainActivity : AppCompatActivity() {
             30
         }
 
+        val source = if (radioApiKeyCustom.isChecked) API_KEY_SOURCE_CUSTOM else API_KEY_SOURCE_DEFAULT
+
         prefs.edit {
-            putString(PREF_API_KEY, apiKeyInput.text.toString())
+            putString(PREF_API_KEY_SOURCE, source)
+            putString(PREF_API_KEY, apiKeyInput.text.toString().trim())
             putInt(PREF_UPDATE_FREQUENCY, frequency)
         }
 

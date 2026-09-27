@@ -40,14 +40,14 @@ object BitmapGenerator {
             try {
                 val typeface = ResourcesCompat.getFont(context, fontResId)
                 paint.typeface = typeface
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 paint.typeface = Typeface.DEFAULT
             }
         }
 
         // Calculate width
         val desiredWidth = paint.measureText(text).toInt()
-        val width = if (maxWidth != null) Math.min(desiredWidth, maxWidth) else desiredWidth
+        val width = if (maxWidth != null) minOf(desiredWidth, maxWidth) else desiredWidth
         
         if (width <= 0) return null
 

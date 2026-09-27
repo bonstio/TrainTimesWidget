@@ -16,6 +16,13 @@ const val PREFS_NAME = "net.bonstio.traintimes.widget"
 const val PREF_API_KEY = "api_key"
 
 /**
+ * Key for storing the chosen API key source ("DEFAULT" or "CUSTOM").
+ */
+const val PREF_API_KEY_SOURCE = "api_key_source"
+const val API_KEY_SOURCE_DEFAULT = "DEFAULT"
+const val API_KEY_SOURCE_CUSTOM = "CUSTOM"
+
+/**
  * Key for storing the widget update frequency in minutes (0 = manual only).
  */
 const val PREF_UPDATE_FREQUENCY = "update_frequency"
@@ -44,3 +51,19 @@ const val PREF_BG_COLOR = "bg_color"
  * Key for tracking if the prominent disclosure dialog has been shown.
  */
 const val PREF_PROMINENT_DISCLOSURE_SHOWN = "prominent_disclosure_shown"
+
+/**
+ * Key prefix for tracking if the user dismissed the shared key warning banner on a specific widget (legacy boolean).
+ */
+const val PREF_DISMISSED_SHARED_KEY_BANNER = "dismissed_shared_key_banner_"
+
+/**
+ * Key prefix for tracking the timestamp when the user dismissed the shared key warning banner on a specific widget.
+ */
+const val PREF_DISMISSED_SHARED_KEY_BANNER_TIME = "dismissed_shared_key_banner_time_"
+
+/**
+ * Duration for which the shared key warning banner stays dismissed: 5 weeks (35 days).
+ */
+const val SHARED_KEY_BANNER_DISMISS_DURATION_MS = 35L * 24 * 60 * 60 * 1000L
+

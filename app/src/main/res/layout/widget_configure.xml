@@ -73,6 +73,62 @@
                 android:paddingBottom="24dp">
 
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/shared_key_warning_banner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="?attr/colorErrorContainer"
+                    app:strokeColor="?attr/colorError"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="16dp"
+                        android:gravity="top">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginTop="2dp"
+                            android:src="@drawable/ic_warning"
+                            app:tint="?attr/colorOnErrorContainer"
+                            android:contentDescription="@null" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="16dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/shared_key_warning"
+                                android:textColor="?attr/colorOnErrorContainer"
+                                android:textAppearance="?attr/textAppearanceBody2" />
+
+                            <TextView
+                                android:id="@+id/shared_key_instructions_link"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:text="@string/shared_key_settings_link"
+                                android:textColor="?attr/colorOnErrorContainer"
+                                android:textAppearance="?attr/textAppearanceCaption"
+                                android:textStyle="bold"
+                                android:clickable="true"
+                                android:focusable="true" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
                     android:id="@+id/battery_optimization_banner"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -148,39 +204,40 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-                        <!-- Departing From Row -->
+                        <!-- Departing From Section -->
                         <LinearLayout
-                            android:id="@+id/row_departing_from"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:background="?attr/selectableItemBackground"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
+                            android:orientation="vertical"
                             android:paddingHorizontal="4dp"
-                            android:paddingVertical="12dp">
+                            android:paddingVertical="8dp">
 
-                            <LinearLayout
-                                android:layout_width="0dp"
+                            <TextView
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
+                                android:text="@string/route_departing_from"
+                                android:textAppearance="?attr/textAppearanceBodyLarge" />
 
-                                <TextView
+                            <RadioGroup
+                                android:id="@+id/from_station_radio_group"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp">
+
+                                <com.google.android.material.radiobutton.MaterialRadioButton
+                                    android:id="@+id/radio_from_specific"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="@string/route_departing_from"
+                                    android:text="@string/fixed_station_required"
                                     android:textAppearance="?attr/textAppearanceBodyLarge" />
 
-                                <TextView
-                                    android:id="@+id/summary_departing_from"
+                                <com.google.android.material.radiobutton.MaterialRadioButton
+                                    android:id="@+id/radio_from_nearest"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="@string/from_required"
-                                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                                    android:textColor="?android:attr/textColorSecondary" />
-                            </LinearLayout>
+                                    android:text="@string/use_nearest_station_return"
+                                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+                            </RadioGroup>
                         </LinearLayout>
 
                         <!-- Destination Row -->
@@ -667,45 +724,6 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:visibility="gone">
-
-                        <!-- Use Nearest Station Return Row -->
-                        <LinearLayout
-                            android:id="@+id/row_use_nearest_station_return"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:paddingHorizontal="4dp"
-                            android:paddingVertical="12dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical">
-
-                                <TextView
-                                    android:id="@+id/text_use_nearest_station_return"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:text="@string/use_nearest_station_return"
-                                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                                <com.google.android.material.materialswitch.MaterialSwitch
-                                    android:id="@+id/switch_use_nearest_station_return"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content" />
-                            </LinearLayout>
-
-                            <TextView
-                                android:id="@+id/summary_use_nearest_station_return"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="@string/use_nearest_station_return_summary"
-                                android:textAppearance="?attr/textAppearanceBodyMedium"
-                                android:textColor="?android:attr/textColorSecondary"
-                                android:layout_marginTop="4dp"/>
-                        </LinearLayout>
 
                         <!-- Show Commute Notifications Row -->
                         <LinearLayout

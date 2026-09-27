@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.text.Html
 import android.util.TypedValue
 import android.view.Gravity
@@ -31,12 +30,14 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       WidgetConfigurationStorage.deleteConfiguration(context, appWidgetId)
       prefs.remove(PREF_IS_EXPANDED + appWidgetId) // Legacy cleanup
       for (i in 0..99) {
-        prefs.remove("${PREF_IS_EXPANDED}${appWidgetId}_$i")
+        prefs.remove("$PREF_IS_EXPANDED${appWidgetId}_$i")
       }
       prefs.remove(PREF_LAST_ERROR + appWidgetId)
       prefs.remove(PREF_EFFECTIVE_FROM + appWidgetId)
       prefs.remove(PREF_EFFECTIVE_TO + appWidgetId)
       prefs.remove(PREF_LAST_SUCCESSFUL_UPDATE + appWidgetId)
+      prefs.remove(PREF_DISMISSED_SHARED_KEY_BANNER + appWidgetId)
+      prefs.remove(PREF_DISMISSED_SHARED_KEY_BANNER_TIME + appWidgetId)
     }
     prefs.apply()
     LocationService.update(context)
@@ -52,9 +53,9 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       )
       val serviceIndex = intent.getIntExtra(EXTRA_SERVICE_INDEX, -1)
 
-      if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID && serviceIndex != -1) {
+      if ((appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) && (serviceIndex != -1)) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val key = "${PREF_IS_EXPANDED}${appWidgetId}_$serviceIndex"
+        val key = "$PREF_IS_EXPANDED${appWidgetId}_$serviceIndex"
         val current = prefs.getBoolean(key, false)
         prefs.edit().putBoolean(key, !current).apply()
 
@@ -78,6 +79,20 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         val appWidgetManager = AppWidgetManager.getInstance(context)
         updateAppWidget(context, appWidgetManager, appWidgetId)
         appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
+      }
+    } else if (intent.action == ACTION_DISMISS_SHARED_KEY_BANNER) {
+      val appWidgetId = intent.getIntExtra(
+        AppWidgetManager.EXTRA_APPWIDGET_ID,
+        AppWidgetManager.INVALID_APPWIDGET_ID
+      )
+      if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+          .putLong(PREF_DISMISSED_SHARED_KEY_BANNER_TIME + appWidgetId, System.currentTimeMillis())
+          .remove(PREF_DISMISSED_SHARED_KEY_BANNER + appWidgetId)
+          .apply()
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+        updateAppWidget(context, appWidgetManager, appWidgetId)
       }
     } else if (intent.action == ACTION_TOGGLE_USE_NEAREST) {
       val appWidgetId = intent.getIntExtra(
@@ -150,14 +165,20 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       appWidgetManager: AppWidgetManager,
       appWidgetIds: IntArray,
   ) {
-    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    val apiKey = prefs.getString(PREF_API_KEY, null)
+    val apiKey = ApiKeyManager.getApiKey(context)
 
     for (appWidgetId in appWidgetIds) {
       val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
-      if (config == null || apiKey.isNullOrEmpty()) {
-        val isApiKeyMissing = apiKey.isNullOrEmpty()
-        updateAppWidgetWithSetupRequest(context, appWidgetManager, appWidgetId, isApiKeyMissing)
+      val isApiKeyMissing = apiKey.isNullOrEmpty()
+      val isConfigMissing = !isWidgetConfigured(config)
+      if (isConfigMissing || isApiKeyMissing) {
+        updateAppWidgetWithSetupRequest(
+          context,
+          appWidgetManager,
+          appWidgetId,
+          isApiKeyMissing = isApiKeyMissing,
+          isConfigMissing = isConfigMissing
+        )
       }
     }
 
@@ -192,6 +213,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
     const val ACTION_WIDGET_PINNED = "net.bonstio.traintimes.ACTION_WIDGET_PINNED"
     const val ACTION_WIDGET_STYLE_UPDATE = "net.bonstio.traintimes.ACTION_WIDGET_STYLE_UPDATE"
     const val ACTION_TOGGLE_USE_NEAREST = "net.bonstio.traintimes.ACTION_TOGGLE_USE_NEAREST"
+    const val ACTION_DISMISS_SHARED_KEY_BANNER = "net.bonstio.traintimes.ACTION_DISMISS_SHARED_KEY_BANNER"
     const val EXTRA_SERVICE_INDEX = "service_index"
     const val PREFS_NAME = "net.bonstio.traintimes.widget"
     const val PREF_API_KEY = "api_key"
@@ -202,6 +224,15 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
     const val PREF_EFFECTIVE_TO = "effective_to_"
     const val PREF_LAST_SUCCESSFUL_UPDATE = "last_successful_update_"
 
+    fun isWidgetConfigured(config: WidgetConfiguration?): Boolean {
+      if (config == null) return false
+      return if (config.useNearestStationForReturn) {
+        true
+      } else {
+        config.fromStation.isNotEmpty()
+      }
+    }
+
     internal fun updateAppWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -209,14 +240,16 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         hasData: Boolean? = null,
     ) {
       val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
-      if (config == null) {
-        val apiKey = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-          .getString(PREF_API_KEY, null)
+      val apiKey = ApiKeyManager.getApiKey(context)
+      val isConfigMissing = !isWidgetConfigured(config)
+      val isApiKeyMissing = apiKey.isNullOrEmpty()
+      if (config == null || isConfigMissing || isApiKeyMissing) {
         updateAppWidgetWithSetupRequest(
           context,
           appWidgetManager,
           appWidgetId,
-          apiKey.isNullOrEmpty()
+          isApiKeyMissing = isApiKeyMissing,
+          isConfigMissing = isConfigMissing
         )
         return
       }
@@ -226,8 +259,11 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val ef = prefs.getString(PREF_EFFECTIVE_FROM + appWidgetId, null)
         val et = prefs.getString(PREF_EFFECTIVE_TO + appWidgetId, null)
-        if (ef != null && et != null) {
+        if (ef != null && et != null && (!ef.equals(et, ignoreCase = true) || config.toStation.isEmpty())) {
           Pair(ef, et)
+        } else if (ef != null && et != null && ef.equals(et, ignoreCase = true) && config.toStation.isNotEmpty()) {
+          val resolvedTo = if (ef.equals(config.toStation, ignoreCase = true)) config.fromStation else config.toStation
+          Pair(ef, resolvedTo)
         } else {
           WidgetUtils.determineDirection(config)
         }
@@ -279,6 +315,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       }
 
       val errorMessage = when (errorState) {
+        "THROTTLED" -> context.getString(R.string.api_throttled_error)
         "INVALID_KEY" -> context.getString(R.string.invalid_api_key_error)
         "NETWORK" -> context.getString(R.string.network_error)
         "GENERIC" -> context.getString(R.string.widget_error)
@@ -293,7 +330,30 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       }
       views.setTextViewText(R.id.error_message, errorMessage)
 
-      if (errorState == "INVALID_KEY") {
+      if (errorState == "THROTTLED") {
+        views.setTextViewText(
+          R.id.error_details,
+          Html.fromHtml(
+            "<u>" + context.getString(R.string.api_throttled_help) + "</u>",
+            Html.FROM_HTML_MODE_LEGACY
+          )
+        )
+        views.setColorAttr(R.id.error_details, "setTextColor", android.R.attr.colorAccent)
+        views.setViewVisibility(R.id.error_details, View.VISIBLE)
+
+        val mainIntent = Intent(context, MainActivity::class.java).apply {
+          putExtra(MainActivity.EXTRA_THROTTLED_API_KEY, true)
+        }
+        val mainPendingIntent = PendingIntent.getActivity(
+          context,
+          appWidgetId,
+          mainIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.error_message, mainPendingIntent)
+        views.setOnClickPendingIntent(R.id.error_details, mainPendingIntent)
+        views.setOnClickPendingIntent(R.id.retry_button, mainPendingIntent)
+      } else if (errorState == "INVALID_KEY") {
         views.setTextViewText(
           R.id.error_details,
           Html.fromHtml(
@@ -570,6 +630,58 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
 
       // Footer
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+      // Shared Key Banner on Widget
+      val apiKeySource = prefs.getString(PREF_API_KEY_SOURCE, API_KEY_SOURCE_DEFAULT)
+      val isDefaultSharedKey = apiKeySource == API_KEY_SOURCE_DEFAULT
+      val dismissedTime = try {
+        prefs.getLong(PREF_DISMISSED_SHARED_KEY_BANNER_TIME + appWidgetId, 0L)
+      } catch (_: Exception) {
+        0L
+      }
+      var lastDismissed = dismissedTime
+      if (lastDismissed == 0L) {
+        val legacyDismissed = try {
+          prefs.getBoolean(PREF_DISMISSED_SHARED_KEY_BANNER + appWidgetId, false)
+        } catch (_: Exception) {
+          false
+        }
+        if (legacyDismissed) {
+          lastDismissed = System.currentTimeMillis()
+          prefs.edit()
+            .putLong(PREF_DISMISSED_SHARED_KEY_BANNER_TIME + appWidgetId, lastDismissed)
+            .remove(PREF_DISMISSED_SHARED_KEY_BANNER + appWidgetId)
+            .apply()
+        }
+      }
+      val isBannerDismissed = lastDismissed > 0L && (System.currentTimeMillis() - lastDismissed < SHARED_KEY_BANNER_DISMISS_DURATION_MS)
+      val showSharedKeyBanner = isDefaultSharedKey && !isBannerDismissed
+
+      views.setViewVisibility(R.id.widget_shared_key_banner, if (showSharedKeyBanner) View.VISIBLE else View.GONE)
+      if (showSharedKeyBanner) {
+        val dismissIntent = Intent(context, TrainTimesWidgetProvider::class.java).apply {
+          action = ACTION_DISMISS_SHARED_KEY_BANNER
+          putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+          data = Uri.parse("trainwidget://dismiss_banner/$appWidgetId")
+        }
+        val dismissPendingIntent = PendingIntent.getBroadcast(
+          context,
+          appWidgetId,
+          dismissIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_shared_key_dismiss, dismissPendingIntent)
+
+        val openSettingsIntent = Intent(context, MainActivity::class.java)
+        val openSettingsPendingIntent = PendingIntent.getActivity(
+          context,
+          appWidgetId,
+          openSettingsIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_shared_key_text, openSettingsPendingIntent)
+      }
+
       val lastUpdate = prefs.getLong(PREF_LAST_SUCCESSFUL_UPDATE + appWidgetId, 0L)
       val displayTime = if (lastUpdate > 0) Date(lastUpdate) else Date()
 
@@ -680,6 +792,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         appWidgetId: Int,
         isApiKeyMissing: Boolean,
         showInvalidKeyError: Boolean = false,
+        isConfigMissing: Boolean = false,
     ) {
       val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
@@ -696,8 +809,12 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.error_container, View.GONE)
       views.setViewVisibility(R.id.setup_message, View.VISIBLE)
 
-      val messageRes =
-        if (isApiKeyMissing || showInvalidKeyError) R.string.setup_api_key else R.string.configure_widget
+      val messageRes = when {
+        showInvalidKeyError -> R.string.invalid_api_key_error
+        isApiKeyMissing -> R.string.setup_api_key
+        isConfigMissing -> R.string.widget_not_configured_station_missing
+        else -> R.string.configure_widget
+      }
       val intentTarget =
         if (isApiKeyMissing || showInvalidKeyError) MainActivity::class.java else TrainTimesWidgetConfigureActivity::class.java
 

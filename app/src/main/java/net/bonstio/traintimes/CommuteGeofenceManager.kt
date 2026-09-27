@@ -72,7 +72,7 @@ object CommuteGeofenceManager {
 
                 for (code in stationsToGeofence.distinct()) {
                     val station = StationRepository.getStation(context, code)
-                    if (station != null && station.lat != 0.0 && station.lon != 0.0) {
+                    if ((station != null) && (station.lat != 0.0) && (station.lon != 0.0)) {
                         val requestId = "widget_${id}_station_${station.code}"
                         val geofence = Geofence.Builder()
                             .setRequestId(requestId)

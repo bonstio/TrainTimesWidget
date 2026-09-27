@@ -1,7 +1,6 @@
 package net.bonstio.traintimes
 
 import android.content.Context
-import android.graphics.Color
 import android.util.TypedValue
 import androidx.appcompat.view.ContextThemeWrapper
 import com.google.android.material.color.DynamicColors
@@ -57,9 +56,9 @@ object WidgetUtils {
     fun isTimeReversed(currentMinutes: Int, startNormal: Int, startReverse: Int): Boolean {
         if (startNormal == -1 || startReverse == -1) return false
         return if (startNormal < startReverse) {
-            !(currentMinutes >= startNormal && currentMinutes < startReverse)
+            currentMinutes !in startNormal until startReverse
         } else if (startNormal > startReverse) {
-            currentMinutes >= startReverse && currentMinutes < startNormal
+            currentMinutes in startReverse until startNormal
         } else false
     }
 
@@ -93,7 +92,7 @@ object WidgetUtils {
             } else {
                 diff < -10
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }

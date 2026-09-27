@@ -132,4 +132,76 @@ class CommuteGeofenceCalculationTest {
         assertEquals("TIME mode in evening should follow time schedule (return)", "WOK", timeEvening.first)
         assertEquals("WAT", timeEvening.second)
     }
+
+    @Test
+    fun testWidgetStationRequirements_NormalMode() {
+        // Normal mode (useNearest = false): From is REQUIRED, To is OPTIONAL
+        val configWithFromOnly = WidgetConfiguration(
+            title = "Test",
+            fromStation = "WAT",
+            toStation = "",
+            useNearestStationForReturn = false
+        )
+        assertTrue("Normal mode with From station should be valid", TrainTimesWidgetProvider.isWidgetConfigured(configWithFromOnly))
+
+        val configWithFromAndTo = WidgetConfiguration(
+            title = "Test",
+            fromStation = "WAT",
+            toStation = "WOK",
+            useNearestStationForReturn = false
+        )
+        assertTrue("Normal mode with From and To should be valid", TrainTimesWidgetProvider.isWidgetConfigured(configWithFromAndTo))
+
+        val configWithToOnly = WidgetConfiguration(
+            title = "Test",
+            fromStation = "",
+            toStation = "WOK",
+            useNearestStationForReturn = false
+        )
+        assertFalse("Normal mode without From station should be invalid", TrainTimesWidgetProvider.isWidgetConfigured(configWithToOnly))
+
+        val configEmpty = WidgetConfiguration(
+            title = "Test",
+            fromStation = "",
+            toStation = "",
+            useNearestStationForReturn = false
+        )
+        assertFalse("Normal mode with empty stations should be invalid", TrainTimesWidgetProvider.isWidgetConfigured(configEmpty))
+    }
+
+    @Test
+    fun testWidgetStationRequirements_NearestMode() {
+        // Nearest mode (useNearest = true): Destination is optional (can be to a specific station or anywhere)
+        val configWithToOnly = WidgetConfiguration(
+            title = "Test",
+            fromStation = "",
+            toStation = "WOK",
+            useNearestStationForReturn = true
+        )
+        assertTrue("Nearest mode with To station should be valid", TrainTimesWidgetProvider.isWidgetConfigured(configWithToOnly))
+
+        val configWithFromAndTo = WidgetConfiguration(
+            title = "Test",
+            fromStation = "WAT",
+            toStation = "WOK",
+            useNearestStationForReturn = true
+        )
+        assertTrue("Nearest mode with From and To should be valid", TrainTimesWidgetProvider.isWidgetConfigured(configWithFromAndTo))
+
+        val configWithFromOnly = WidgetConfiguration(
+            title = "Test",
+            fromStation = "WAT",
+            toStation = "",
+            useNearestStationForReturn = true
+        )
+        assertTrue("Nearest mode with From only (destination anywhere) should be valid", TrainTimesWidgetProvider.isWidgetConfigured(configWithFromOnly))
+
+        val configEmpty = WidgetConfiguration(
+            title = "Test",
+            fromStation = "",
+            toStation = "",
+            useNearestStationForReturn = true
+        )
+        assertTrue("Nearest mode with empty stations (destination anywhere) should be valid", TrainTimesWidgetProvider.isWidgetConfigured(configEmpty))
+    }
 }
