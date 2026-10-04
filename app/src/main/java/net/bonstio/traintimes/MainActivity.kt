@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
         requestApiKeyLink.movementMethod = LinkMovementMethod.getInstance()
 
         // Setup API Key Source Radio Group
-        val savedSource = prefs.getString(PREF_API_KEY_SOURCE, API_KEY_SOURCE_DEFAULT)
+        val savedSource = ApiKeyManager.getApiKeySource(this)
         val isCustom = savedSource == API_KEY_SOURCE_CUSTOM
         radioApiKeyCustom.isChecked = isCustom
         radioApiKeyDefault.isChecked = !isCustom

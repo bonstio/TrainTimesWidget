@@ -261,6 +261,17 @@ class WidgetUpdateWorker(
             withContext(Dispatchers.Main) {
                 TrainTimesWidgetProvider.updateAppWidget(context, appWidgetManager, appWidgetId, hasData = trainServices.isNotEmpty())
                 appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
+
+                if (config.showCommuteNotifications && CommuteNotificationManager.isNotificationActive(appWidgetId)) {
+                    CommuteNotificationManager.showOrUpdateNotification(
+                        context,
+                        appWidgetId,
+                        config,
+                        trainServices,
+                        effectiveFrom,
+                        effectiveTo
+                    )
+                }
             }
             Log.d(TAG, "Total update time: ${System.currentTimeMillis() - startTime}ms")
         } catch (e: Exception) {

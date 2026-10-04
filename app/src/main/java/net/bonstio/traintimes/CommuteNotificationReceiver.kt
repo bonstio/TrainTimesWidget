@@ -17,6 +17,12 @@ class CommuteNotificationReceiver : BroadcastReceiver() {
             if (appWidgetId != -1) {
                 CommuteNotificationManager.fetchAndUpdateNotification(context, appWidgetId, isUserInitiated = true)
             }
+        } else if (intent.action == CommuteNotificationManager.ACTION_DISMISS_NOTIFICATION) {
+            val appWidgetId = intent.getIntExtra(CommuteNotificationManager.EXTRA_WIDGET_ID, -1)
+            Log.d("CommuteNotifReceiver", "Notification dismissed for widget $appWidgetId")
+            if (appWidgetId != -1) {
+                CommuteNotificationManager.onNotificationDismissed(appWidgetId)
+            }
         }
     }
 }

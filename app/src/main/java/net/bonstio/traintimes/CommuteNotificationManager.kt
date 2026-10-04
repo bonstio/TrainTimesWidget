@@ -25,10 +25,23 @@ object CommuteNotificationManager {
     const val CHANNEL_ID = "commute_departures_channel"
     const val NOTIFICATION_ID_BASE = 2000
     const val ACTION_REFRESH_NOTIFICATION = "net.bonstio.traintimes.ACTION_REFRESH_NOTIFICATION"
+    const val ACTION_DISMISS_NOTIFICATION = "net.bonstio.traintimes.ACTION_DISMISS_NOTIFICATION"
     const val EXTRA_WIDGET_ID = "appWidgetId"
 
     private const val MIN_AUTO_UPDATE_INTERVAL_MS = 15 * 60 * 1000L // 15 minutes throttle for automatic triggers
+    private const val ARRIVAL_COOLDOWN_MS = 45 * 60 * 1000L // 45 minutes cooldown after arrival at destination
     private val lastAutoUpdateTimes = java.util.concurrent.ConcurrentHashMap<Int, Long>()
+    private val lastArrivalTimes = java.util.concurrent.ConcurrentHashMap<Int, Pair<String, Long>>()
+    private val activeNotificationIds = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+
+    fun isNotificationActive(appWidgetId: Int): Boolean {
+        return activeNotificationIds.contains(appWidgetId)
+    }
+
+    fun onNotificationDismissed(appWidgetId: Int) {
+        activeNotificationIds.remove(appWidgetId)
+        lastAutoUpdateTimes.remove(appWidgetId)
+    }
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -44,6 +57,7 @@ object CommuteNotificationManager {
     }
 
     fun cancelNotification(context: Context, appWidgetId: Int) {
+        activeNotificationIds.remove(appWidgetId)
         lastAutoUpdateTimes.remove(appWidgetId)
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_ID_BASE + appWidgetId)
@@ -127,6 +141,19 @@ object CommuteNotificationManager {
             builder.setStyle(inboxStyle)
         }
 
+        // Delete intent when user swipes notification away
+        val deleteIntent = Intent(context, CommuteNotificationReceiver::class.java).apply {
+            action = ACTION_DISMISS_NOTIFICATION
+            putExtra(EXTRA_WIDGET_ID, appWidgetId)
+        }
+        val deletePendingIntent = PendingIntent.getBroadcast(
+            context,
+            appWidgetId,
+            deleteIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        builder.setDeleteIntent(deletePendingIntent)
+
         // Wear OS wearable extender:
         // When contentIntent is omitted on the main builder, Wear OS does not display
         // the "Open on phone" button.
@@ -134,6 +161,7 @@ object CommuteNotificationManager {
             .addAction(refreshAction)
         builder.extend(wearableExtender)
 
+        activeNotificationIds.add(appWidgetId)
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID_BASE + appWidgetId, builder.build())
     }
@@ -155,7 +183,33 @@ object CommuteNotificationManager {
             return
         }
 
-        if (!isUserInitiated && !config.forceShowNotification) {
+        // Check if entering a station is actually an ARRIVAL at the commute destination
+        if (!config.forceShowNotification && !triggeringStation.isNullOrEmpty() && config.toStation.isNotEmpty()) {
+            val scheduledDirection = WidgetUtils.determineDirection(config)
+            val scheduledDestination = scheduledDirection.second
+
+            // 1. Direct arrival check: The entered station matches the destination of the current commute leg
+            if (triggeringStation.equals(scheduledDestination, ignoreCase = true)) {
+                Log.d(TAG, "User arrived at commute destination $scheduledDestination for widget $appWidgetId. Dismissing notification.")
+                lastArrivalTimes[appWidgetId] = Pair(triggeringStation, System.currentTimeMillis())
+                cancelNotification(context, appWidgetId)
+                return
+            }
+
+            // 2. Cooldown check: If user recently arrived at this station (within cooldown window), ignore further triggers
+            val recentArrival = lastArrivalTimes[appWidgetId]
+            if ((recentArrival != null) &&
+                recentArrival.first.equals(triggeringStation, ignoreCase = true) &&
+                ((System.currentTimeMillis() - recentArrival.second) < ARRIVAL_COOLDOWN_MS)
+            ) {
+                Log.d(TAG, "User recently arrived at $triggeringStation (cooldown active). Skipping notification.")
+                cancelNotification(context, appWidgetId)
+                return
+            }
+        }
+
+        val shouldBypassThrottle = isUserInitiated || !triggeringStation.isNullOrEmpty() || config.forceShowNotification
+        if (!shouldBypassThrottle) {
             val now = System.currentTimeMillis()
             val lastUpdate = lastAutoUpdateTimes[appWidgetId] ?: 0L
             if ((now - lastUpdate) < MIN_AUTO_UPDATE_INTERVAL_MS) {
@@ -163,6 +217,8 @@ object CommuteNotificationManager {
                 return
             }
             lastAutoUpdateTimes[appWidgetId] = now
+        } else {
+            lastAutoUpdateTimes[appWidgetId] = System.currentTimeMillis()
         }
 
         val apiKey = ApiKeyManager.getApiKey(context)
@@ -190,16 +246,22 @@ object CommuteNotificationManager {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val client = RailDataClient(apiKey)
+                val nowCal = java.util.Calendar.getInstance()
                 var services = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
+                    .filter { !WidgetUtils.isDepartureInPast(it, nowCal) }
                 if (config.enableJourneyDurationFilter) {
                     services = services.filter { service ->
                         val duration = service.duration
                         duration == null || duration <= config.maxJourneyDuration
                     }
                 }
+                WidgetCache.saveServices(context, appWidgetId, services)
                 withContext(Dispatchers.Main) {
-                    Log.d(TAG, "Received ${services.size} departures, updating notification")
+                    Log.d(TAG, "Received ${services.size} departures, updating notification and widget")
                     showOrUpdateNotification(context, appWidgetId, config, services, fromStation, toStation)
+                    val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
+                    TrainTimesWidgetProvider.updateAppWidget(context, appWidgetManager, appWidgetId, hasData = services.isNotEmpty())
+                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching departures for notification", e)

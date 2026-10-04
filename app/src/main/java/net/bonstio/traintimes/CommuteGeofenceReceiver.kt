@@ -37,7 +37,7 @@ class CommuteGeofenceReceiver : BroadcastReceiver() {
                     val appWidgetId = parts[1].toIntOrNull() ?: continue
                     val stationCode = parts[3]
                     Log.d(TAG, "Triggering notification update for widget $appWidgetId due to geofence ${geofence.requestId} (station=$stationCode)")
-                    CommuteNotificationManager.fetchAndUpdateNotification(context, appWidgetId, triggeringStation = stationCode)
+                    CommuteNotificationManager.fetchAndUpdateNotification(context, appWidgetId, isUserInitiated = true, triggeringStation = stationCode)
                 }
             }
         } else if (transition == Geofence.GEOFENCE_TRANSITION_EXIT) {

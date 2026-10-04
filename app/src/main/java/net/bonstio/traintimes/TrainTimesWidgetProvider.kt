@@ -632,7 +632,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
       // Shared Key Banner on Widget
-      val apiKeySource = prefs.getString(PREF_API_KEY_SOURCE, API_KEY_SOURCE_DEFAULT)
+      val apiKeySource = ApiKeyManager.getApiKeySource(context)
       val isDefaultSharedKey = apiKeySource == API_KEY_SOURCE_DEFAULT
       val dismissedTime = try {
         prefs.getLong(PREF_DISMISSED_SHARED_KEY_BANNER_TIME + appWidgetId, 0L)

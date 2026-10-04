@@ -667,8 +667,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun checkBatteryOptimization() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val savedSource = prefs.getString(PREF_API_KEY_SOURCE, API_KEY_SOURCE_DEFAULT)
+        val savedSource = ApiKeyManager.getApiKeySource(this)
         val isCustom = savedSource == API_KEY_SOURCE_CUSTOM
         val sharedKeyWarningBanner = findViewById<View?>(R.id.shared_key_warning_banner)
         sharedKeyWarningBanner?.visibility = if (isCustom) View.GONE else View.VISIBLE
