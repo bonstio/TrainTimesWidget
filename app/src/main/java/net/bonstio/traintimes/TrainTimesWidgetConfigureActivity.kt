@@ -1390,8 +1390,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             } else {
                 fromStationCode
             }
-            val displayFrom = if (isReversed) toStationCode else effectiveFromCode
-            var displayTo = if (isReversed) effectiveFromCode else toStationCode
+            val displayFrom = if (useNearestStationForReturn) effectiveFromCode else if (isReversed) toStationCode else fromStationCode
+            var displayTo = if (useNearestStationForReturn) (if (isReversed) fromStationCode else toStationCode) else if (isReversed) fromStationCode else toStationCode
             if (toStationCode.isNotEmpty() && displayFrom.equals(displayTo, ignoreCase = true)) {
                 displayTo = if (displayFrom.equals(toStationCode, ignoreCase = true)) fromStationCode else toStationCode
             }
@@ -1878,8 +1878,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             fromStationCode
         }
 
-        val displayFrom = if (isReversed) toStationCode else effectiveFromCode
-        var displayTo = if (isReversed) effectiveFromCode else toStationCode
+        val displayFrom = if (useNearestStationForReturn) effectiveFromCode else if (isReversed) toStationCode else fromStationCode
+        var displayTo = if (useNearestStationForReturn) (if (isReversed) fromStationCode else toStationCode) else if (isReversed) fromStationCode else toStationCode
         if (toStationCode.isNotEmpty() && displayFrom.equals(displayTo, ignoreCase = true)) {
             displayTo = if (displayFrom.equals(toStationCode, ignoreCase = true)) fromStationCode else toStationCode
         }

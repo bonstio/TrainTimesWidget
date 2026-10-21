@@ -136,8 +136,12 @@ object WidgetUtils {
                     t = t.replace("\$F", fromName).replace("\$T", toName)
                 }
                 if (t.contains("\$C") && configFromStation != null) {
-                    val isReversed = !fromStation.equals(configFromStation, ignoreCase = true)
-                    val commuteText = if (isReversed) "home" else "to work"
+                    val isHeadingHome = if (toStation.isNotEmpty()) {
+                        toStation.equals(configFromStation, ignoreCase = true)
+                    } else {
+                        !fromStation.equals(configFromStation, ignoreCase = true)
+                    }
+                    val commuteText = if (isHeadingHome) "home" else "to work"
                     t = t.replace("\$C", commuteText)
                 }
                 t

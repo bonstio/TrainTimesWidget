@@ -154,9 +154,26 @@ class WidgetUpdateWorker(
 
                     Log.d(TAG, "Distances: To $originalFrom=${distFrom[0]}m, To $originalTo=${distTo[0]}m")
 
-                    if (distTo[0] < distFrom[0]) {
+                    val terminalVicinity = maxOf(config.geofenceRadius.toFloat(), 2000f)
+                    val nearFrom = distFrom[0] <= terminalVicinity
+                    val nearTo = distTo[0] <= terminalVicinity
+
+                    if (nearTo && !nearFrom) {
                         isReversed = true
-                        Log.d(TAG, "Reversing route based on location")
+                        Log.d(TAG, "Reversing route based on proximity to destination $originalTo")
+                    } else if (nearFrom && !nearTo) {
+                        isReversed = false
+                        Log.d(TAG, "Setting outbound route based on proximity to origin $originalFrom")
+                    } else {
+                        // User is en route or equidistant: check commute time window if configured
+                        val pair = WidgetUtils.determineDirection(config)
+                        if (pair.first == originalTo && originalTo.isNotEmpty()) {
+                            isReversed = true
+                            Log.d(TAG, "Reversing route based on time schedule while en route")
+                        } else if (distTo[0] < distFrom[0]) {
+                            isReversed = true
+                            Log.d(TAG, "Reversing route based on location midpoint fallback")
+                        }
                     }
                 }
             } else {
@@ -188,25 +205,10 @@ class WidgetUpdateWorker(
                       Log.d(TAG, "Overriding start station to nearest: ${nearest.code}")
 
                       if (originalTo.isNotEmpty()) {
-                          val fromStationObj = StationRepository.getStation(context, originalFrom)
-                          val toStationObj = StationRepository.getStation(context, originalTo)
-                          if (fromStationObj != null && toStationObj != null) {
-                              val distFrom = FloatArray(1)
-                              Location.distanceBetween(location.latitude, location.longitude, fromStationObj.lat, fromStationObj.lon, distFrom)
-
-                              val distTo = FloatArray(1)
-                              Location.distanceBetween(location.latitude, location.longitude, toStationObj.lat, toStationObj.lon, distTo)
-
-                              // If closer to originalTo, we are at/near originalTo, so destination should be originalFrom
-                              // If closer to originalFrom, we are at/near originalFrom, so destination should be originalTo
-                              effectiveTo = if (distTo[0] < distFrom[0]) originalFrom else originalTo
-                          } else {
-                              if (effectiveFrom.equals(originalTo, ignoreCase = true)) {
-                                  effectiveTo = originalFrom
-                              } else if (effectiveFrom.equals(originalFrom, ignoreCase = true)) {
-                                  effectiveTo = originalTo
-                              }
-                          }
+                          // The destination must follow the active commute direction:
+                          // When isReversed == true (heading home), destination is originalFrom (Home).
+                          // When isReversed == false (heading to work), destination is originalTo (Work).
+                          effectiveTo = if (isReversed) originalFrom else originalTo
                       }
                   }
              } else if (config.commutingMode != "LOCATION") {
