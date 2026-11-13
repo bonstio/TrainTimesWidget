@@ -183,4 +183,97 @@ class RailDataClientTest {
         assertEquals("14:20", services[1].std)
         assertEquals("Portsmouth Harbour", services[1].destination)
     }
+
+    @Test
+    fun testTransformDarwinToWebJson() {
+        val json = """
+        {
+          "trainServices": [
+            {
+              "std": "11:54",
+              "etd": "On time",
+              "platform": "5",
+              "length": 8,
+              "isCancelled": false,
+              "destination": [
+                {
+                  "locationName": "London Euston",
+                  "crs": "EUS",
+                  "via": "via Wilmslow"
+                }
+              ],
+              "subsequentCallingPoints": [
+                {
+                  "callingPoint": [
+                    {
+                      "locationName": "Stockport",
+                      "crs": "SPT",
+                      "st": "12:02"
+                    },
+                    {
+                      "locationName": "London Euston",
+                      "crs": "EUS",
+                      "st": "14:09"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "std": "12:00",
+              "etd": "12:15",
+              "platform": "3",
+              "length": 4,
+              "isCancelled": false,
+              "destination": [
+                {
+                  "locationName": "Leeds",
+                  "crs": "LDS"
+                }
+              ]
+            },
+            {
+              "std": "12:30",
+              "etd": "Cancelled",
+              "isCancelled": true,
+              "destination": [
+                {
+                  "locationName": "Liverpool Lime Street",
+                  "crs": "LIV"
+                }
+              ]
+            }
+          ]
+        }
+        """.trimIndent()
+
+        val client = RailDataClient("dummy_key")
+        val webJsonStr = client.transformDarwinToWebJson(json, "EUS")
+        val webJsonArray = org.json.JSONArray(webJsonStr)
+
+        assertEquals(3, webJsonArray.length())
+
+        val svc1 = webJsonArray.getJSONObject(0)
+        assertEquals("11:54", svc1.getString("due"))
+        assertEquals("London Euston", svc1.getString("destination"))
+        assertEquals("Wilmslow", svc1.getString("via"))
+        assertEquals("5", svc1.getString("platform"))
+        assertEquals(8, svc1.getInt("coaches"))
+        assertEquals("On time", svc1.getString("expected"))
+        assertEquals("14:09", svc1.getString("targetArr"))
+        assertEquals(135, svc1.getInt("durationMin"))
+        assertTrue(svc1.getBoolean("isFast"))
+        assertEquals(2, svc1.getJSONArray("callingPoints").length())
+        assertEquals("Stockport", svc1.getJSONArray("callingPoints").getJSONObject(0).getString("name"))
+
+        val svc2 = webJsonArray.getJSONObject(1)
+        assertEquals("12:00", svc2.getString("due"))
+        assertEquals("Leeds", svc2.getString("destination"))
+        assertEquals("Exp 12:15", svc2.getString("expected"))
+        assertEquals(4, svc2.getInt("coaches"))
+
+        val svc3 = webJsonArray.getJSONObject(2)
+        assertEquals("12:30", svc3.getString("due"))
+        assertEquals("Cancelled", svc3.getString("expected"))
+    }
 }

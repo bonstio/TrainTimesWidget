@@ -104,21 +104,25 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var containerFontSize: View
     private lateinit var rowStationStops: View
     private lateinit var summaryStationStops: TextView
-    private lateinit var rowDivider: View
-    private lateinit var switchShowDivider: MaterialSwitch
+    private lateinit var rowDividers: View
+    private lateinit var summaryDividers: TextView
     private lateinit var rowIconVisibility: View
     private lateinit var summaryIconVisibility: TextView
+    private lateinit var rowHeaderTapAction: View
+    private lateinit var summaryHeaderTapAction: TextView
     private lateinit var rowFooter: View
     private lateinit var summaryFooter: TextView
     
     private var showWidgetIcon = WidgetConfigurationDefaults.SHOW_ICON
     private var showRefreshIcon = WidgetConfigurationDefaults.SHOW_REFRESH_ICON
+    private var showLaunchIcon = WidgetConfigurationDefaults.SHOW_LAUNCH_ICON
+    private var headerTapAction = WidgetConfigurationDefaults.HEADER_TAP_ACTION
     private var showSettingsIcon = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON
     private var showGpsIcon = WidgetConfigurationDefaults.SHOW_GPS_ICON
 
     private var showMapsIcon = WidgetConfigurationDefaults.SHOW_MAPS_ICON
     private var showLastUpdateTime = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME
-    private var showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
+    private var selectedDividerMode = WidgetConfigurationDefaults.DIVIDER_MODE
 
     // Advanced Tab Views
     private lateinit var rowMaxJourneyDuration: View
@@ -292,10 +296,12 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         rowStationStops = findViewById(R.id.row_station_stops)
         summaryStationStops = findViewById(R.id.summary_station_stops)
-        rowDivider = findViewById(R.id.row_divider)
-        switchShowDivider = findViewById(R.id.switch_show_divider)
+        rowDividers = findViewById(R.id.row_dividers)
+        summaryDividers = findViewById(R.id.summary_dividers)
         rowIconVisibility = findViewById(R.id.row_icon_visibility)
         summaryIconVisibility = findViewById(R.id.summary_icon_visibility)
+        rowHeaderTapAction = findViewById(R.id.row_header_tap_action)
+        summaryHeaderTapAction = findViewById(R.id.summary_header_tap_action)
         rowFooter = findViewById(R.id.row_footer)
         summaryFooter = findViewById(R.id.summary_footer)
         
@@ -427,11 +433,13 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             
             showWidgetIcon = existingConfig.showIcon
             showRefreshIcon = existingConfig.showRefreshIcon
+            showLaunchIcon = existingConfig.showLaunchIcon
+            headerTapAction = existingConfig.headerTapAction
             showSettingsIcon = existingConfig.showSettingsIcon
             showGpsIcon = existingConfig.showGpsIcon
             showMapsIcon = existingConfig.showMapsIcon
             showLastUpdateTime = existingConfig.showLastUpdateTime
-            showDivider = existingConfig.showDivider
+            selectedDividerMode = existingConfig.dividerMode
             
             selectedStationStopsMode = existingConfig.stationStopsMode
             selectedAlignment = existingConfig.alignment
@@ -473,11 +481,13 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             
             showWidgetIcon = WidgetConfigurationDefaults.SHOW_ICON
             showRefreshIcon = WidgetConfigurationDefaults.SHOW_REFRESH_ICON
+            showLaunchIcon = WidgetConfigurationDefaults.SHOW_LAUNCH_ICON
+            headerTapAction = WidgetConfigurationDefaults.HEADER_TAP_ACTION
             showSettingsIcon = WidgetConfigurationDefaults.SHOW_SETTINGS_ICON
             showGpsIcon = WidgetConfigurationDefaults.SHOW_GPS_ICON
             showMapsIcon = WidgetConfigurationDefaults.SHOW_MAPS_ICON
             showLastUpdateTime = WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME
-            showDivider = WidgetConfigurationDefaults.SHOW_DIVIDER
+            selectedDividerMode = WidgetConfigurationDefaults.DIVIDER_MODE
             selectedStationStopsMode = WidgetConfigurationDefaults.STATION_STOPS_MODE
 
             enableJourneyDurationFilter = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
@@ -517,8 +527,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         initialMaxJourneyDuration = maxJourneyDuration
         initialUseNearestStationForReturn = useNearestStationForReturn
 
-        // Sync switch state with loaded config
-        switchShowDivider.isChecked = showDivider
         // Set initial slider value
         sliderFontSize.value = selectedFontSize.toFloat()
         
@@ -880,7 +888,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             fontSize,
             showMapsIcon,
             showLastUpdateTime,
-            showDivider,
+            selectedDividerMode == "LINE",
             selectedCommutingMode,
             fontStyle,
             enableJourneyDurationFilter,
@@ -888,7 +896,11 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             useNearestStationForReturn,
             showCommuteNotifications,
             forceShowNotification,
-            geofenceRadius
+            geofenceRadius,
+            showLaunchIcon,
+            headerTapAction,
+            selectedDividerMode == "CARD",
+            selectedDividerMode
         )
 
         // Check if data changed
@@ -1582,22 +1594,60 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             dialog.show()
         }
 
-        rowDivider.setOnClickListener {
-            switchShowDivider.toggle()
-        }
-        
-        switchShowDivider.setOnCheckedChangeListener { _, isChecked ->
-            showDivider = isChecked
-            triggerUpdate()
+        rowDividers.setOnClickListener {
+            val items = arrayOf(
+                getString(R.string.divider_option_off),
+                getString(R.string.divider_option_line),
+                getString(R.string.divider_option_card)
+            )
+            val values = arrayOf("OFF", "LINE", "CARD")
+            val selectedIndex = values.indexOf(selectedDividerMode).coerceAtLeast(0)
+
+            val adapter = CheckedItemAdapter(this, items, selectedIndex)
+
+            val dialog = MaterialAlertDialogBuilder(this)
+                .setCancelable(false)
+                .setTitle(R.string.title_dividers)
+                .setAdapter(adapter) { dialog, which ->
+                    selectedDividerMode = values[which]
+                    updateLayoutSummaries()
+                    triggerUpdate()
+                    dialog.dismiss()
+                }
+                .create()
+
+            dialog.show()
         }
 
         rowIconVisibility.setOnClickListener {
             showIconVisibilityDialog()
         }
+
+        rowHeaderTapAction.setOnClickListener {
+            showHeaderTapActionDialog()
+        }
         
         rowFooter.setOnClickListener {
             showFooterVisibilityDialog()
         }
+    }
+
+    private fun showHeaderTapActionDialog() {
+        val options = arrayOf(
+            getString(R.string.header_tap_action_web),
+            getString(R.string.header_tap_action_refresh)
+        )
+        val currentIndex = if (headerTapAction == "REFRESH") 1 else 0
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.header_tap_action_title)
+            .setSingleChoiceItems(options, currentIndex) { dialog, which ->
+                headerTapAction = if (which == 1) "REFRESH" else "WEB"
+                updateHeaderTapActionSummary()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun showIconVisibilityDialog() {
@@ -1608,11 +1658,12 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         val iconOptions = mapOf(
             getString(R.string.icon_widget) to { b: Boolean -> showWidgetIcon = b },
+            getString(R.string.icon_launch) to { b: Boolean -> showLaunchIcon = b },
             getString(R.string.icon_refresh) to { b: Boolean -> showRefreshIcon = b },
             getString(R.string.icon_settings) to { b: Boolean -> showSettingsIcon = b },
             getString(R.string.icon_gps) to { b: Boolean -> showGpsIcon = b }
         )
-        val initialValues = listOf(showWidgetIcon, showRefreshIcon, showSettingsIcon, showGpsIcon)
+        val initialValues = listOf(showWidgetIcon, showLaunchIcon, showRefreshIcon, showSettingsIcon, showGpsIcon)
 
         iconOptions.keys.forEachIndexed { index, text ->
             val switch = MaterialSwitch(this)
@@ -1933,12 +1984,20 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
         
         updateIconVisibilitySummary()
+        updateHeaderTapActionSummary()
         updateFooterSummary()
+
+        summaryDividers.text = when (selectedDividerMode) {
+            "LINE" -> getString(R.string.divider_option_line)
+            "CARD" -> getString(R.string.divider_option_card)
+            else -> getString(R.string.divider_option_off)
+        }
     }
 
     private fun updateIconVisibilitySummary() {
         val visibleIcons = mutableListOf<String>()
         if (showWidgetIcon) visibleIcons.add(getString(R.string.icon_widget))
+        if (showLaunchIcon) visibleIcons.add(getString(R.string.icon_launch))
         if (showRefreshIcon) visibleIcons.add(getString(R.string.icon_refresh))
         if (showSettingsIcon) visibleIcons.add(getString(R.string.icon_settings))
         if (showGpsIcon) visibleIcons.add(getString(R.string.icon_gps))
@@ -1946,6 +2005,14 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         summaryIconVisibility.text = when {
             visibleIcons.isEmpty() -> getString(R.string.summary_no_icons)
             else -> getString(R.string.summary_items_displayed_format, visibleIcons.joinToString(", "))
+        }
+    }
+
+    private fun updateHeaderTapActionSummary() {
+        summaryHeaderTapAction.text = if (headerTapAction == "REFRESH") {
+            getString(R.string.header_tap_action_refresh)
+        } else {
+            getString(R.string.header_tap_action_web)
         }
     }
     

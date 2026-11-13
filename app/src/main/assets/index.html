@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>STP -> HPD - Worldline Tiger CIS</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        tigerBlue: '#0033A0',      /* Royal Blue from Tiger CIS */
+                        tigerBlueHover: '#002B88',
+                        tigerYellow: '#f8fa2b',    /* Authentic Worldline Tiger Yellow */
+                        tigerBlack: '#000000',
+                        tigerBorder: '#262626',
+                        tigerGrayText: '#9CA3AF'
+                    },
+                    fontFamily: {
+                        sans: ['Arial', 'Helvetica', 'sans-serif'],
+                        title: ["'Trebuchet MS'", 'Arial', 'Helvetica', 'sans-serif'],
+                        mono: ['Arial', 'Helvetica', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Worldline Tiger CISDS Official Styles */
+        .tiger-font {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        .tiger-title {
+            font-family: 'Trebuchet MS', Arial, Helvetica, sans-serif;
+        }
+
+        .arrdeptime {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #f8fa2b; /* Authentic Tiger Yellow */
+            line-height: 1.2;
+            letter-spacing: 0.5px;
+        }
+        .dest-title {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff; /* Authentic Tiger White */
+            line-height: 1.2;
+        }
+        .plat-text {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.2;
+            text-align: center;
+        }
+        .expected-text {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.2;
+            text-align: right;
+        }
+        .coaches-text {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 13px;
+            font-weight: 400;
+            color: #d1d5db;
+            line-height: 1.2;
+            text-align: right;
+        }
+
+        /* Spacing & Column widths so columns never touch */
+        .col-time {
+            width: 70px;
+            min-width: 70px;
+            flex-shrink: 0;
+            padding-right: 12px;
+            text-align: left;
+        }
+        .col-dest {
+            flex: 1 1 0%;
+            min-width: 0;
+            padding-right: 8px;
+            text-align: left;
+        }
+        .col-plat {
+            width: 44px;
+            min-width: 44px;
+            flex-shrink: 0;
+            text-align: center;
+        }
+        .col-expected {
+            width: 86px;
+            min-width: 86px;
+            flex-shrink: 0;
+            text-align: right;
+            padding-right: 10px;
+        }
+        .col-coaches {
+            width: 54px;
+            min-width: 54px;
+            flex-shrink: 0;
+            text-align: right;
+            padding-right: 2px;
+        }
+        .col-subline {
+            margin-left: 70px;
+            padding-right: 6px;
+            margin-top: 3px;
+        }
+
+        /* Custom scrollbar for mobile */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333333;
+        }
+    </style>
+</head>
+<body class="bg-black text-white tiger-font min-h-screen flex justify-center items-start select-none overflow-x-hidden">
+
+    <!-- MOBILE PORTRAIT CONTAINER -->
+    <div class="w-full max-w-2xl min-h-screen flex flex-col justify-between bg-black sm:border-x border-gray-900 shadow-2xl relative">
+
+        <!-- ================= TOP TIGER BLUE HEADER ================= -->
+        <header class="bg-tigerBlue text-white pt-2.5 pb-1 px-3 sticky top-0 z-30 shadow-md">
+            <!-- Header Top Row: Route Title ($FROM -> $TO, Never Ellipsized) & Update Time -->
+            <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex-1 min-w-0">
+                    <h1 id="headerTitle" class="tiger-title text-[20px] font-bold tracking-tight leading-snug whitespace-normal break-words">
+                        STP -&gt; HPD
+                    </h1>
+                </div>
+                <div class="text-right flex-shrink-0 pt-0.5">
+                    <div class="text-[11px] font-normal opacity-90 leading-none">Train info updated:</div>
+                    <div id="liveClock" class="text-xs font-bold tracking-wider leading-tight mt-0.5">
+                        18:14:32
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Bottom Row: Clean Column Headers -->
+            <div class="flex items-baseline text-xs font-bold pt-1.5 pb-1 border-t border-white/20">
+                <div class="col-time">Dep</div>
+                <div class="col-dest">Destination</div>
+                <div class="col-plat">Plat</div>
+                <div class="col-expected">Expected</div>
+                <div class="col-coaches">Coaches</div>
+            </div>
+        </header>
+
+        <!-- ================= DEPARTURE LIST BODY ================= -->
+        <main id="departuresContainer" class="flex-1 bg-black flex flex-col divide-y divide-gray-800/80 z-10">
+            <!-- Dynamic Rows rendered via JS -->
+        </main>
+
+        <!-- ================= CONTROLS & ROUTE FILTER STRIP ================= -->
+        <footer id="controlsFooter" class="bg-black border-t border-gray-800 p-2 z-20 sticky bottom-0">
+
+            <!-- Dynamic Route Summary & Togglable Destination Filter Badge -->
+            <div class="bg-gray-950 border border-gray-800 rounded px-2.5 py-1.5 mb-2 flex items-center justify-between gap-2 text-xs font-mono">
+                <div class="flex items-center gap-1.5 min-w-0">
+                    <span id="filterIndicatorDot" class="w-2 h-2 rounded-full bg-tigerYellow flex-shrink-0 animate-pulse"></span>
+                    <span id="routeSummaryText" class="text-gray-200 truncate">STP &rarr; Calling at HPD</span>
+                </div>
+                <button id="toggleDestFilterBtn" type="button" class="flex-shrink-0 text-[11px] bg-tigerBlue hover:bg-tigerBlueHover border border-blue-400/40 px-2 py-0.5 rounded text-white font-sans font-bold tracking-tight active:scale-95 transition">
+                    Filter: HPD ON
+                </button>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div id="simulatorControlsGrid" class="grid grid-cols-2 gap-1.5 text-xs font-sans">
+                <!-- Swap Direction Button -->
+                <button id="swapDirBtn" type="button" class="bg-tigerBlue hover:bg-tigerBlueHover text-white py-2 px-1 rounded flex items-center justify-center gap-1 font-semibold active:scale-95 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                    <span>Swap</span>
+                </button>
+
+                <!-- Fast Filter Toggle -->
+                <button id="toggleFastBtn" type="button" class="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-200 py-2 px-1 rounded text-center font-semibold active:scale-95 transition">
+                    Fast (&le;27m)
+                </button>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- ================= JAVASCRIPT LOGIC & ANDROID WEBVIEW BRIDGE ================= -->
+    <script>
+        // Station CRS Dictionary for clean display names
+        const STATION_NAMES = {
+            STP: 'London St Pancras',
+            HPD: 'Harpenden',
+            SAC: 'St Albans City',
+            LUT: 'Luton',
+            LTN: 'Luton Airport Parkway',
+            BDM: 'Bedford',
+            ZFD: 'Farringdon',
+            BFR: 'London Blackfriars',
+            LBG: 'London Bridge',
+            GTW: 'Gatwick Airport',
+            BTN: 'Brighton',
+            ORP: 'Orpington',
+            NOT: 'Nottingham',
+            SHF: 'Sheffield',
+            AFK: 'Ashford International'
+        };
+
+        // Parse URL Query Parameters for Android WebView Embedding (?from=STP&to=HPD&filter=1&embed=0)
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialFrom = (urlParams.get('from') || 'STP').toUpperCase().trim();
+        const initialTo = (urlParams.get('to') || 'HPD').toUpperCase().trim();
+        const initialFilter = urlParams.has('filter') ? urlParams.get('filter') !== '0' : true;
+        const isEmbedMode = urlParams.get('embed') === '1';
+
+        // App State
+        let state = {
+            from: initialFrom,
+            to: initialTo,
+            filterByDestination: initialFilter,
+            isFastOnly: false,
+            expandedId: null,
+            customServices: null // Populated via window.TigerBoard.setDepartures(data)
+        };
+
+        // Helper to format a Date offset by N minutes into "HH:MM"
+        function formatTimeOffset(baseDate, offsetMinutes) {
+            const target = new Date(baseDate.getTime() + offsetMinutes * 60000);
+            const hh = String(target.getHours()).padStart(2, '0');
+            const mm = String(target.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+        }
+
+        // Dynamically build current departures relative to the user's current clock when no live API feed is injected
+        function buildCurrentDepartures(originCrs, nowDate) {
+            if (originCrs === 'HPD') {
+                return [
+                    {
+                        due: formatTimeOffset(nowDate, 2),
+                        destination: 'Bedford',
+                        via: 'Leagrave',
+                        platform: '2',
+                        expected: formatTimeOffset(nowDate, 5),
+                        coaches: 8,
+                        isFast: false,
+                        callsAt: ['LTN', 'LUT', 'BDM'],
+                        targetArr: null,
+                        durationMin: null,
+                        callingPoints: [
+                            { name: 'Luton Airport Parkway', crs: 'LTN', time: formatTimeOffset(nowDate, 10) },
+                            { name: 'Luton', crs: 'LUT', time: formatTimeOffset(nowDate, 13) },
+                            { name: 'Leagrave', crs: 'LEA', time: formatTimeOffset(nowDate, 18) },
+                            { name: 'Bedford', crs: 'BDM', time: formatTimeOffset(nowDate, 36) }
+                        ]
+                    },
+                    {
+                        due: formatTimeOffset(nowDate, 6),
+                        destination: 'St Albans City',
+                        via: null,
+                        platform: '1',
+                        expected: formatTimeOffset(nowDate, 7),
+                        coaches: 8,
+                        isFast: false,
+                        callsAt: ['SAC'],
+                        targetArr: null,
+                        durationMin: null,
+                        callingPoints: [
+                            { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 12) }
+                        ]
+                    },
+                    {
+                        due: formatTimeOffset(nowDate, 8),
+                        destination: 'Orpington',
+                        via: 'St Pancras',
+                        platform: '1',
+                        expected: 'On time',
+                        coaches: 8,
+                        isFast: false,
+                        callsAt: ['SAC', 'WHP', 'STP', 'ZFD', 'BFR', 'ORP'],
+                        targetArr: formatTimeOffset(nowDate, 34),
+                        durationMin: 26,
+                        callingPoints: [
+                            { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 13) },
+                            { name: 'West Hampstead Thameslink', crs: 'WHP', time: formatTimeOffset(nowDate, 27) },
+                            { name: 'London St Pancras Int\'l', crs: 'STP', time: formatTimeOffset(nowDate, 34) },
+                            { name: 'Farringdon', crs: 'ZFD', time: formatTimeOffset(nowDate, 38) },
+                            { name: 'London Blackfriars', crs: 'BFR', time: formatTimeOffset(nowDate, 44) }
+                        ]
+                    },
+                    {
+                        due: formatTimeOffset(nowDate, 15),
+                        destination: 'Brighton',
+                        via: 'St Pancras',
+                        platform: '1',
+                        expected: 'On time',
+                        coaches: 12,
+                        isFast: true,
+                        callsAt: ['SAC', 'STP', 'ZFD', 'LBG', 'GTW', 'BTN'],
+                        targetArr: formatTimeOffset(nowDate, 39),
+                        durationMin: 24,
+                        callingPoints: [
+                            { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 20) },
+                            { name: 'London St Pancras Int\'l', crs: 'STP', time: formatTimeOffset(nowDate, 39) },
+                            { name: 'Farringdon', crs: 'ZFD', time: formatTimeOffset(nowDate, 43) },
+                            { name: 'London Bridge', crs: 'LBG', time: formatTimeOffset(nowDate, 49) },
+                            { name: 'Gatwick Airport', crs: 'GTW', time: formatTimeOffset(nowDate, 77) },
+                            { name: 'Brighton', crs: 'BTN', time: formatTimeOffset(nowDate, 105) }
+                        ]
+                    },
+                    {
+                        due: formatTimeOffset(nowDate, 21),
+                        destination: 'Rainham (Kent)',
+                        via: 'London Bridge',
+                        platform: '1',
+                        expected: 'On time',
+                        coaches: 8,
+                        isFast: false,
+                        callsAt: ['SAC', 'RAD', 'ELR', 'STP', 'ZFD', 'LBG'],
+                        targetArr: formatTimeOffset(nowDate, 50),
+                        durationMin: 29,
+                        callingPoints: [
+                            { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 26) },
+                            { name: 'Radlett', crs: 'RAD', time: formatTimeOffset(nowDate, 31) },
+                            { name: 'Elstree & Borehamwood', crs: 'ELR', time: formatTimeOffset(nowDate, 35) },
+                            { name: 'London St Pancras Int\'l', crs: 'STP', time: formatTimeOffset(nowDate, 50) },
+                            { name: 'London Bridge', crs: 'LBG', time: formatTimeOffset(nowDate, 64) }
+                        ]
+                    }
+                ];
+            }
+
+            return [
+                {
+                    due: formatTimeOffset(nowDate, 2),
+                    destination: 'Bedford',
+                    via: 'St Albans',
+                    platform: 'B',
+                    expected: formatTimeOffset(nowDate, 5),
+                    coaches: 12,
+                    isFast: true,
+                    callsAt: ['SAC', 'HPD', 'LTN', 'LUT', 'BDM'],
+                    targetArr: formatTimeOffset(nowDate, 29),
+                    durationMin: 24,
+                    callingPoints: [
+                        { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 21) },
+                        { name: 'Harpenden', crs: 'HPD', time: formatTimeOffset(nowDate, 29) },
+                        { name: 'Luton Airport Parkway', crs: 'LTN', time: formatTimeOffset(nowDate, 35) },
+                        { name: 'Luton', crs: 'LUT', time: formatTimeOffset(nowDate, 38) },
+                        { name: 'Bedford', crs: 'BDM', time: formatTimeOffset(nowDate, 61) }
+                    ]
+                },
+                {
+                    due: formatTimeOffset(nowDate, 4),
+                    destination: 'Nottingham',
+                    via: 'Leicester',
+                    platform: '2',
+                    expected: 'On time',
+                    coaches: 10,
+                    isFast: true,
+                    callsAt: ['MHR', 'LEI', 'LBO', 'NOT'],
+                    targetArr: null,
+                    durationMin: null,
+                    callingPoints: [
+                        { name: 'Market Harborough', crs: 'MHR', time: formatTimeOffset(nowDate, 58) },
+                        { name: 'Leicester', crs: 'LEI', time: formatTimeOffset(nowDate, 72) },
+                        { name: 'Loughborough', crs: 'LBO', time: formatTimeOffset(nowDate, 83) },
+                        { name: 'Nottingham', crs: 'NOT', time: formatTimeOffset(nowDate, 101) }
+                    ]
+                },
+                {
+                    due: formatTimeOffset(nowDate, 7),
+                    destination: 'Luton',
+                    via: 'Radlett & St Albans',
+                    platform: 'B',
+                    expected: 'On time',
+                    coaches: 8,
+                    isFast: false,
+                    callsAt: ['KTN', 'WHP', 'RAD', 'SAC', 'HPD', 'LTN', 'LUT'],
+                    targetArr: formatTimeOffset(nowDate, 45),
+                    durationMin: 38,
+                    callingPoints: [
+                        { name: 'Kentish Town', crs: 'KTN', time: formatTimeOffset(nowDate, 11) },
+                        { name: 'West Hampstead Thameslink', crs: 'WHP', time: formatTimeOffset(nowDate, 16) },
+                        { name: 'Radlett', crs: 'RAD', time: formatTimeOffset(nowDate, 35) },
+                        { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 40) },
+                        { name: 'Harpenden', crs: 'HPD', time: formatTimeOffset(nowDate, 45) },
+                        { name: 'Luton Airport Parkway', crs: 'LTN', time: formatTimeOffset(nowDate, 51) },
+                        { name: 'Luton', crs: 'LUT', time: formatTimeOffset(nowDate, 55) }
+                    ]
+                },
+                {
+                    due: formatTimeOffset(nowDate, 10),
+                    destination: 'St Albans City',
+                    via: 'West Hampstead',
+                    platform: 'B',
+                    expected: 'On time',
+                    coaches: 8,
+                    isFast: false,
+                    callsAt: ['WHP', 'ELR', 'RAD', 'SAC'],
+                    targetArr: null,
+                    durationMin: null,
+                    callingPoints: [
+                        { name: 'West Hampstead Thameslink', crs: 'WHP', time: formatTimeOffset(nowDate, 18) },
+                        { name: 'Elstree & Borehamwood', crs: 'ELR', time: formatTimeOffset(nowDate, 32) },
+                        { name: 'Radlett', crs: 'RAD', time: formatTimeOffset(nowDate, 36) },
+                        { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 42) }
+                    ]
+                },
+                {
+                    due: formatTimeOffset(nowDate, 14),
+                    destination: 'Bedford',
+                    via: 'Luton Airport Pkwy',
+                    platform: 'B',
+                    expected: 'On time',
+                    coaches: 12,
+                    isFast: true,
+                    callsAt: ['SAC', 'HPD', 'LTN', 'LUT', 'BDM'],
+                    targetArr: formatTimeOffset(nowDate, 39),
+                    durationMin: 25,
+                    callingPoints: [
+                        { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 32) },
+                        { name: 'Harpenden', crs: 'HPD', time: formatTimeOffset(nowDate, 39) },
+                        { name: 'Luton Airport Parkway', crs: 'LTN', time: formatTimeOffset(nowDate, 45) },
+                        { name: 'Luton', crs: 'LUT', time: formatTimeOffset(nowDate, 48) },
+                        { name: 'Bedford', crs: 'BDM', time: formatTimeOffset(nowDate, 69) }
+                    ]
+                },
+                {
+                    due: formatTimeOffset(nowDate, 18),
+                    destination: 'Margate',
+                    via: 'Ashford International',
+                    platform: '12',
+                    expected: 'On time',
+                    coaches: 6,
+                    isFast: true,
+                    callsAt: ['SFA', 'EBD', 'AFK', 'MAR'],
+                    targetArr: null,
+                    durationMin: null,
+                    callingPoints: [
+                        { name: 'Stratford International', crs: 'SFA', time: formatTimeOffset(nowDate, 25) },
+                        { name: 'Ebbsfleet International', crs: 'EBD', time: formatTimeOffset(nowDate, 36) },
+                        { name: 'Ashford International', crs: 'AFK', time: formatTimeOffset(nowDate, 56) },
+                        { name: 'Margate', crs: 'MAR', time: formatTimeOffset(nowDate, 101) }
+                    ]
+                },
+                {
+                    due: formatTimeOffset(nowDate, 22),
+                    destination: 'Bedford',
+                    via: 'St Albans',
+                    platform: 'B',
+                    expected: 'On time',
+                    coaches: 12,
+                    isFast: true,
+                    callsAt: ['SAC', 'HPD', 'LTN', 'LUT', 'BDM'],
+                    targetArr: formatTimeOffset(nowDate, 46),
+                    durationMin: 24,
+                    callingPoints: [
+                        { name: 'St Albans City', crs: 'SAC', time: formatTimeOffset(nowDate, 39) },
+                        { name: 'Harpenden', crs: 'HPD', time: formatTimeOffset(nowDate, 46) },
+                        { name: 'Luton Airport Parkway', crs: 'LTN', time: formatTimeOffset(nowDate, 52) },
+                        { name: 'Luton', crs: 'LUT', time: formatTimeOffset(nowDate, 55) },
+                        { name: 'Bedford', crs: 'BDM', time: formatTimeOffset(nowDate, 76) }
+                    ]
+                }
+            ];
+        }
+
+        // Global Android WebView Bridge API
+        window.TigerBoard = {
+            setRoute: function ({ from, to, filterActive, fastOnly, embed } = {}) {
+                if (from) state.from = String(from).toUpperCase().trim();
+                if (to !== undefined) state.to = to ? String(to).toUpperCase().trim() : '';
+                if (typeof filterActive === 'boolean') state.filterByDestination = filterActive;
+                if (typeof fastOnly === 'boolean') state.isFastOnly = fastOnly;
+                if (typeof embed === 'boolean') {
+                    document.getElementById('simulatorControlsGrid').classList.toggle('hidden', embed);
+                }
+                state.expandedId = null;
+                syncUIWithState();
+                renderBoard();
+            },
+            toggleFilter: function (forcedState) {
+                state.filterByDestination = (typeof forcedState === 'boolean')
+                    ? forcedState
+                    : !state.filterByDestination;
+                state.expandedId = null;
+                syncUIWithState();
+                renderBoard();
+            },
+            setDepartures: function (servicesArray) {
+                if (Array.isArray(servicesArray)) {
+                    state.customServices = servicesArray;
+                    state.expandedId = null;
+                    renderBoard();
+                }
+            },
+            clearCustomDepartures: function () {
+                state.customServices = null;
+                renderBoard();
+            },
+            refresh: function () {
+                startClock();
+                if (window.AndroidBridge && typeof window.AndroidBridge.onRefreshRequested === 'function') {
+                    window.AndroidBridge.onRefreshRequested();
+                } else {
+                    renderBoard();
+                }
+                return true;
+            },
+            getState: function () {
+                return { ...state };
+            }
+        };
+
+        window.addEventListener('scroll', () => {
+            if (window.AndroidBridge && typeof window.AndroidBridge.onScrollChanged === 'function') {
+                window.AndroidBridge.onScrollChanged(window.scrollY > 0);
+            }
+        }, { passive: true });
+
+        // Setup Application
+        window.addEventListener('DOMContentLoaded', () => {
+            if (isEmbedMode) {
+                document.getElementById('simulatorControlsGrid').classList.add('hidden');
+            }
+            setupEvents();
+            startClock();
+            syncUIWithState();
+            renderBoard();
+        });
+
+        function setupEvents() {
+            // Togglable Destination Calling-At Filter
+            document.getElementById('toggleDestFilterBtn').addEventListener('click', () => {
+                state.filterByDestination = !state.filterByDestination;
+                state.expandedId = null;
+                syncUIWithState();
+                renderBoard();
+                if (window.AndroidBridge && typeof window.AndroidBridge.onFilterToggled === 'function') {
+                    window.AndroidBridge.onFilterToggled(state.filterByDestination);
+                }
+            });
+
+            // Swap Direction (from <-> to)
+            document.getElementById('swapDirBtn').addEventListener('click', () => {
+                const prevFrom = state.from;
+                state.from = state.to;
+                state.to = prevFrom;
+                state.customServices = null;
+                state.expandedId = null;
+                syncUIWithState();
+                renderBoard();
+                if (window.AndroidBridge && typeof window.AndroidBridge.onRouteSwapped === 'function') {
+                    window.AndroidBridge.onRouteSwapped(state.from, state.to);
+                }
+            });
+
+            // Fast Filter Toggle
+            document.getElementById('toggleFastBtn').addEventListener('click', () => {
+                state.isFastOnly = !state.isFastOnly;
+                syncUIWithState();
+                renderBoard();
+            });
+        }
+
+        function startClock() {
+            let lastMinute = -1;
+            function update() {
+                const now = new Date();
+                const hh = String(now.getHours()).padStart(2, '0');
+                const mm = String(now.getMinutes()).padStart(2, '0');
+                const ss = String(now.getSeconds()).padStart(2, '0');
+                document.getElementById('liveClock').textContent = `${hh}:${mm}:${ss}`;
+
+                // Refresh live time-anchored departures automatically each minute
+                if (now.getMinutes() !== lastMinute) {
+                    lastMinute = now.getMinutes();
+                    if (!Array.isArray(state.customServices)) {
+                        renderBoard();
+                    } else if (window.AndroidBridge && typeof window.AndroidBridge.onRefreshRequested === 'function') {
+                        window.AndroidBridge.onRefreshRequested();
+                    }
+                }
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
+        function getStationDisplayName(crs) {
+            return STATION_NAMES[crs] || crs;
+        }
+
+        function syncUIWithState() {
+            const routeTitle = state.to ? `${state.from} -> ${state.to}` : `${state.from} -> ALL`;
+            document.getElementById('headerTitle').textContent = routeTitle;
+            document.title = `${routeTitle} - Worldline Tiger CIS`;
+
+            // Destination Filter Button & Summary Badge
+            const filterBtn = document.getElementById('toggleDestFilterBtn');
+            const summaryText = document.getElementById('routeSummaryText');
+            const indicatorDot = document.getElementById('filterIndicatorDot');
+
+            if (state.to && state.filterByDestination) {
+                filterBtn.textContent = `Filter: ${state.to} ON`;
+                filterBtn.className = 'flex-shrink-0 text-[11px] bg-tigerBlue hover:bg-tigerBlueHover border border-blue-400/40 px-2 py-0.5 rounded text-white font-sans font-bold tracking-tight active:scale-95 transition';
+                summaryText.textContent = `${state.from} -> Calling at ${state.to}`;
+                indicatorDot.className = 'w-2 h-2 rounded-full bg-tigerYellow flex-shrink-0 animate-pulse';
+            } else {
+                filterBtn.textContent = state.to ? `Filter: ${state.to} OFF` : 'Filter: OFF';
+                filterBtn.className = 'flex-shrink-0 text-[11px] bg-gray-800 hover:bg-gray-700 border border-gray-600 px-2 py-0.5 rounded text-gray-200 font-sans font-bold tracking-tight active:scale-95 transition';
+                summaryText.textContent = `${state.from} -> All Departures`;
+                indicatorDot.className = 'w-2 h-2 rounded-full bg-gray-500 flex-shrink-0';
+            }
+
+            // Fast Filter Button State
+            const fastBtn = document.getElementById('toggleFastBtn');
+            fastBtn.className = state.isFastOnly
+                ? 'bg-tigerYellow border border-yellow-300 text-black py-2 px-1 rounded text-center font-semibold active:scale-95 transition'
+                : 'bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-200 py-2 px-1 rounded text-center font-semibold active:scale-95 transition';
+        }
+
+        function getActiveDataset() {
+            if (Array.isArray(state.customServices)) {
+                return state.customServices;
+            }
+            if (window.AndroidBridge) {
+                return null;
+            }
+            return buildCurrentDepartures(state.from, new Date());
+        }
+
+        function serviceCallsAtTarget(service, targetCrs) {
+            if (!targetCrs) return true;
+            if (Array.isArray(service.callsAt) && service.callsAt.includes(targetCrs)) {
+                return true;
+            }
+            if (Array.isArray(service.callingPoints)) {
+                return service.callingPoints.some(cp => cp.crs === targetCrs);
+            }
+            return false;
+        }
+
+        function getTargetStopInfo(service, targetCrs) {
+            if (!targetCrs) return null;
+            if (Array.isArray(service.callingPoints)) {
+                const match = service.callingPoints.find(cp => cp.crs === targetCrs);
+                if (match) {
+                    return { time: match.time, durationMin: service.durationMin || null };
+                }
+            }
+            if (service.targetArr) {
+                return { time: service.targetArr, durationMin: service.durationMin || null };
+            }
+            return null;
+        }
+
+        function renderBoard() {
+            const container = document.getElementById('departuresContainer');
+            const rawServices = getActiveDataset();
+
+            if (rawServices === null) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-400 text-sm">
+                        <div class="inline-block animate-spin rounded-full h-7 w-7 border-2 border-tigerYellow border-t-transparent mb-3"></div>
+                        <div class="text-tigerYellow font-bold tracking-tight">Fetching live departures...</div>
+                        <div class="text-xs text-gray-400 mt-1">${state.from}${state.to ? ' &rarr; ' + state.to : ''}</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const filteredServices = rawServices.filter(svc => {
+                if (state.to && state.filterByDestination && !serviceCallsAtTarget(svc, state.to)) {
+                    return false;
+                }
+                if (state.isFastOnly && !svc.isFast) {
+                    return false;
+                }
+                return true;
+            });
+
+            if (filteredServices.length === 0) {
+                container.innerHTML = `
+                    <div class="p-6 text-center text-gray-400 text-sm">
+                        <p class="font-bold text-tigerYellow mb-1">No matching departures found</p>
+                        <p class="text-xs">Try disabling the fast filter or turning off the ${state.to || 'destination'} filter.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filteredServices.map((svc, idx) => {
+                const rowId = `${svc.due}-${svc.destination}-${idx}`;
+                const isExpanded = state.expandedId === rowId;
+                const callsAtTarget = serviceCallsAtTarget(svc, state.to);
+                const targetInfo = callsAtTarget ? getTargetStopInfo(svc, state.to) : null;
+                const isCancelled = String(svc.expected).toLowerCase() === 'cancelled';
+                const isDelayed = svc.expected !== 'On time' && !isCancelled;
+
+                const expectedClass = isCancelled
+                    ? 'text-red-500 font-bold'
+                    : isDelayed
+                        ? 'text-tigerYellow font-bold'
+                        : 'text-white font-semibold';
+
+                const callingPointsHtml = (svc.callingPoints || []).map(cp => {
+                    const isTargetStop = state.to && cp.crs === state.to;
+                    return `
+                        <div class="flex justify-between items-center py-0.5 text-xs ${isTargetStop ? 'text-tigerYellow font-bold' : 'text-gray-300'}">
+                            <span>${cp.name} ${isTargetStop ? `(${cp.crs})` : ''}</span>
+                            <span>${cp.time}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="px-3 py-2.5 bg-black hover:bg-gray-950 transition cursor-pointer" data-row-id="${rowId}">
+                        <!-- Top line: Dept Time, Destination, Plat, Expected, Coaches vertically aligned on baseline -->
+                        <div class="flex items-baseline">
+                            <!-- Dept Time (Yellow, bold Arial, spaced nicely) -->
+                            <div class="col-time arrdeptime">
+                                ${svc.due}
+                            </div>
+
+                            <!-- Destination (White, bold Arial, never touches Dept Time) -->
+                            <div class="col-dest">
+                                <div class="dest-title truncate">
+                                    ${svc.destination}
+                                </div>
+                            </div>
+
+                            <!-- Platform -->
+                            <div class="col-plat plat-text">
+                                ${svc.platform || '-'}
+                            </div>
+
+                            <!-- Expected -->
+                            <div class="col-expected expected-text ${expectedClass}">
+                                ${svc.expected}
+                            </div>
+
+                            <!-- Coaches Short -->
+                            <div class="col-coaches coaches-text">
+                                ${svc.coaches ? `${svc.coaches} co` : '-'}
+                            </div>
+                        </div>
+
+                        <!-- Subline (indented exactly to Destination start) -->
+                        <div class="col-subline">
+                            ${svc.via ? `
+                                <div class="text-[13px] font-normal text-white/90 leading-tight">
+                                    via ${svc.via}
+                                </div>
+                            ` : ''}
+                            ${targetInfo && targetInfo.time ? `
+                                <div class="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-tigerBlue/30 border border-blue-400/30 text-[11px] text-blue-200">
+                                    <span>${state.to} Arr ${targetInfo.time}</span>
+                                    ${targetInfo.durationMin ? `<span>(${targetInfo.durationMin}m)</span>` : ''}
+                                </div>
+                            ` : (!callsAtTarget && state.to ? `
+                                <div class="inline-block mt-1 px-1.5 py-0.5 rounded bg-gray-900 border border-gray-700 text-[10px] text-gray-400">
+                                    Does not stop at ${state.to}
+                                </div>
+                            ` : '')}
+                            ${svc.coaches ? `
+                                <div class="text-[11px] text-gray-400 mt-1">
+                                    Formed of ${svc.coaches} coaches
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        ${isExpanded ? `
+                            <div class="mt-2.5 pt-2 border-t border-gray-800 ml-[70px] pr-2">
+                                <div class="text-[11px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
+                                    Calling at:
+                                </div>
+                                <div class="space-y-0.5 border-l-2 border-tigerBlue pl-2.5">
+                                    ${callingPointsHtml || '<div class="text-xs text-gray-400">Calling point details unavailable</div>'}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // Attach row expand/collapse handlers
+            container.querySelectorAll('[data-row-id]').forEach(rowEl => {
+                rowEl.addEventListener('click', () => {
+                    const clickedId = rowEl.getAttribute('data-row-id');
+                    state.expandedId = (state.expandedId === clickedId) ? null : clickedId;
+                    renderBoard();
+                });
+            });
+        }
+    </script>
+</body>
+</html>

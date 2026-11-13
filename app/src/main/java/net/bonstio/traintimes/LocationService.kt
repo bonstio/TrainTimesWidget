@@ -82,7 +82,11 @@ class LocationService : Service() {
                             newUseNearest,
                             config.showCommuteNotifications,
                             config.forceShowNotification,
-                            config.geofenceRadius
+                            config.geofenceRadius,
+                            config.showLaunchIcon,
+                            config.headerTapAction,
+                            config.useCards,
+                            config.dividerMode
                         )
                         
                         // Notify widget to update UI (hide GPS/Location indicators)

@@ -10,4 +10,12 @@
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:backgroundDimEnabled">true</item>
     </style>
+
+    <style name="Theme.TrainTimes.WebBoard" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">#0033A0</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
 </resources>

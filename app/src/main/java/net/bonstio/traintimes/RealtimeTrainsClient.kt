@@ -41,7 +41,7 @@ class RealtimeTrainsClient(private val apiKey: String) {
     ): List<TrainService> {
         val filterStr = if (toStation.isNotEmpty()) "&filterCrs=$toStation&filterType=to" else ""
         
-        val url = "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepartureBoard/${fromStation}?numRows=$numRows&timeOffset=$timeOffset$filterStr&timeWindow=120"
+        val url = "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/${fromStation}?numRows=$numRows&timeOffset=$timeOffset$filterStr&timeWindow=120"
         
         Log.d("RealtimeTrainsClient", "Requesting: $url")
         val response: HttpResponse =

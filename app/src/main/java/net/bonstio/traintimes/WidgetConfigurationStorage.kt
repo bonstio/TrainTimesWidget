@@ -13,6 +13,8 @@ object WidgetConfigurationStorage {
     private const val PREF_IS_AUTO_TITLE_KEY = "is_auto_title_" // Deprecated
     private const val PREF_SHOW_ICON_KEY = "show_icon_"
     private const val PREF_SHOW_REFRESH_ICON_KEY = "show_refresh_icon_"
+    private const val PREF_SHOW_LAUNCH_ICON_KEY = "show_launch_icon_"
+    private const val PREF_HEADER_TAP_ACTION_KEY = "header_tap_action_"
     private const val PREF_SHOW_SETTINGS_ICON_KEY = "show_settings_icon_"
     private const val PREF_SHOW_GPS_ICON_KEY = "show_gps_icon_"
     private const val PREF_SHOW_STOPS_KEY = "show_stops_"
@@ -31,6 +33,8 @@ object WidgetConfigurationStorage {
     private const val PREF_SHOW_MAPS_ICON_KEY = "show_maps_icon_"
     private const val PREF_SHOW_LAST_UPDATE_TIME_KEY = "show_last_update_time_"
     private const val PREF_SHOW_DIVIDER_KEY = "show_divider_"
+    private const val PREF_USE_CARDS_KEY = "use_cards_"
+    private const val PREF_DIVIDER_MODE_KEY = "divider_mode_"
     private const val PREF_COMMUTING_MODE_KEY = "commuting_mode_"
     private const val PREF_FONT_STYLE_KEY = "font_style_"
     private const val PREF_ENABLE_JOURNEY_DURATION_FILTER_KEY = "enable_journey_duration_filter_"
@@ -75,7 +79,11 @@ object WidgetConfigurationStorage {
         useNearestStationForReturn: Boolean,
         showCommuteNotifications: Boolean = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS,
         forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION,
-        geofenceRadius: Int = WidgetConfigurationDefaults.GEOFENCE_RADIUS
+        geofenceRadius: Int = WidgetConfigurationDefaults.GEOFENCE_RADIUS,
+        showLaunchIcon: Boolean = WidgetConfigurationDefaults.SHOW_LAUNCH_ICON,
+        headerTapAction: String = WidgetConfigurationDefaults.HEADER_TAP_ACTION,
+        useCards: Boolean = WidgetConfigurationDefaults.USE_CARDS,
+        dividerMode: String = if (useCards) "CARD" else if (showDivider) "LINE" else "OFF"
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, 0).edit()
         prefs.putString(PREF_TITLE_KEY + appWidgetId, title)
@@ -83,6 +91,8 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_IS_AUTO_TITLE_KEY + appWidgetId)
         prefs.putBoolean(PREF_SHOW_ICON_KEY + appWidgetId, showIcon)
         prefs.putBoolean(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId, showRefreshIcon)
+        prefs.putBoolean(PREF_SHOW_LAUNCH_ICON_KEY + appWidgetId, showLaunchIcon)
+        prefs.putString(PREF_HEADER_TAP_ACTION_KEY + appWidgetId, headerTapAction)
         prefs.putBoolean(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId, showSettingsIcon)
         prefs.putBoolean(PREF_SHOW_GPS_ICON_KEY + appWidgetId, showGpsIcon)
         prefs.putBoolean(PREF_SHOW_STOPS_KEY + appWidgetId, showStops)
@@ -100,7 +110,17 @@ object WidgetConfigurationStorage {
         prefs.putInt(PREF_FONT_SIZE_KEY + appWidgetId, fontSize)
         prefs.putBoolean(PREF_SHOW_MAPS_ICON_KEY + appWidgetId, showMapsIcon)
         prefs.putBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, showLastUpdateTime)
-        prefs.putBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, showDivider)
+
+        val effectiveDividerMode = when (dividerMode) {
+            "CARD", "LINE", "OFF" -> dividerMode
+            else -> if (useCards) "CARD" else if (showDivider) "LINE" else "OFF"
+        }
+        val effectiveShowDivider = effectiveDividerMode == "LINE"
+        val effectiveUseCards = effectiveDividerMode == "CARD"
+
+        prefs.putString(PREF_DIVIDER_MODE_KEY + appWidgetId, effectiveDividerMode)
+        prefs.putBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, effectiveShowDivider)
+        prefs.putBoolean(PREF_USE_CARDS_KEY + appWidgetId, effectiveUseCards)
         prefs.putString(PREF_COMMUTING_MODE_KEY + appWidgetId, commutingMode)
         prefs.putString(PREF_FONT_STYLE_KEY + appWidgetId, fontStyle)
         prefs.putBoolean(PREF_ENABLE_JOURNEY_DURATION_FILTER_KEY + appWidgetId, enableJourneyDurationFilter)
@@ -132,6 +152,8 @@ object WidgetConfigurationStorage {
 
         val showIcon = prefs.getBoolean(PREF_SHOW_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_ICON)
         val showRefreshIcon = prefs.getBoolean(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_REFRESH_ICON)
+        val showLaunchIcon = prefs.getBoolean(PREF_SHOW_LAUNCH_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_LAUNCH_ICON)
+        val headerTapAction = prefs.getString(PREF_HEADER_TAP_ACTION_KEY + appWidgetId, WidgetConfigurationDefaults.HEADER_TAP_ACTION) ?: WidgetConfigurationDefaults.HEADER_TAP_ACTION
         val showSettingsIcon = prefs.getBoolean(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_SETTINGS_ICON)
         val showGpsIcon = prefs.getBoolean(PREF_SHOW_GPS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_GPS_ICON)
         
@@ -173,7 +195,16 @@ object WidgetConfigurationStorage {
         
         val showMapsIcon = prefs.getBoolean(PREF_SHOW_MAPS_ICON_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_MAPS_ICON)
         val showLastUpdateTime = prefs.getBoolean(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_LAST_UPDATE_TIME)
-        val showDivider = prefs.getBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_DIVIDER)
+
+        var dividerMode = prefs.getString(PREF_DIVIDER_MODE_KEY + appWidgetId, null)
+        if (dividerMode == null) {
+            val legacyUseCards = prefs.getBoolean(PREF_USE_CARDS_KEY + appWidgetId, false)
+            val legacyShowDivider = prefs.getBoolean(PREF_SHOW_DIVIDER_KEY + appWidgetId, false)
+            dividerMode = if (legacyUseCards) "CARD" else if (legacyShowDivider) "LINE" else WidgetConfigurationDefaults.DIVIDER_MODE
+        }
+        val showDivider = dividerMode == "LINE"
+        val useCards = dividerMode == "CARD"
+
         val commutingMode = prefs.getString(PREF_COMMUTING_MODE_KEY + appWidgetId, WidgetConfigurationDefaults.COMMUTING_MODE) ?: WidgetConfigurationDefaults.COMMUTING_MODE
         val fontStyle = prefs.getString(PREF_FONT_STYLE_KEY + appWidgetId, WidgetConfigurationDefaults.FONT_STYLE) ?: WidgetConfigurationDefaults.FONT_STYLE
         
@@ -218,7 +249,11 @@ object WidgetConfigurationStorage {
                 useNearestStationForReturn,
                 showCommuteNotifications,
                 forceShowNotification,
-                geofenceRadius
+                geofenceRadius,
+                showLaunchIcon,
+                headerTapAction,
+                useCards,
+                dividerMode
             )
         } else {
             null
@@ -235,6 +270,8 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_IS_AUTO_TITLE_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_REFRESH_ICON_KEY + appWidgetId)
+        prefs.remove(PREF_SHOW_LAUNCH_ICON_KEY + appWidgetId)
+        prefs.remove(PREF_HEADER_TAP_ACTION_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_SETTINGS_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_GPS_ICON_KEY + appWidgetId)
         // PREF_HIDE_PAST_DEPARTURES_KEY is now legacy/unused
@@ -254,6 +291,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_SHOW_MAPS_ICON_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_LAST_UPDATE_TIME_KEY + appWidgetId)
         prefs.remove(PREF_SHOW_DIVIDER_KEY + appWidgetId)
+        prefs.remove(PREF_USE_CARDS_KEY + appWidgetId)
         prefs.remove(PREF_COMMUTING_MODE_KEY + appWidgetId)
         prefs.remove(PREF_FONT_STYLE_KEY + appWidgetId)
         prefs.remove(PREF_ENABLE_JOURNEY_DURATION_FILTER_KEY + appWidgetId)

@@ -289,6 +289,17 @@
     <!-- Option label for App Icon visibility. Length: 8 chars. -->
     <string name="icon_widget">App icon</string>
 
+    <!-- Option label for Launch Web Board Icon visibility. -->
+    <string name="icon_launch">Launch web board</string>
+
+    <!-- Label for opening the web board. -->
+    <string name="open_web_board">Open web board</string>
+
+    <!-- Header tap action strings -->
+    <string name="header_tap_action_title">Header tap action</string>
+    <string name="header_tap_action_web">Open web board (Default)</string>
+    <string name="header_tap_action_refresh">Refresh widget</string>
+
     <!-- Option label for Refresh Icon visibility. Length: 7 chars. -->
     <string name="icon_refresh">Refresh</string>
 
@@ -318,6 +329,15 @@
 
     <!-- Label for the divider visibility setting. Length: 13 chars. -->
     <string name="show_divider">Show dividers</string>
+
+    <!-- Label for the card layout setting. -->
+    <string name="use_cards">Use cards</string>
+
+    <!-- Unified Dividers setting -->
+    <string name="title_dividers">Dividers</string>
+    <string name="divider_option_off">Off (default)</string>
+    <string name="divider_option_line">Line</string>
+    <string name="divider_option_card">Card</string>
 
     <!-- Button text to add widget to home screen. Length: 18 chars. -->
     <string name="add_to_home_screen">Add widget to home screen</string>

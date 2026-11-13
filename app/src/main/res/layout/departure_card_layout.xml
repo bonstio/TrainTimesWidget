@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/departure_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:theme="@android:style/Theme.DeviceDefault.DayNight"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
+    android:paddingTop="3dp"
+    android:paddingBottom="3dp">
+
+    <RelativeLayout
+        android:id="@+id/card_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_card_background"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/departure_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:textColor="?android:attr/textColorPrimary"
+            android:fontFamily="sans-serif-medium"/>
+
+        <TextView
+            android:id="@+id/destination"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@+id/departure_time"
+            android:layout_toStartOf="@+id/platform"
+            android:layout_marginStart="8dp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:fontFamily="sans-serif-medium"
+            android:ellipsize="end"
+            android:singleLine="true"/>
+
+        <TextView
+            android:id="@+id/platform"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toStartOf="@+id/status"
+            android:layout_marginEnd="8dp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"/>
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:textColor="?android:attr/textColorPrimary" />
+
+        <TextView
+            android:id="@+id/calling_points"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/destination"
+            android:layout_alignStart="@+id/destination"
+            android:layout_marginTop="3dp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:visibility="gone"
+            android:duplicateParentState="true" />
+
+    </RelativeLayout>
+
+</LinearLayout>

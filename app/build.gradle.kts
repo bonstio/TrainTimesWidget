@@ -80,4 +80,5 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation("androidx.emoji2:emoji2:1.4.0")
     implementation("androidx.emoji2:emoji2-bundled:1.4.0")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 }

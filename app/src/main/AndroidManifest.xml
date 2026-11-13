@@ -55,6 +55,17 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".WebBoardActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TrainTimes.WebBoard"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="net.bonstio.traintimes.ACTION_OPEN_BOARD" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".TrainTimesWidgetService"
             android:permission="android.permission.BIND_REMOTEVIEWS" />

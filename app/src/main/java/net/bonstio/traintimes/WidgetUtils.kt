@@ -35,6 +35,17 @@ object WidgetUtils {
         return WidgetStyling(textColor, widgetBgColor, transparency, config.useSystemTextColor, config.useSystemBgColor)
     }
 
+    fun getLighterColor(color: Int): Int {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(color, hsv)
+        if (hsv[2] < 0.5f) {
+            hsv[2] = (hsv[2] + 0.15f).coerceAtMost(1.0f)
+        } else {
+            hsv[1] = (hsv[1] * 0.7f).coerceAtLeast(0f)
+        }
+        return android.graphics.Color.HSVToColor(android.graphics.Color.alpha(color), hsv)
+    }
+
     fun getThemeColor(context: Context, attr: Int): Int {
         val configuration = context.resources.configuration
         val targetContext = context.createConfigurationContext(configuration)

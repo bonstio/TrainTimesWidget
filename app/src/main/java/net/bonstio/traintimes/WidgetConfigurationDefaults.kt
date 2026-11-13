@@ -19,12 +19,16 @@ object WidgetConfigurationDefaults {
     const val USE_SYSTEM_BG_COLOR = true
     const val FONT_SIZE = 3 // Regular
     const val SHOW_REFRESH_ICON = true
+    const val SHOW_LAUNCH_ICON = true
+    const val HEADER_TAP_ACTION = "WEB" // "WEB" or "REFRESH"
     const val SHOW_SETTINGS_ICON = false
     const val SHOW_GPS_ICON = false // New default
     const val HIDE_PAST_DEPARTURES = true
     const val SHOW_MAPS_ICON = true
     const val SHOW_LAST_UPDATE_TIME = true
-    const val SHOW_DIVIDER = true
+    const val SHOW_DIVIDER = false
+    const val USE_CARDS = false
+    const val DIVIDER_MODE = "OFF" // "OFF", "LINE", "CARD"
     const val COMMUTING_MODE = "TIME" // "TIME" or "LOCATION"
     const val FONT_STYLE = "SYSTEM" // "SYSTEM" or "RETRO"
     const val ENABLE_JOURNEY_DURATION_FILTER = false

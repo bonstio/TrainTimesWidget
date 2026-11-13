@@ -39,5 +39,9 @@ data class WidgetConfiguration(
     val useNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN,
     val showCommuteNotifications: Boolean = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS,
     val forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION,
-    val geofenceRadius: Int = WidgetConfigurationDefaults.GEOFENCE_RADIUS
+    val geofenceRadius: Int = WidgetConfigurationDefaults.GEOFENCE_RADIUS,
+    val showLaunchIcon: Boolean = WidgetConfigurationDefaults.SHOW_LAUNCH_ICON,
+    val headerTapAction: String = WidgetConfigurationDefaults.HEADER_TAP_ACTION,
+    @Deprecated("Use dividerMode") val useCards: Boolean = WidgetConfigurationDefaults.USE_CARDS,
+    val dividerMode: String = WidgetConfigurationDefaults.DIVIDER_MODE
 )

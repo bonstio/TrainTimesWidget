@@ -136,7 +136,11 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             newState,
             if (newState) false else config.showCommuteNotifications,
             if (newState) false else config.forceShowNotification,
-            config.geofenceRadius
+            config.geofenceRadius,
+            config.showLaunchIcon,
+            config.headerTapAction,
+            config.useCards,
+            config.dividerMode
           )
 
           // Trigger UI update immediately
@@ -450,17 +454,18 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       val useStandard = !showFooter
 
       val useRetro = config.fontStyle == "RETRO"
+      val shouldShowDivider = config.dividerMode == "LINE" || (config.showDivider && !config.useCards && config.dividerMode != "OFF" && config.dividerMode != "CARD")
       val layoutId = if (useStandard) {
         if (useRetro) {
-          if (config.showDivider) R.layout.widget_layout_retro else R.layout.widget_layout_no_divider_retro
+          if (shouldShowDivider) R.layout.widget_layout_retro else R.layout.widget_layout_no_divider_retro
         } else {
-          if (config.showDivider) R.layout.widget_layout else R.layout.widget_layout_no_divider
+          if (shouldShowDivider) R.layout.widget_layout else R.layout.widget_layout_no_divider
         }
       } else {
         if (useRetro) {
-          if (config.showDivider) R.layout.widget_layout_retro_nofade else R.layout.widget_layout_no_divider_retro_nofade
+          if (shouldShowDivider) R.layout.widget_layout_retro_nofade else R.layout.widget_layout_no_divider_retro_nofade
         } else {
-          if (config.showDivider) R.layout.widget_layout_nofade else R.layout.widget_layout_no_divider_nofade
+          if (shouldShowDivider) R.layout.widget_layout_nofade else R.layout.widget_layout_no_divider_nofade
         }
       }
 
@@ -509,21 +514,14 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         }
       }
 
-      // Note: refresh_button and gps_button removed from here to handle separately
-      val allImageViewIds = intArrayOf(R.id.widget_icon, R.id.settings_button)
+      // Set color filter on header image buttons matching text color / textColorPrimary
+      val allImageViewIds = intArrayOf(R.id.widget_icon, R.id.settings_button, R.id.launch_button, R.id.refresh_button)
       for (id in allImageViewIds) {
         if (!styling.useSystemTextColor) {
           views.setInt(id, "setColorFilter", styling.textColor)
         } else {
           views.setColorAttr(id, "setColorFilter", android.R.attr.textColorPrimary)
         }
-      }
-
-      // Handle refresh button with system palette (accentColor)
-      if (!styling.useSystemTextColor) {
-        views.setInt(R.id.refresh_button, "setColorFilter", styling.textColor)
-      } else {
-        views.setColorAttr(R.id.refresh_button, "setColorFilter", android.R.attr.colorAccent)
       }
 
       // GPS Button
@@ -615,9 +613,10 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       views.setImageViewResource(R.id.widget_icon, iconResId)
       views.setViewVisibility(R.id.widget_icon, if (config.showIcon) View.VISIBLE else View.GONE)
 
-      // Standard Settings and Refresh Icons
+      // Standard Settings, Refresh, and Launch Icons
       views.setImageViewResource(R.id.refresh_button, R.drawable.refresh_24px)
       views.setImageViewResource(R.id.settings_button, R.drawable.settings)
+      views.setImageViewResource(R.id.launch_button, R.drawable.ic_launch)
 
       views.setViewVisibility(
         R.id.refresh_button,
@@ -626,6 +625,10 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(
         R.id.settings_button,
         if (config.showSettingsIcon) View.VISIBLE else View.GONE
+      )
+      views.setViewVisibility(
+        R.id.launch_button,
+        if (config.showLaunchIcon) View.VISIBLE else View.GONE
       )
 
       // Footer
@@ -736,9 +739,35 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
       )
       views.setOnClickPendingIntent(R.id.refresh_button, refreshPendingIntent)
-      views.setOnClickPendingIntent(R.id.widget_title, refreshPendingIntent)
-      views.setOnClickPendingIntent(R.id.widget_title_image, refreshPendingIntent)
       views.setOnClickPendingIntent(R.id.retry_button, refreshPendingIntent)
+
+      // Web board intent for the current FROM->TO route
+      val webBoardIntent = Intent(context, WebBoardActivity::class.java).apply {
+        putExtra(WebBoardActivity.EXTRA_FROM_STATION, fromStation)
+        putExtra(WebBoardActivity.EXTRA_TO_STATION, toStation)
+        data = Uri.parse("trainwidget://board/$appWidgetId?from=$fromStation&to=$toStation")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      }
+      val webBoardPendingIntent = PendingIntent.getActivity(
+        context,
+        appWidgetId + 2000,
+        webBoardIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+
+      views.setOnClickPendingIntent(R.id.launch_button, webBoardPendingIntent)
+
+      if (config.headerTapAction == "REFRESH") {
+        views.setOnClickPendingIntent(R.id.widget_title, refreshPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_title_image, refreshPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_title_wrapper, refreshPendingIntent)
+      } else {
+        // Default: Open the current FROM->TO webpage
+        views.setOnClickPendingIntent(R.id.widget_title, webBoardPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_title_image, webBoardPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_title_wrapper, webBoardPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_icon, webBoardPendingIntent)
+      }
 
 
       val settingsIntent = Intent(context, TrainTimesWidgetConfigureActivity::class.java).apply {

@@ -137,6 +137,12 @@ class MainActivity : AppCompatActivity() {
         setupAddToHomeButton()
         setupBatteryOptimizationBanner()
 
+        val openWebBoardButton = findViewById<Button?>(R.id.open_web_board_button)
+        openWebBoardButton?.setOnClickListener {
+            val intent = Intent(this, WebBoardActivity::class.java)
+            startActivity(intent)
+        }
+
         if (intent.getBooleanExtra(EXTRA_INVALID_API_KEY, false)) {
             radioApiKeyCustom.isChecked = true
             apiKeyInputLayout.error = getString(R.string.invalid_api_key)

@@ -73,15 +73,32 @@ class TrainTimesRemoteViewsFactory(
         val service = services[position]
         
         val useRetro = config?.fontStyle == "RETRO"
+        val useCards = config?.dividerMode == "CARD" || (config?.useCards == true && config?.dividerMode != "OFF" && config?.dividerMode != "LINE")
         
         var widgetWidthPx = 0
         var contentStartOffsetPx = 0
         
-        val layoutId = if (useRetro) R.layout.departure_layout_retro else R.layout.departure_layout
+        val layoutId = when {
+            useCards && useRetro -> R.layout.departure_card_layout_retro
+            useCards -> R.layout.departure_card_layout
+            useRetro -> R.layout.departure_layout_retro
+            else -> R.layout.departure_layout
+        }
         val departureView = RemoteViews(context.packageName, layoutId)
 
         if (config == null || styling == null) {
             return departureView
+        }
+
+        if (useCards && !styling!!.useSystemBgColor) {
+            val lighterBg = WidgetUtils.getLighterColor(styling!!.bgColor)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                departureView.setColorStateList(
+                    R.id.card_container,
+                    "setBackgroundTintList",
+                    android.content.res.ColorStateList.valueOf(lighterBg)
+                )
+            }
         }
 
         val bodySize = WidgetUtils.getBodySize(config!!.fontSize)
@@ -157,7 +174,8 @@ class TrainTimesRemoteViewsFactory(
             // 8dp between Dest and Platform
             // 8dp between Platform and Status
             // Plus widget padding (~24dp total?)
-            val marginsApprox = (60 * density).toInt() 
+            val cardPaddingDp = if (useCards) 24 else 0
+            val marginsApprox = ((60 + cardPaddingDp) * density).toInt() 
             
             val occupiedWidth = (timeBitmap?.width ?: 0) + (platformBitmap?.width ?: 0) + (statusBitmap?.width ?: 0) + marginsApprox
             val maxDestWidth = max(100, minWidthPx - occupiedWidth) // Ensure at least some width
@@ -219,6 +237,9 @@ class TrainTimesRemoteViewsFactory(
             putExtras(extras)
         }
         departureView.setOnClickFillInIntent(R.id.departure_row, fillInIntent)
+        if (useCards) {
+            departureView.setOnClickFillInIntent(R.id.card_container, fillInIntent)
+        }
 
         // Unified logic for calling points: Always use TextView
         if (service.subsequentCallingPoints.isNotEmpty() && shouldShowStops) {
@@ -247,7 +268,7 @@ class TrainTimesRemoteViewsFactory(
 
     override fun getLoadingView(): RemoteViews? = null
 
-    override fun getViewTypeCount(): Int = 2
+    override fun getViewTypeCount(): Int = 4
 
     override fun getItemId(position: Int): Long = position.toLong()
 
