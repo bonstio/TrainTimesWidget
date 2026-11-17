@@ -30,6 +30,62 @@ object StationRepository {
     private var stations: List<Station>? = null
 
     /**
+     * Curated list of adjacent / co-located sister station pairs within short walking distance
+     * or connected via footbridge/concourse.
+     */
+    private val sisterStationPairs = listOf(
+        "KGX" to "STP", // London Kings Cross <-> London St Pancras International
+        "WAT" to "WAE", // London Waterloo <-> London Waterloo East
+        "WHD" to "WHP", // West Hampstead <-> West Hampstead Thameslink
+        "HKC" to "HAC", // Hackney Central <-> Hackney Downs
+        "CTF" to "CFB", // Catford <-> Catford Bridge
+        "DLJ" to "DLK", // Dalston Junction <-> Dalston Kingsland
+        "WWC" to "WWA", // Woolwich <-> Woolwich Arsenal
+        "WGN" to "WGW", // Wigan North Western <-> Wigan Wallgate
+        "HHL" to "HLL", // Heath High Level <-> Heath Low Level
+        "SBF" to "SBV"  // St Budeaux Ferry Road <-> St Budeaux Victoria Road
+    )
+
+    /**
+     * Returns nearby sister station CRS codes for the given station [code].
+     */
+    fun getSisterStations(code: String): List<String> {
+        val normalized = code.trim().uppercase()
+        if (normalized.isEmpty()) return emptyList()
+        val result = mutableListOf<String>()
+        for ((a, b) in sisterStationPairs) {
+            if (a == normalized) result.add(b)
+            else if (b == normalized) result.add(a)
+        }
+        return result
+    }
+
+    /**
+     * Returns a list containing the primary station [code] followed by its sister stations
+     * if [includeNearby] is true.
+     */
+    fun getEquivalentStations(code: String, includeNearby: Boolean): List<String> {
+        val normalized = code.trim().uppercase()
+        if (normalized.isEmpty()) return emptyList()
+        return if (includeNearby) {
+            listOf(normalized) + getSisterStations(normalized)
+        } else {
+            listOf(normalized)
+        }
+    }
+
+    /**
+     * Returns true if [code1] and [code2] are the same station, or sister stations when [includeNearby] is true.
+     */
+    fun areSameOrSisterStations(code1: String, code2: String, includeNearby: Boolean = true): Boolean {
+        val n1 = code1.trim().uppercase()
+        val n2 = code2.trim().uppercase()
+        if (n1.isEmpty() || n2.isEmpty()) return false
+        if (n1 == n2) return true
+        return includeNearby && getSisterStations(n1).contains(n2)
+    }
+
+    /**
      * Retrieves the list of all available stations.
      * Caches the list after the first load.
      *

@@ -102,10 +102,11 @@
             text-align: left;
         }
         .col-plat {
-            width: 44px;
-            min-width: 44px;
+            min-width: 58px;
             flex-shrink: 0;
             text-align: center;
+            padding: 0 4px;
+            white-space: nowrap;
         }
         .col-expected {
             width: 86px;
@@ -148,11 +149,12 @@
         <header class="bg-tigerBlue text-white pt-2.5 pb-1 px-3 sticky top-0 z-30 shadow-md">
             <!-- Header Top Row: Route Title ($FROM -> $TO, Never Ellipsized) & Update Time -->
             <div class="flex items-start justify-between gap-2 mb-2">
-                <div class="flex-1 min-w-0">
+                <button id="headerRouteBtn" type="button" class="flex-1 min-w-0 flex items-center gap-1.5 text-left active:opacity-80 transition">
                     <h1 id="headerTitle" class="tiger-title text-[20px] font-bold tracking-tight leading-snug whitespace-normal break-words">
                         STP -&gt; HPD
                     </h1>
-                </div>
+                    <svg class="w-4 h-4 text-white/80 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </button>
                 <div class="text-right flex-shrink-0 pt-0.5">
                     <div class="text-[11px] font-normal opacity-90 leading-none">Train info updated:</div>
                     <div id="liveClock" class="text-xs font-bold tracking-wider leading-tight mt-0.5">
@@ -191,11 +193,23 @@
             </div>
 
             <!-- Quick Action Buttons -->
-            <div id="simulatorControlsGrid" class="grid grid-cols-2 gap-1.5 text-xs font-sans">
+            <div id="simulatorControlsGrid" class="grid grid-cols-4 gap-1.5 text-xs font-sans">
+                <!-- Edit Route Button -->
+                <button id="editRouteBtn" type="button" class="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-200 py-2 px-1 rounded flex items-center justify-center gap-1 font-semibold active:scale-95 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    <span>Edit</span>
+                </button>
+
                 <!-- Swap Direction Button -->
                 <button id="swapDirBtn" type="button" class="bg-tigerBlue hover:bg-tigerBlueHover text-white py-2 px-1 rounded flex items-center justify-center gap-1 font-semibold active:scale-95 transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
                     <span>Swap</span>
+                </button>
+
+                <!-- Reset Route Button -->
+                <button id="resetRouteBtn" type="button" class="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 py-2 px-1 rounded flex items-center justify-center gap-1 font-semibold active:scale-95 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span>Reset</span>
                 </button>
 
                 <!-- Fast Filter Toggle -->
@@ -232,11 +246,13 @@
         const urlParams = new URLSearchParams(window.location.search);
         const initialFrom = (urlParams.get('from') || 'STP').toUpperCase().trim();
         const initialTo = (urlParams.get('to') || 'HPD').toUpperCase().trim();
-        const initialFilter = urlParams.has('filter') ? urlParams.get('filter') !== '0' : true;
+        const initialFilter = urlParams.has('filter') ? urlParams.get('filter') !== '0' && urlParams.get('filter') !== 'false' : true;
         const isEmbedMode = urlParams.get('embed') === '1';
 
         // App State
         let state = {
+            initialFrom: initialFrom,
+            initialTo: initialTo,
             from: initialFrom,
             to: initialTo,
             filterByDestination: initialFilter,
@@ -489,9 +505,16 @@
 
         // Global Android WebView Bridge API
         window.TigerBoard = {
-            setRoute: function ({ from, to, filterActive, fastOnly, embed } = {}) {
-                if (from) state.from = String(from).toUpperCase().trim();
-                if (to !== undefined) state.to = to ? String(to).toUpperCase().trim() : '';
+            setRoute: function ({ from, to, initialFrom, initialTo, filterActive, fastOnly, embed } = {}) {
+                const nextFrom = from ? String(from).toUpperCase().trim() : state.from;
+                const nextTo = to !== undefined ? (to ? String(to).toUpperCase().trim() : '') : state.to;
+                if (nextFrom !== state.from || nextTo !== state.to) {
+                    state.customServices = null;
+                }
+                if (initialFrom) state.initialFrom = String(initialFrom).toUpperCase().trim();
+                if (initialTo !== undefined) state.initialTo = initialTo ? String(initialTo).toUpperCase().trim() : '';
+                state.from = nextFrom;
+                state.to = nextTo;
                 if (typeof filterActive === 'boolean') state.filterByDestination = filterActive;
                 if (typeof fastOnly === 'boolean') state.isFastOnly = fastOnly;
                 if (typeof embed === 'boolean') {
@@ -551,7 +574,31 @@
             renderBoard();
         });
 
+        function requestEditRoute() {
+            if (window.AndroidBridge && typeof window.AndroidBridge.onEditRouteRequested === 'function') {
+                window.AndroidBridge.onEditRouteRequested();
+            }
+        }
+
         function setupEvents() {
+            // Header route title & Edit button open station picker dialog
+            document.getElementById('headerRouteBtn').addEventListener('click', requestEditRoute);
+            document.getElementById('editRouteBtn').addEventListener('click', requestEditRoute);
+
+            // Reset Route back to initialFrom / initialTo
+            document.getElementById('resetRouteBtn').addEventListener('click', () => {
+                state.from = state.initialFrom;
+                state.to = state.initialTo;
+                state.filterByDestination = Boolean(state.initialTo);
+                state.customServices = null;
+                state.expandedId = null;
+                syncUIWithState();
+                renderBoard();
+                if (window.AndroidBridge && typeof window.AndroidBridge.onResetRouteRequested === 'function') {
+                    window.AndroidBridge.onResetRouteRequested();
+                }
+            });
+
             // Togglable Destination Calling-At Filter
             document.getElementById('toggleDestFilterBtn').addEventListener('click', () => {
                 state.filterByDestination = !state.filterByDestination;
@@ -565,6 +612,10 @@
 
             // Swap Direction (from <-> to)
             document.getElementById('swapDirBtn').addEventListener('click', () => {
+                if (!state.to) {
+                    requestEditRoute();
+                    return;
+                }
                 const prevFrom = state.from;
                 state.from = state.to;
                 state.to = prevFrom;
@@ -634,6 +685,13 @@
                 indicatorDot.className = 'w-2 h-2 rounded-full bg-gray-500 flex-shrink-0';
             }
 
+            // Reset Route Button State (highlighted when route differs from initial)
+            const resetBtn = document.getElementById('resetRouteBtn');
+            const isModified = state.from !== state.initialFrom || state.to !== state.initialTo;
+            resetBtn.className = isModified
+                ? 'bg-tigerBlue/80 hover:bg-tigerBlue border border-blue-400/40 text-white py-2 px-1 rounded flex items-center justify-center gap-1 font-semibold active:scale-95 transition'
+                : 'bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 py-2 px-1 rounded flex items-center justify-center gap-1 font-semibold active:scale-95 transition';
+
             // Fast Filter Button State
             const fastBtn = document.getElementById('toggleFastBtn');
             fastBtn.className = state.isFastOnly
@@ -653,6 +711,9 @@
 
         function serviceCallsAtTarget(service, targetCrs) {
             if (!targetCrs) return true;
+            if (service.targetArr || service.targetCrs) {
+                return true;
+            }
             if (Array.isArray(service.callsAt) && service.callsAt.includes(targetCrs)) {
                 return true;
             }
@@ -664,14 +725,16 @@
 
         function getTargetStopInfo(service, targetCrs) {
             if (!targetCrs) return null;
+            const effectiveTarget = service.targetCrs || targetCrs;
             if (Array.isArray(service.callingPoints)) {
-                const match = service.callingPoints.find(cp => cp.crs === targetCrs);
+                const match = service.callingPoints.find(cp => cp.crs === effectiveTarget) ||
+                              service.callingPoints.find(cp => cp.crs === targetCrs);
                 if (match) {
-                    return { time: match.time, durationMin: service.durationMin || null };
+                    return { crs: match.crs || effectiveTarget, time: match.time, durationMin: service.durationMin || null };
                 }
             }
             if (service.targetArr) {
-                return { time: service.targetArr, durationMin: service.durationMin || null };
+                return { crs: effectiveTarget, time: service.targetArr, durationMin: service.durationMin || null };
             }
             return null;
         }
@@ -726,7 +789,7 @@
                         : 'text-white font-semibold';
 
                 const callingPointsHtml = (svc.callingPoints || []).map(cp => {
-                    const isTargetStop = state.to && cp.crs === state.to;
+                    const isTargetStop = (state.to && cp.crs === state.to) || (svc.targetCrs && cp.crs === svc.targetCrs);
                     return `
                         <div class="flex justify-between items-center py-0.5 text-xs ${isTargetStop ? 'text-tigerYellow font-bold' : 'text-gray-300'}">
                             <span>${cp.name} ${isTargetStop ? `(${cp.crs})` : ''}</span>
@@ -752,7 +815,7 @@
                             </div>
 
                             <!-- Platform -->
-                            <div class="col-plat plat-text">
+                            <div class="col-plat plat-text" style="${svc.platform && String(svc.platform).length > 3 ? 'font-size: 14px;' : ''}">
                                 ${svc.platform || '-'}
                             </div>
 
@@ -776,7 +839,7 @@
                             ` : ''}
                             ${targetInfo && targetInfo.time ? `
                                 <div class="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-tigerBlue/30 border border-blue-400/30 text-[11px] text-blue-200">
-                                    <span>${state.to} Arr ${targetInfo.time}</span>
+                                    <span>${targetInfo.crs || state.to} Arr ${targetInfo.time}</span>
                                     ${targetInfo.durationMin ? `<span>(${targetInfo.durationMin}m)</span>` : ''}
                                 </div>
                             ` : (!callsAtTarget && state.to ? `

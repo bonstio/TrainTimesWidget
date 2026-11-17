@@ -43,6 +43,7 @@ object WidgetConfigurationStorage {
     private const val PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY = "show_commute_notifications_"
     private const val PREF_FORCE_SHOW_NOTIFICATION_KEY = "force_show_notification_"
     private const val PREF_GEOFENCE_RADIUS_KEY = "geofence_radius_"
+    private const val PREF_CONSIDER_NEARBY_STATIONS_KEY = "consider_nearby_stations_"
 
     /**
      * Saves the configuration for a specific widget ID.
@@ -83,7 +84,8 @@ object WidgetConfigurationStorage {
         showLaunchIcon: Boolean = WidgetConfigurationDefaults.SHOW_LAUNCH_ICON,
         headerTapAction: String = WidgetConfigurationDefaults.HEADER_TAP_ACTION,
         useCards: Boolean = WidgetConfigurationDefaults.USE_CARDS,
-        dividerMode: String = if (useCards) "CARD" else if (showDivider) "LINE" else "OFF"
+        dividerMode: String = if (useCards) "CARD" else if (showDivider) "LINE" else "OFF",
+        considerNearbyStations: Boolean = WidgetConfigurationDefaults.CONSIDER_NEARBY_STATIONS
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, 0).edit()
         prefs.putString(PREF_TITLE_KEY + appWidgetId, title)
@@ -129,6 +131,7 @@ object WidgetConfigurationStorage {
         prefs.putBoolean(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId, showCommuteNotifications)
         prefs.putBoolean(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId, forceShowNotification)
         prefs.putInt(PREF_GEOFENCE_RADIUS_KEY + appWidgetId, geofenceRadius)
+        prefs.putBoolean(PREF_CONSIDER_NEARBY_STATIONS_KEY + appWidgetId, considerNearbyStations)
         // Use commit to ensure data is written before we broadcast the update
         prefs.commit()
     }
@@ -214,6 +217,7 @@ object WidgetConfigurationStorage {
         val showCommuteNotifications = prefs.getBoolean(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId, WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS)
         val forceShowNotification = prefs.getBoolean(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId, WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION)
         val geofenceRadius = prefs.getInt(PREF_GEOFENCE_RADIUS_KEY + appWidgetId, WidgetConfigurationDefaults.GEOFENCE_RADIUS)
+        val considerNearbyStations = prefs.getBoolean(PREF_CONSIDER_NEARBY_STATIONS_KEY + appWidgetId, WidgetConfigurationDefaults.CONSIDER_NEARBY_STATIONS)
 
         return if (title != null && fromStation != null && toStation != null && alignment != null) {
             WidgetConfiguration(
@@ -253,7 +257,8 @@ object WidgetConfigurationStorage {
                 showLaunchIcon,
                 headerTapAction,
                 useCards,
-                dividerMode
+                dividerMode,
+                considerNearbyStations
             )
         } else {
             null
@@ -300,6 +305,7 @@ object WidgetConfigurationStorage {
         prefs.remove(PREF_SHOW_COMMUTE_NOTIFICATIONS_KEY + appWidgetId)
         prefs.remove(PREF_FORCE_SHOW_NOTIFICATION_KEY + appWidgetId)
         prefs.remove(PREF_GEOFENCE_RADIUS_KEY + appWidgetId)
+        prefs.remove(PREF_CONSIDER_NEARBY_STATIONS_KEY + appWidgetId)
         prefs.apply()
     }
 }

@@ -88,6 +88,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var rowCommuteTimes: View
     private lateinit var labelCommuteTimes: TextView
     private lateinit var summaryCommuteTimes: TextView
+    private lateinit var rowConsiderNearbyStations: View
+    private lateinit var switchConsiderNearbyStations: MaterialSwitch
     
     // Layout Tab Views
     private lateinit var rowStyle: View
@@ -207,6 +209,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var showCommuteNotifications: Boolean = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS
     private var forceShowNotification: Boolean = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
     private var geofenceRadius: Int = WidgetConfigurationDefaults.GEOFENCE_RADIUS
+    private var considerNearbyStations: Boolean = WidgetConfigurationDefaults.CONSIDER_NEARBY_STATIONS
 
     private val geofenceRadiusSteps = intArrayOf(100, 200, 400, 800, 1600, 3200)
 
@@ -218,6 +221,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var initialEnableJourneyDurationFilter: Boolean = WidgetConfigurationDefaults.ENABLE_JOURNEY_DURATION_FILTER
     private var initialMaxJourneyDuration: Int = WidgetConfigurationDefaults.MAX_JOURNEY_DURATION
     private var initialUseNearestStationForReturn: Boolean = WidgetConfigurationDefaults.USE_NEAREST_STATION_FOR_RETURN
+    private var initialConsiderNearbyStations: Boolean = WidgetConfigurationDefaults.CONSIDER_NEARBY_STATIONS
 
     private var nearestStationCode: String? = null
 
@@ -273,6 +277,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         rowCommuteTimes = findViewById(R.id.row_commute_times)
         labelCommuteTimes = findViewById(R.id.label_commute_times)
         summaryCommuteTimes = findViewById(R.id.summary_commute_times)
+        rowConsiderNearbyStations = findViewById(R.id.row_consider_nearby_stations)
+        switchConsiderNearbyStations = findViewById(R.id.switch_consider_nearby_stations)
         
         addButton = findViewById(R.id.add_button)
         cancelButton = findViewById(R.id.cancel_button)
@@ -454,6 +460,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showCommuteNotifications = existingConfig.showCommuteNotifications
             forceShowNotification = existingConfig.forceShowNotification
             geofenceRadius = existingConfig.geofenceRadius
+            considerNearbyStations = existingConfig.considerNearbyStations
 
             currentTextColor = existingConfig.textColor
             currentBackgroundColor = ColorUtils.setAlphaComponent(
@@ -496,6 +503,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showCommuteNotifications = WidgetConfigurationDefaults.SHOW_COMMUTE_NOTIFICATIONS
             forceShowNotification = WidgetConfigurationDefaults.FORCE_SHOW_NOTIFICATION
             geofenceRadius = WidgetConfigurationDefaults.GEOFENCE_RADIUS
+            considerNearbyStations = WidgetConfigurationDefaults.CONSIDER_NEARBY_STATIONS
 
             currentTextColor = WidgetConfigurationDefaults.TEXT_COLOR
             currentBackgroundColor = ColorUtils.setAlphaComponent(WidgetConfigurationDefaults.BG_COLOR, WidgetConfigurationDefaults.TRANSPARENCY)
@@ -526,12 +534,14 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         initialEnableJourneyDurationFilter = enableJourneyDurationFilter
         initialMaxJourneyDuration = maxJourneyDuration
         initialUseNearestStationForReturn = useNearestStationForReturn
+        initialConsiderNearbyStations = considerNearbyStations
 
         // Set initial slider value
         sliderFontSize.value = selectedFontSize.toFloat()
         
         switchMaxJourneyDuration.isChecked = enableJourneyDurationFilter
         sliderMaxJourneyDuration.value = maxJourneyDuration.toFloat()
+        switchConsiderNearbyStations.isChecked = considerNearbyStations
         
         // Visibility of journey duration elements
         val durationVisible = if (enableJourneyDurationFilter) View.VISIBLE else View.GONE
@@ -900,7 +910,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             showLaunchIcon,
             headerTapAction,
             selectedDividerMode == "CARD",
-            selectedDividerMode
+            selectedDividerMode,
+            considerNearbyStations
         )
 
         // Check if data changed
@@ -908,7 +919,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 initialToStationCode != toStationCode ||
                 initialStartTimeNormal != startTimeNormal ||
                 initialStartTimeReverse != startTimeReverse ||
-                initialUseNearestStationForReturn != useNearestStationForReturn
+                initialUseNearestStationForReturn != useNearestStationForReturn ||
+                initialConsiderNearbyStations != considerNearbyStations
 
         // If data changed, update our "initial" reference so subsequent style updates don't trigger data fetch
         if (dataChanged) {
@@ -919,6 +931,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             initialEnableJourneyDurationFilter = enableJourneyDurationFilter
             initialMaxJourneyDuration = maxJourneyDuration
             initialUseNearestStationForReturn = useNearestStationForReturn
+            initialConsiderNearbyStations = considerNearbyStations
         }
 
         val intent = Intent(context, TrainTimesWidgetProvider::class.java)
@@ -1000,6 +1013,17 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         
         rowCommuteTimes.setOnClickListener {
             showCommuteTimesDialog()
+        }
+
+        rowConsiderNearbyStations.setOnClickListener {
+            switchConsiderNearbyStations.isChecked = !switchConsiderNearbyStations.isChecked
+        }
+
+        switchConsiderNearbyStations.setOnCheckedChangeListener { _, isChecked ->
+            considerNearbyStations = isChecked
+            if (addButton.isEnabled) {
+                triggerUpdate()
+            }
         }
     }
 

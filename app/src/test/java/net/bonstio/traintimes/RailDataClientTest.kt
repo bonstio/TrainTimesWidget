@@ -276,4 +276,111 @@ class RailDataClientTest {
         assertEquals("12:30", svc3.getString("due"))
         assertEquals("Cancelled", svc3.getString("expected"))
     }
+
+    @Test
+    fun testNearbySisterStationMappingAndFormatting() {
+        assertEquals(listOf("KGX"), StationRepository.getSisterStations("STP"))
+        assertEquals(listOf("STP"), StationRepository.getSisterStations("KGX"))
+        assertEquals(listOf("STP", "KGX"), StationRepository.getEquivalentStations("STP", true))
+        assertEquals(listOf("STP"), StationRepository.getEquivalentStations("STP", false))
+        assertTrue(StationRepository.areSameOrSisterStations("KGX", "STP", true))
+
+        val kgxJson = """
+        {
+          "trainServices": [
+            {
+              "std": "16:12",
+              "etd": "On time",
+              "platform": "4",
+              "isCancelled": false,
+              "destination": [
+                {
+                  "locationName": "London Kings Cross",
+                  "crs": "KGX"
+                }
+              ]
+            },
+            {
+              "std": "16:25",
+              "etd": "On time",
+              "isCancelled": false,
+              "destination": [
+                {
+                  "locationName": "Cambridge",
+                  "crs": "CBG"
+                }
+              ]
+            }
+          ]
+        }
+        """.trimIndent()
+
+        val stpJson = """
+        {
+          "trainServices": [
+            {
+              "std": "16:15",
+              "etd": "On time",
+              "platform": "A",
+              "isCancelled": false,
+              "destination": [
+                {
+                  "locationName": "Brighton",
+                  "crs": "BTN"
+                }
+              ]
+            }
+          ]
+        }
+        """.trimIndent()
+
+        val client = RailDataClient("dummy_key")
+
+        // 1. Departing from STP (primary) with KGX as sister origin
+        val fromKgxServices = client.parseTrainServices(
+            jsonStr = kgxJson,
+            toStation = "SVG",
+            originCrs = "KGX",
+            primaryFromCrs = "STP",
+            hasMultipleDestinations = false
+        )
+        assertEquals("KGX Pl. 4", fromKgxServices[0].platform)
+        assertEquals("KGX", fromKgxServices[1].platform)
+
+        // 2. Heading into London (primaryTo = STP, sister = KGX):
+        // KGX train terminates at KGX -> stays "London Kings Cross"
+        // STP train continues to Brighton -> becomes "Brighton (via STP)"
+        val toKgxServices = client.parseTrainServices(
+            jsonStr = kgxJson,
+            toStation = "KGX",
+            originCrs = "SVG",
+            primaryFromCrs = "SVG",
+            hasMultipleDestinations = true
+        )
+        assertEquals("London Kings Cross", toKgxServices[0].destination)
+
+        val toStpServices = client.parseTrainServices(
+            jsonStr = stpJson,
+            toStation = "STP",
+            originCrs = "SVG",
+            primaryFromCrs = "SVG",
+            hasMultipleDestinations = true
+        )
+        assertEquals("Brighton (via STP)", toStpServices[0].destination)
+
+        // 3. Merging and sorting chronologically
+        val merged = client.mergeAndSortTrainServices(
+            listOf(
+                "SVG" to toStpServices,
+                "SVG" to toKgxServices
+            ),
+            maxRows = 10
+        )
+        assertEquals(3, merged.size)
+        assertEquals("16:12", merged[0].std)
+        assertEquals("London Kings Cross", merged[0].destination)
+        assertEquals("16:15", merged[1].std)
+        assertEquals("Brighton (via STP)", merged[1].destination)
+        assertEquals("16:25", merged[2].std)
+    }
 }

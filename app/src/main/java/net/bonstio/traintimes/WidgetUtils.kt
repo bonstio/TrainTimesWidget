@@ -148,9 +148,9 @@ object WidgetUtils {
                 }
                 if (t.contains("\$C") && configFromStation != null) {
                     val isHeadingHome = if (toStation.isNotEmpty()) {
-                        toStation.equals(configFromStation, ignoreCase = true)
+                        StationRepository.areSameOrSisterStations(toStation, configFromStation, true)
                     } else {
-                        !fromStation.equals(configFromStation, ignoreCase = true)
+                        !StationRepository.areSameOrSisterStations(fromStation, configFromStation, true)
                     }
                     val commuteText = if (isHeadingHome) "home" else "to work"
                     t = t.replace("\$C", commuteText)

@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
+}
+
+val keystoreProps = Properties().apply {
+    val propFiles = listOf(
+        rootProject.file("keystore.properties"),
+        file("/mnt/nas/docs/Development/play-store-traintimes/keystore.properties")
+    )
+    propFiles.firstOrNull { it.exists() }?.inputStream()?.use { load(it) }
 }
 
 android {
@@ -16,8 +26,8 @@ android {
         applicationId = "net.bonstio.traintimes"
         minSdk = 33
         targetSdk = 36
-        versionCode = 41
-        versionName = "3.1.1"
+        versionCode = 52
+        versionName = "3.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -25,6 +35,21 @@ android {
             .trim()
             .trim('"')
         buildConfigField("String", "DEFAULT_RAIL_DATA_API_KEY", "\"$defaultApiKey\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            val ksPath = keystoreProps.getProperty("KEYSTORE_PATH")
+            if (!ksPath.isNullOrBlank()) {
+                val ksFile = file(ksPath)
+                if (ksFile.exists()) {
+                    storeFile = ksFile
+                    storePassword = keystoreProps.getProperty("KEYSTORE_PASSWORD")
+                    keyAlias = keystoreProps.getProperty("KEY_ALIAS")
+                    keyPassword = keystoreProps.getProperty("KEY_PASSWORD")
+                }
+            }
+        }
     }
 
     buildTypes {
@@ -41,7 +66,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSign = signingConfigs.getByName("release")
+            signingConfig = if (releaseSign.storeFile?.exists() == true) {
+                releaseSign
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {

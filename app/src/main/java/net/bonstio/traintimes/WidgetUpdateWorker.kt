@@ -216,11 +216,11 @@ class WidgetUpdateWorker(
              }
         }
 
-        if (originalTo.isNotEmpty() && effectiveFrom.equals(effectiveTo, ignoreCase = true)) {
-            effectiveTo = if (effectiveFrom.equals(originalTo, ignoreCase = true)) originalFrom else originalTo
+        if (originalTo.isNotEmpty() && StationRepository.areSameOrSisterStations(effectiveFrom, effectiveTo, config.considerNearbyStations)) {
+            effectiveTo = if (StationRepository.areSameOrSisterStations(effectiveFrom, originalTo, config.considerNearbyStations)) originalFrom else originalTo
         }
 
-        Log.d(TAG, "Final route: $effectiveFrom -> $effectiveTo")
+        Log.d(TAG, "Final route: $effectiveFrom -> $effectiveTo (considerNearby=${config.considerNearbyStations})")
 
         if (effectiveFrom.isEmpty()) {
             Log.w(TAG, "Departure station is empty for widget $appWidgetId")
@@ -240,7 +240,13 @@ class WidgetUpdateWorker(
 
         try {
             val apiStart = System.currentTimeMillis()
-            var trainServices = client.getNextTrain(effectiveFrom, effectiveTo, config.timeOffset, config.departureCount)
+            var trainServices = client.getNextTrain(
+                effectiveFrom,
+                effectiveTo,
+                config.timeOffset,
+                config.departureCount,
+                config.considerNearbyStations
+            )
             Log.d(TAG, "API call took ${System.currentTimeMillis() - apiStart}ms. Found ${trainServices.size} trains")
             
             val originalCount = trainServices.size

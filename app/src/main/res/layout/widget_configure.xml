@@ -311,6 +311,46 @@
                             </LinearLayout>
                         </LinearLayout>
 
+                        <!-- Consider Nearby Stations Row -->
+                        <LinearLayout
+                            android:id="@+id/row_consider_nearby_stations"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:paddingHorizontal="4dp"
+                            android:paddingVertical="12dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <TextView
+                                    android:id="@+id/text_consider_nearby_stations"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="@string/consider_nearby_stations"
+                                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/switch_consider_nearby_stations"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:checked="true" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/summary_consider_nearby_stations"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/consider_nearby_stations_summary"
+                                android:textAppearance="?attr/textAppearanceBodyMedium"
+                                android:textColor="?android:attr/textColorSecondary"
+                                android:layout_marginTop="4dp" />
+                        </LinearLayout>
+
                     </LinearLayout>
 
                     <!-- Layout Tab Content -->

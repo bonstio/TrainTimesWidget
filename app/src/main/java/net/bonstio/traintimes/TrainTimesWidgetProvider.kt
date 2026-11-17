@@ -140,7 +140,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
             config.showLaunchIcon,
             config.headerTapAction,
             config.useCards,
-            config.dividerMode
+            config.dividerMode,
+            config.considerNearbyStations
           )
 
           // Trigger UI update immediately
@@ -745,7 +746,8 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       val webBoardIntent = Intent(context, WebBoardActivity::class.java).apply {
         putExtra(WebBoardActivity.EXTRA_FROM_STATION, fromStation)
         putExtra(WebBoardActivity.EXTRA_TO_STATION, toStation)
-        data = Uri.parse("trainwidget://board/$appWidgetId?from=$fromStation&to=$toStation")
+        putExtra(WebBoardActivity.EXTRA_CONSIDER_NEARBY, config.considerNearbyStations)
+        data = Uri.parse("trainwidget://board/$appWidgetId?from=$fromStation&to=$toStation&nearby=${config.considerNearbyStations}")
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
       }
       val webBoardPendingIntent = PendingIntent.getActivity(

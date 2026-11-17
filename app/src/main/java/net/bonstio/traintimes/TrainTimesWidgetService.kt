@@ -122,7 +122,9 @@ class TrainTimesRemoteViewsFactory(
             // 1. Generate auxiliary columns first to know their widths
             val timeBitmap = genBitmap(service.std, bodySize)
             
-            val platformText = service.platform?.let { "Pl. $it" } ?: ""
+            val platformText = service.platform?.let {
+                if (it.contains("Pl.") || it.matches(Regex("^[A-Z]{3}$"))) it else "Pl. $it"
+            } ?: ""
             val platformBitmap = genBitmap(platformText, smallBodySize)
             
             val statusBitmap = genBitmap(service.status, smallBodySize)
@@ -193,7 +195,9 @@ class TrainTimesRemoteViewsFactory(
             // Standard TextViews
             departureView.setTextViewText(R.id.departure_time, service.std)
             departureView.setTextViewText(R.id.destination, service.destination)
-            val platformText = service.platform?.let { "Pl. $it" } ?: ""
+            val platformText = service.platform?.let {
+                if (it.contains("Pl.") || it.matches(Regex("^[A-Z]{3}$"))) it else "Pl. $it"
+            } ?: ""
             departureView.setTextViewText(R.id.platform, platformText)
             departureView.setTextViewText(R.id.status, service.status)
 

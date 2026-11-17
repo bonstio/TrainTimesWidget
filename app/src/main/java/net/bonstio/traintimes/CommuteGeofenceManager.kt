@@ -67,8 +67,12 @@ object CommuteGeofenceManager {
             if (config.showCommuteNotifications && !config.useNearestStationForReturn) {
                 activeWidgetIdsWithNotifications.add(id)
                 val stationsToGeofence = mutableListOf<String>()
-                if (config.fromStation.isNotEmpty()) stationsToGeofence.add(config.fromStation)
-                if (config.toStation.isNotEmpty()) stationsToGeofence.add(config.toStation)
+                if (config.fromStation.isNotEmpty()) {
+                    stationsToGeofence.addAll(StationRepository.getEquivalentStations(config.fromStation, config.considerNearbyStations))
+                }
+                if (config.toStation.isNotEmpty()) {
+                    stationsToGeofence.addAll(StationRepository.getEquivalentStations(config.toStation, config.considerNearbyStations))
+                }
 
                 for (code in stationsToGeofence.distinct()) {
                     val station = StationRepository.getStation(context, code)
@@ -156,8 +160,12 @@ object CommuteGeofenceManager {
             if (!config.showCommuteNotifications || config.useNearestStationForReturn) continue
 
             val stations = mutableListOf<String>()
-            if (config.fromStation.isNotEmpty()) stations.add(config.fromStation)
-            if (config.toStation.isNotEmpty()) stations.add(config.toStation)
+            if (config.fromStation.isNotEmpty()) {
+                stations.addAll(StationRepository.getEquivalentStations(config.fromStation, config.considerNearbyStations))
+            }
+            if (config.toStation.isNotEmpty()) {
+                stations.addAll(StationRepository.getEquivalentStations(config.toStation, config.considerNearbyStations))
+            }
 
             var matchedStationCode: String? = null
             val results = FloatArray(1)

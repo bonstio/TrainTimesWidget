@@ -130,7 +130,13 @@ object CommuteNotificationManager {
 
             var firstLine = ""
             for ((index, service) in services.asSequence().take(4).withIndex()) {
-                val plat = if (!service.platform.isNullOrEmpty()) " [Plat ${service.platform}]" else ""
+                val plat = if (!service.platform.isNullOrEmpty()) {
+                    if (service.platform.contains("Pl.") || service.platform.matches(Regex("^[A-Z]{3}$"))) {
+                        " [${service.platform}]"
+                    } else {
+                        " [Plat ${service.platform}]"
+                    }
+                } else ""
                 val line = "${service.std} (${service.status})$plat → ${service.destination}"
                 if (index == 0) {
                     firstLine = line
@@ -189,8 +195,8 @@ object CommuteNotificationManager {
             val scheduledDestination = scheduledDirection.second
 
             // 1. Direct arrival check: The entered station matches the destination of the current commute leg
-            if (triggeringStation.equals(scheduledDestination, ignoreCase = true)) {
-                Log.d(TAG, "User arrived at commute destination $scheduledDestination for widget $appWidgetId. Dismissing notification.")
+            if (StationRepository.areSameOrSisterStations(triggeringStation, scheduledDestination, config.considerNearbyStations)) {
+                Log.d(TAG, "User arrived at commute destination $scheduledDestination (triggered by $triggeringStation) for widget $appWidgetId. Dismissing notification.")
                 lastArrivalTimes[appWidgetId] = Pair(triggeringStation, System.currentTimeMillis())
                 cancelNotification(context, appWidgetId)
                 return
@@ -199,7 +205,7 @@ object CommuteNotificationManager {
             // 2. Cooldown check: If user recently arrived at this station (within cooldown window), ignore further triggers
             val recentArrival = lastArrivalTimes[appWidgetId]
             if ((recentArrival != null) &&
-                recentArrival.first.equals(triggeringStation, ignoreCase = true) &&
+                StationRepository.areSameOrSisterStations(recentArrival.first, triggeringStation, config.considerNearbyStations) &&
                 ((System.currentTimeMillis() - recentArrival.second) < ARRIVAL_COOLDOWN_MS)
             ) {
                 Log.d(TAG, "User recently arrived at $triggeringStation (cooldown active). Skipping notification.")
@@ -230,7 +236,7 @@ object CommuteNotificationManager {
         val (fromStation, toStation) = when {
             // If commutingMode is LOCATION and we know which station triggered the notification
             (config.commutingMode == "LOCATION") && !triggeringStation.isNullOrEmpty() -> {
-                if (triggeringStation.equals(config.toStation, ignoreCase = true)) {
+                if (StationRepository.areSameOrSisterStations(triggeringStation, config.toStation, config.considerNearbyStations)) {
                     Pair(config.toStation, config.fromStation)
                 } else {
                     Pair(config.fromStation, config.toStation)
@@ -241,13 +247,19 @@ object CommuteNotificationManager {
                 WidgetUtils.determineDirection(config)
             }
         }
-        Log.d(TAG, "Fetching notification departures for widget $appWidgetId from $fromStation to $toStation (commutingMode=${config.commutingMode}, triggeredBy=$triggeringStation)")
+        Log.d(TAG, "Fetching notification departures for widget $appWidgetId from $fromStation to $toStation (commutingMode=${config.commutingMode}, triggeredBy=$triggeringStation, considerNearby=${config.considerNearbyStations})")
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val client = RailDataClient(apiKey)
                 val nowCal = java.util.Calendar.getInstance()
-                var services = client.getNextTrain(fromStation, toStation, config.timeOffset, config.departureCount)
+                var services = client.getNextTrain(
+                    fromStation,
+                    toStation,
+                    config.timeOffset,
+                    config.departureCount,
+                    config.considerNearbyStations
+                )
                     .filter { !WidgetUtils.isDepartureInPast(it, nowCal) }
                 if (config.enableJourneyDurationFilter) {
                     services = services.filter { service ->

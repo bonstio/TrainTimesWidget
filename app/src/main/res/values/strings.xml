@@ -457,4 +457,9 @@
     <string name="battery_optimization_dialog_message">To ensure background geofencing and commute notifications arrive on time as you approach the station, please set battery usage to \"Unrestricted\".</string>
     <string name="battery_optimization_dialog_positive">Open Settings</string>
     <string name="battery_optimization_dialog_negative">Later</string>
+
+    <string name="consider_nearby_stations">Consider nearby stations</string>
+    <string name="consider_nearby_stations_summary">Route to/from other stations within walking distance</string>
+    <string name="edit_route_title">Edit route</string>
+    <string name="reset_route">Reset</string>
 </resources>

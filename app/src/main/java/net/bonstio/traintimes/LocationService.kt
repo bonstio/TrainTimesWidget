@@ -86,7 +86,8 @@ class LocationService : Service() {
                             config.showLaunchIcon,
                             config.headerTapAction,
                             config.useCards,
-                            config.dividerMode
+                            config.dividerMode,
+                            config.considerNearbyStations
                         )
                         
                         // Notify widget to update UI (hide GPS/Location indicators)

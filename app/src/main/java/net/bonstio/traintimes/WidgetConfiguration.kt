@@ -43,5 +43,6 @@ data class WidgetConfiguration(
     val showLaunchIcon: Boolean = WidgetConfigurationDefaults.SHOW_LAUNCH_ICON,
     val headerTapAction: String = WidgetConfigurationDefaults.HEADER_TAP_ACTION,
     @Deprecated("Use dividerMode") val useCards: Boolean = WidgetConfigurationDefaults.USE_CARDS,
-    val dividerMode: String = WidgetConfigurationDefaults.DIVIDER_MODE
+    val dividerMode: String = WidgetConfigurationDefaults.DIVIDER_MODE,
+    val considerNearbyStations: Boolean = WidgetConfigurationDefaults.CONSIDER_NEARBY_STATIONS
 )

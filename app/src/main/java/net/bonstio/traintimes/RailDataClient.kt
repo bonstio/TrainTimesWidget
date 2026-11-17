@@ -5,6 +5,9 @@ import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -39,7 +42,68 @@ class RailDataClient(private val apiKey: String) {
         toStation: String,
         timeOffset: Int = 0,
         numRows: Int = 5,
+        considerNearbyStations: Boolean = false
     ): List<TrainService> {
+        val fromStations = StationRepository.getEquivalentStations(fromStation, considerNearbyStations)
+        val toStations = if (toStation.isNotEmpty()) {
+            StationRepository.getEquivalentStations(toStation, considerNearbyStations)
+        } else {
+            listOf("")
+        }
+
+        if (fromStations.size <= 1 && toStations.size <= 1) {
+            val responseBody = fetchDarwinBoard(fromStation, toStation, timeOffset, numRows)
+            return parseTrainServices(responseBody, toStation)
+        }
+
+        val routePairs = mutableListOf<Pair<String, String>>()
+        for (orig in fromStations) {
+            for (dest in toStations) {
+                if (dest.isEmpty() || !orig.equals(dest, ignoreCase = true)) {
+                    routePairs.add(orig to dest)
+                }
+            }
+        }
+
+        val hasMultipleDestinations = toStations.size > 1
+        var lastError: Exception? = null
+
+        val resultsPerRoute = coroutineScope {
+            routePairs.map { (orig, dest) ->
+                async {
+                    try {
+                        val body = fetchDarwinBoard(orig, dest, timeOffset, numRows)
+                        val parsed = parseTrainServices(
+                            jsonStr = body,
+                            toStation = dest,
+                            originCrs = orig,
+                            primaryFromCrs = fromStation,
+                            hasMultipleDestinations = hasMultipleDestinations
+                        )
+                        orig to parsed
+                    } catch (e: Exception) {
+                        Log.w("RailDataClient", "Failed fetching route $orig -> $dest", e)
+                        lastError = e
+                        null
+                    }
+                }
+            }.awaitAll()
+        }
+
+        val successfulResults = resultsPerRoute.filterNotNull()
+        if (successfulResults.isEmpty() && lastError != null) {
+            throw lastError!!
+        }
+
+        return mergeAndSortTrainServices(successfulResults, numRows)
+    }
+
+    private suspend fun fetchDarwinBoard(
+        fromStation: String,
+        toStation: String,
+        timeOffset: Int,
+        numRows: Int
+    ): String {
         val endpoint = "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/$fromStation"
 
         val response: HttpResponse = client.get(endpoint) {
@@ -54,10 +118,34 @@ class RailDataClient(private val apiKey: String) {
         }
 
         val responseBody = response.bodyAsText()
-        Log.d("RailDataClient", "Response Status: ${response.status}")
+        Log.d("RailDataClient", "Response Status ($fromStation->$toStation): ${response.status}")
         Log.d("RailDataClient", "Response Body length: ${responseBody.length}")
+        return responseBody
+    }
 
-        return parseTrainServices(responseBody, toStation)
+    fun mergeAndSortTrainServices(
+        routeResults: List<Pair<String, List<TrainService>>>,
+        maxRows: Int
+    ): List<TrainService> {
+        val deduplicated = mutableListOf<TrainService>()
+        val seenKeys = mutableSetOf<String>()
+
+        for ((orig, services) in routeResults) {
+            for (svc in services) {
+                val baseDest = svc.destination.replace(Regex("\\s*\\(via [A-Z]{3}\\)$"), "")
+                val key = "${orig.uppercase()}_${svc.std}_$baseDest"
+                if (seenKeys.add(key)) {
+                    deduplicated.add(svc)
+                }
+            }
+        }
+
+        if (deduplicated.isEmpty()) return emptyList()
+
+        val refMinutes = parseTimeToMinutes(deduplicated.first().std) ?: 0
+        return deduplicated
+            .sortedBy { sortKeyMinutes(it.std, refMinutes) }
+            .take(maxRows)
     }
 
     /**
@@ -68,31 +156,103 @@ class RailDataClient(private val apiKey: String) {
      * @param toStation Target destination CRS code (e.g. "HPD")
      * @param filterByTo Whether to filter API results to services calling at [toStation]
      * @param numRows Number of departures to retrieve
+     * @param considerNearbyStations Whether to also include nearby sister stations
      */
     suspend fun getWebDeparturesJson(
         fromStation: String,
         toStation: String = "",
         filterByTo: Boolean = true,
-        numRows: Int = 20
+        numRows: Int = 20,
+        considerNearbyStations: Boolean = false
     ): String {
-        val endpoint = "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/$fromStation"
+        val fromStations = StationRepository.getEquivalentStations(fromStation, considerNearbyStations)
+        val effectiveTo = if (filterByTo) toStation else ""
+        val toStations = if (effectiveTo.isNotEmpty()) {
+            StationRepository.getEquivalentStations(effectiveTo, considerNearbyStations)
+        } else {
+            listOf("")
+        }
 
-        val response: HttpResponse = client.get(endpoint) {
-            header("x-apikey", apiKey)
-            parameter("numRows", numRows)
-            parameter("timeOffset", 0)
-            parameter("timeWindow", 120)
-            if (toStation.isNotEmpty() && filterByTo) {
-                parameter("filterCrs", toStation)
-                parameter("filterType", "to")
+        if (fromStations.size <= 1 && toStations.size <= 1) {
+            val responseBody = fetchDarwinBoard(fromStation, effectiveTo, 0, numRows)
+            return transformDarwinToWebJson(responseBody, toStation)
+        }
+
+        val routePairs = mutableListOf<Pair<String, String>>()
+        for (orig in fromStations) {
+            for (dest in toStations) {
+                if (dest.isEmpty() || !orig.equals(dest, ignoreCase = true)) {
+                    routePairs.add(orig to dest)
+                }
             }
         }
 
-        val responseBody = response.bodyAsText()
-        return transformDarwinToWebJson(responseBody, toStation)
+        val hasMultipleDestinations = toStations.size > 1
+        var lastError: Exception? = null
+
+        val jsonArraysPerRoute = coroutineScope {
+            routePairs.map { (orig, dest) ->
+                async {
+                    try {
+                        val body = fetchDarwinBoard(orig, dest, 0, numRows)
+                        val targetForTransform = if (dest.isNotEmpty()) dest else toStation
+                        val arr = JSONArray(
+                            transformDarwinToWebJson(
+                                jsonStr = body,
+                                targetCrs = targetForTransform,
+                                originCrs = orig,
+                                primaryFromCrs = fromStation,
+                                hasMultipleDestinations = hasMultipleDestinations
+                            )
+                        )
+                        orig to arr
+                    } catch (e: Exception) {
+                        Log.w("RailDataClient", "Failed fetching web route $orig -> $dest", e)
+                        lastError = e
+                        null
+                    }
+                }
+            }.awaitAll()
+        }
+
+        val successfulArrays = jsonArraysPerRoute.filterNotNull()
+        if (successfulArrays.isEmpty() && lastError != null) {
+            throw lastError!!
+        }
+
+        val mergedList = mutableListOf<JSONObject>()
+        val seenKeys = mutableSetOf<String>()
+        for ((orig, arr) in successfulArrays) {
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                val due = obj.optString("due")
+                val baseDest = obj.optString("destination").replace(Regex("\\s*\\(via [A-Z]{3}\\)$"), "")
+                val key = "${orig.uppercase()}_${due}_$baseDest"
+                if (seenKeys.add(key)) {
+                    mergedList.add(obj)
+                }
+            }
+        }
+
+        val refMinutes = mergedList.firstOrNull()?.optString("due")?.let { parseTimeToMinutes(it) } ?: 0
+        val sortedList = mergedList
+            .sortedBy { sortKeyMinutes(it.optString("due"), refMinutes) }
+            .take(numRows)
+
+        val resultArray = JSONArray()
+        for (obj in sortedList) {
+            resultArray.put(obj)
+        }
+        return resultArray.toString()
     }
 
-    fun transformDarwinToWebJson(jsonStr: String, targetCrs: String): String {
+    fun transformDarwinToWebJson(
+        jsonStr: String,
+        targetCrs: String,
+        originCrs: String = "",
+        primaryFromCrs: String = "",
+        hasMultipleDestinations: Boolean = false
+    ): String {
         val jsonArray = JSONArray()
         try {
             val root = JSONObject(jsonStr)
@@ -107,13 +267,23 @@ class RailDataClient(private val apiKey: String) {
                 busServices.optJSONObject(i)?.let { allServices.add(it) }
             }
 
+            val isSisterOrigin = originCrs.isNotEmpty() &&
+                primaryFromCrs.isNotEmpty() &&
+                !originCrs.equals(primaryFromCrs, ignoreCase = true)
+
             for (serviceObj in allServices) {
                 val std = serviceObj.optString("std").ifEmpty { null } ?: continue
                 val etd = serviceObj.optString("etd")
                 val isCancelled = serviceObj.optBoolean("isCancelled", false)
-                val platform = if (serviceObj.has("platform") && !serviceObj.isNull("platform")) {
+                val rawPlatform = if (serviceObj.has("platform") && !serviceObj.isNull("platform")) {
                     serviceObj.optString("platform").ifBlank { null }
                 } else null
+
+                val platform = if (isSisterOrigin) {
+                    if (rawPlatform != null) "${originCrs.uppercase()} $rawPlatform" else originCrs.uppercase()
+                } else {
+                    rawPlatform
+                }
 
                 val length = if (serviceObj.has("length") && !serviceObj.isNull("length")) {
                     serviceObj.optInt("length", 0).takeIf { it > 0 }
@@ -135,6 +305,15 @@ class RailDataClient(private val apiKey: String) {
                     }
                 }
                 if (destName == null) continue
+
+                val displayDestName = if (hasMultipleDestinations &&
+                    targetCrs.isNotEmpty() &&
+                    (destCrs == null || !destCrs.equals(targetCrs, ignoreCase = true))
+                ) {
+                    "$destName (via ${targetCrs.uppercase()})"
+                } else {
+                    destName
+                }
 
                 val expected = when {
                     isCancelled || etd.equals("Cancelled", ignoreCase = true) -> "Cancelled"
@@ -207,13 +386,14 @@ class RailDataClient(private val apiKey: String) {
 
                 val transformedObj = JSONObject().apply {
                     put("due", std)
-                    put("destination", destName)
+                    put("destination", displayDestName)
                     if (viaText != null) put("via", viaText) else put("via", JSONObject.NULL)
                     if (platform != null) put("platform", platform) else put("platform", JSONObject.NULL)
                     put("expected", expected)
                     if (length != null) put("coaches", length) else put("coaches", JSONObject.NULL)
                     put("isFast", isFast)
                     put("callsAt", callsAt)
+                    if (targetCrs.isNotEmpty()) put("targetCrs", targetCrs.uppercase())
                     if (targetArr != null) put("targetArr", targetArr) else put("targetArr", JSONObject.NULL)
                     if (duration != null) put("durationMin", duration) else put("durationMin", JSONObject.NULL)
                     put("callingPoints", callingPoints)
@@ -227,7 +407,13 @@ class RailDataClient(private val apiKey: String) {
         return jsonArray.toString()
     }
 
-    fun parseTrainServices(jsonStr: String, toStation: String): List<TrainService> {
+    fun parseTrainServices(
+        jsonStr: String,
+        toStation: String,
+        originCrs: String = "",
+        primaryFromCrs: String = "",
+        hasMultipleDestinations: Boolean = false
+    ): List<TrainService> {
         val services = mutableListOf<TrainService>()
         val json = JSONObject(jsonStr)
 
@@ -236,7 +422,7 @@ class RailDataClient(private val apiKey: String) {
             for (i in 0 until trainServices.length()) {
                 val serviceObj = trainServices.optJSONObject(i) ?: continue
                 try {
-                    readService(serviceObj, toStation)?.let { services.add(it) }
+                    readService(serviceObj, toStation, originCrs, primaryFromCrs, hasMultipleDestinations)?.let { services.add(it) }
                 } catch (e: Exception) {
                     Log.e("RailDataClient", "Error parsing train service", e)
                 }
@@ -248,7 +434,7 @@ class RailDataClient(private val apiKey: String) {
             for (i in 0 until busServices.length()) {
                 val serviceObj = busServices.optJSONObject(i) ?: continue
                 try {
-                    readService(serviceObj, toStation)?.let { services.add(it) }
+                    readService(serviceObj, toStation, originCrs, primaryFromCrs, hasMultipleDestinations)?.let { services.add(it) }
                 } catch (e: Exception) {
                     Log.e("RailDataClient", "Error parsing bus service", e)
                 }
@@ -259,17 +445,44 @@ class RailDataClient(private val apiKey: String) {
         return services
     }
 
-    private fun readService(serviceObj: JSONObject, toStation: String): TrainService? {
+    private fun readService(
+        serviceObj: JSONObject,
+        toStation: String,
+        originCrs: String = "",
+        primaryFromCrs: String = "",
+        hasMultipleDestinations: Boolean = false
+    ): TrainService? {
         val std = serviceObj.optString("std").ifEmpty { null }
         val etd = serviceObj.optString("etd").ifEmpty { null }
-        val platform = if (serviceObj.has("platform") && !serviceObj.isNull("platform")) {
+        val rawPlatform = if (serviceObj.has("platform") && !serviceObj.isNull("platform")) {
             serviceObj.optString("platform").ifBlank { null }
         } else {
             null
         }
         val isCancelled = serviceObj.optBoolean("isCancelled", false)
 
-        val destination = readDestination(serviceObj)
+        val isSisterOrigin = originCrs.isNotEmpty() &&
+            primaryFromCrs.isNotEmpty() &&
+            !originCrs.equals(primaryFromCrs, ignoreCase = true)
+
+        val platform = if (isSisterOrigin) {
+            if (rawPlatform != null) "${originCrs.uppercase()} Pl. $rawPlatform" else originCrs.uppercase()
+        } else {
+            rawPlatform
+        }
+
+        val rawDestination = readDestination(serviceObj)
+        val destCrs = readDestinationCrs(serviceObj)
+
+        val destination = if (rawDestination != null &&
+            hasMultipleDestinations &&
+            toStation.isNotEmpty() &&
+            (destCrs == null || !destCrs.equals(toStation, ignoreCase = true))
+        ) {
+            "$rawDestination (via ${toStation.uppercase()})"
+        } else {
+            rawDestination
+        }
 
         val (callingPoints, arrivalTime) = readCallingPoints(serviceObj, toStation)
 
@@ -286,6 +499,24 @@ class RailDataClient(private val apiKey: String) {
         } else {
             Log.w("RailDataClient", "Incomplete service data: std=$std, dest=$destination")
             null
+        }
+    }
+
+    private fun parseTimeToMinutes(timeStr: String): Int? {
+        return try {
+            val (h, m) = timeStr.split(":").map { it.toInt() }
+            h * 60 + m
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun sortKeyMinutes(timeStr: String, referenceMinutes: Int): Int {
+        val mins = parseTimeToMinutes(timeStr) ?: return Int.MAX_VALUE
+        return when {
+            mins - referenceMinutes < -360 -> mins + 24 * 60
+            mins - referenceMinutes > 1080 -> mins - 24 * 60
+            else -> mins
         }
     }
 
@@ -306,6 +537,13 @@ class RailDataClient(private val apiKey: String) {
         if (destinationArray.length() == 0) return null
         val locationObj = destinationArray.optJSONObject(0) ?: return null
         return locationObj.optString("locationName").ifEmpty { null }
+    }
+
+    private fun readDestinationCrs(serviceObj: JSONObject): String? {
+        val destinationArray = serviceObj.optJSONArray("destination") ?: return null
+        if (destinationArray.length() == 0) return null
+        val locationObj = destinationArray.optJSONObject(0) ?: return null
+        return locationObj.optString("crs").ifEmpty { null }
     }
 
     private fun readCallingPoints(serviceObj: JSONObject, targetCrs: String): Pair<List<String>, String?> {
