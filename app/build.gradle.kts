@@ -26,7 +26,7 @@ android {
         applicationId = "net.bonstio.traintimes"
         minSdk = 33
         targetSdk = 36
-        versionCode = 52
+        versionCode = 53
         versionName = "3.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -91,6 +91,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.activity.ktx)
     implementation(libs.material)
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
@@ -102,8 +103,6 @@ dependencies {
     implementation("io.ktor:ktor-client-android:2.3.5")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.5")
     implementation("io.ktor:ktor-serialization-kotlinx-xml:2.3.5")
-
-    implementation("com.github.dhaval2404:colorpicker:2.3")
     
     implementation("com.google.android.gms:play-services-location:21.1.0")
 

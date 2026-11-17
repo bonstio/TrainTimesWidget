@@ -45,12 +45,15 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -248,6 +251,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
      */
     public override fun onCreate(savedInstanceState: Bundle?) {
         DynamicColors.applyToActivityIfAvailable(this)
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         setResult(RESULT_CANCELED)
@@ -262,6 +266,23 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         rootView = findViewById(R.id.config_root_layout)
         slidingSheet = findViewById(R.id.sliding_sheet_container)
+        val pinnedButtonsContainer = findViewById<View>(R.id.pinned_buttons_container)
+        val pad24 = (24 * resources.displayMetrics.density).roundToInt()
+        val pad16 = (16 * resources.displayMetrics.density).roundToInt()
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, windowInsets ->
+            val bars = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            val ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, 0)
+            pinnedButtonsContainer.setPadding(
+                pad24,
+                pad16,
+                pad24,
+                pad16 + max(bars.bottom, ime.bottom)
+            )
+            WindowInsetsCompat.CONSUMED
+        }
 
         // Route Tab Bindings
         rowGlobalSettings = findViewById(R.id.row_global_settings)
@@ -812,17 +833,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val headerView = findViewById<View>(R.id.header_container) ?: return 0
 
         // Calculate bottom inset to ensure header is visible above nav bar
-        var bottomInset = 0
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            contentView.rootWindowInsets?.let {
-                bottomInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    it.getInsets(WindowInsets.Type.systemBars()).bottom
-                } else {
-                    @Suppress("DEPRECATION")
-                    it.systemWindowInsetBottom
-                }
-            }
-        }
+        val bottomInset = ViewCompat.getRootWindowInsets(contentView)
+            ?.getInsets(WindowInsetsCompat.Type.systemBars())
+            ?.bottom ?: 0
 
         // Extra buffer to ensure it clears the nav bar comfortably (e.g. 16dp)
         val extraBuffer = (16 * resources.displayMetrics.density).toInt()

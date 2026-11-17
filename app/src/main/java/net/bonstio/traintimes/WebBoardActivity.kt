@@ -17,7 +17,11 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.work.Data
@@ -101,12 +105,26 @@ class WebBoardActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         DynamicColors.applyToActivityIfAvailable(this)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
+        )
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
         setContentView(R.layout.activity_web_board)
 
-        window.statusBarColor = Color.parseColor("#0033A0") // Tiger Royal Blue
-        window.navigationBarColor = Color.BLACK
+        val webBoardRoot = findViewById<View>(R.id.web_board_root)
+        val statusBarScrim = findViewById<View>(R.id.status_bar_scrim)
+        ViewCompat.setOnApplyWindowInsetsListener(webBoardRoot) { view, windowInsets ->
+            val insets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            statusBarScrim.layoutParams = statusBarScrim.layoutParams.apply {
+                height = insets.top
+            }
+            view.setPadding(insets.left, 0, insets.right, insets.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
 
         swipeRefresh = findViewById(R.id.swipe_refresh)
         webView = findViewById(R.id.web_view)

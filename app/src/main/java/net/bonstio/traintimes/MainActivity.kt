@@ -21,8 +21,11 @@ import android.widget.Button
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,8 +69,22 @@ class MainActivity : AppCompatActivity() {
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         DynamicColors.applyToActivityIfAvailable(this)
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        val mainRoot = findViewById<View>(R.id.main_root)
+        val toolbarContainer = findViewById<View>(R.id.toolbar_container)
+        val mainScrollView = findViewById<View>(R.id.main_scroll_view)
+        ViewCompat.setOnApplyWindowInsetsListener(mainRoot) { _, windowInsets ->
+            val bars = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            val ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            toolbarContainer.setPadding(bars.left, bars.top, bars.right, 0)
+            mainScrollView.setPadding(bars.left, 0, bars.right, maxOf(bars.bottom, ime.bottom))
+            WindowInsetsCompat.CONSUMED
+        }
 
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 

@@ -28,6 +28,9 @@
 -dontwarn kotlinx.coroutines.**
 -dontwarn org.slf4j.**
 
-# ColorPicker library
--dontwarn com.github.dhaval2404.colorpicker.**
--keep class com.github.dhaval2404.colorpicker.** { *; }
+# Strip deprecated statusBarColor/navigationBarColor calls from unused MaterialDatePicker EdgeToEdgeUtils
+-assumenosideeffects class com.google.android.material.internal.EdgeToEdgeUtils {
+    public static void applyEdgeToEdge(...);
+}
+
+
