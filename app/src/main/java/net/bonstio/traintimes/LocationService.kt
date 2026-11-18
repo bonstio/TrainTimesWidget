@@ -129,6 +129,7 @@ class LocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 Log.d(TAG, "Location changed: ${locationResult.lastLocation}")
+                CommuteGeofenceManager.onLocationChanged(this@LocationService, locationResult.lastLocation)
                 triggerWidgetUpdate()
             }
         }

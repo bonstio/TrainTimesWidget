@@ -217,18 +217,34 @@
                                 android:text="@string/route_departing_from"
                                 android:textAppearance="?attr/textAppearanceBodyLarge" />
 
-                            <RadioGroup
+                            <LinearLayout
                                 android:id="@+id/from_station_radio_group"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp">
+                                android:layout_marginTop="4dp"
+                                android:orientation="vertical">
 
-                                <com.google.android.material.radiobutton.MaterialRadioButton
-                                    android:id="@+id/radio_from_specific"
+                                <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="@string/fixed_station_required"
-                                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <com.google.android.material.radiobutton.MaterialRadioButton
+                                        android:id="@+id/radio_from_specific"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="@string/fixed_station_label"
+                                        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/button_select_from_station"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="8dp"
+                                        android:text="@string/not_yet_set" />
+                                </LinearLayout>
 
                                 <com.google.android.material.radiobutton.MaterialRadioButton
                                     android:id="@+id/radio_from_nearest"
@@ -236,7 +252,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="@string/use_nearest_station_return"
                                     android:textAppearance="?attr/textAppearanceBodyLarge" />
-                            </RadioGroup>
+                            </LinearLayout>
                         </LinearLayout>
 
                         <!-- Destination Row -->

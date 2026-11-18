@@ -204,4 +204,98 @@ class CommuteGeofenceCalculationTest {
         )
         assertTrue("Nearest mode with empty stations (destination anywhere) should be valid", TrainTimesWidgetProvider.isWidgetConfigured(configEmpty))
     }
+
+    @Test
+    fun testResolveNotificationRoute_UseNearestMode() {
+        // 1. Use nearest with no destination -> all departures from nearest station
+        val configNoDest = WidgetConfiguration(
+            title = "Test",
+            fromStation = "",
+            toStation = "",
+            useNearestStationForReturn = true,
+            showCommuteNotifications = true
+        )
+        val routeNoDest = CommuteNotificationManager.resolveNotificationRoute(
+            config = configNoDest,
+            triggeringStation = "ZFD",
+            fallbackNearestStation = "STP"
+        )
+        assertEquals("ZFD", routeNoDest.first)
+        assertEquals("", routeNoDest.second)
+
+        // 2. Use nearest with destination set (no commute reversal) -> departs from nearest toward destination
+        val configWithDest = WidgetConfiguration(
+            title = "Test",
+            fromStation = "SAC",
+            toStation = "STP",
+            startTimeNormal = -1,
+            startTimeReverse = -1,
+            useNearestStationForReturn = true,
+            showCommuteNotifications = true
+        )
+        val routeWithDest = CommuteNotificationManager.resolveNotificationRoute(
+            config = configWithDest,
+            triggeringStation = "ZFD"
+        )
+        assertEquals("ZFD", routeWithDest.first)
+        assertEquals("STP", routeWithDest.second)
+
+        // 3. Fallback to cached nearest station when triggeringStation is null (e.g. manual refresh)
+        val routeManualRefresh = CommuteNotificationManager.resolveNotificationRoute(
+            config = configWithDest,
+            triggeringStation = null,
+            fallbackNearestStation = "CTK"
+        )
+        assertEquals("CTK", routeManualRefresh.first)
+        assertEquals("STP", routeManualRefresh.second)
+
+        // 4. Same or sister station handling when at one of the endpoints
+        val routeAtSisterDest = CommuteNotificationManager.resolveNotificationRoute(
+            config = configWithDest,
+            triggeringStation = "KGX" // Sister station of STP
+        )
+        assertEquals("KGX", routeAtSisterDest.first)
+        assertEquals("SAC", routeAtSisterDest.second)
+    }
+
+    @Test
+    fun testInTransitCooldown_SuppressesIntermediateStationSwitches() {
+        CommuteNotificationManager.resetTransitStateForTest()
+        val t0 = 1_000_000L
+
+        // Initially not in transit
+        assertFalse(CommuteNotificationManager.isInTransit(null, nowMs = t0))
+
+        // Walking speed (1.5 m/s) -> not in transit
+        CommuteNotificationManager.recordSpeedMps(1.5f, nowMs = t0)
+        assertFalse(CommuteNotificationManager.isInTransit(null, nowMs = t0 + 5_000L))
+
+        // Train speed (15 m/s ~ 33 mph) -> marks in transit
+        CommuteNotificationManager.recordSpeedMps(15.0f, nowMs = t0 + 10_000L)
+        assertTrue("Should be in transit during 45s intermediate station stop", CommuteNotificationManager.isInTransit(null, nowMs = t0 + 55_000L))
+
+        // 4 minutes later after getting off the train -> no longer in transit
+        assertFalse("Should exit transit cooldown after 3 minutes", CommuteNotificationManager.isInTransit(null, nowMs = t0 + 250_000L))
+    }
+
+    @Test
+    fun testLocationModeAtHomeBeyond2km_DoesNotReverseToWorkStation() {
+        // Harpenden (HPD): 51.8152, -0.3519
+        // London St Pancras (STP): 51.5319, -0.1263
+        val hpd = MockStation("HPD", "Harpenden", 51.8152, -0.3519)
+        val stp = MockStation("STP", "London St Pancras", 51.5319, -0.1263)
+
+        // User at home in Harpenden (~2.17km from HPD, ~33.8km from STP)
+        val userLat = 51.8347
+        val userLon = -0.3519
+
+        val distFrom = computeDistanceMeters(userLat, userLon, hpd.lat, hpd.lon)
+        val distTo = computeDistanceMeters(userLat, userLon, stp.lat, stp.lon)
+
+        assertTrue("User should be >2km from HPD (actual=${distFrom}m)", distFrom > 2000.0)
+        assertTrue("User should be much closer to HPD than STP", distFrom < distTo)
+
+        val isReversed = distTo < distFrom
+        assertFalse("Route must NOT reverse when at home in Harpenden", isReversed)
+    }
 }

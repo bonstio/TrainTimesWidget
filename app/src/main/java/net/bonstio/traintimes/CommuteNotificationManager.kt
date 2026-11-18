@@ -30,9 +30,43 @@ object CommuteNotificationManager {
 
     private const val MIN_AUTO_UPDATE_INTERVAL_MS = 15 * 60 * 1000L // 15 minutes throttle for automatic triggers
     private const val ARRIVAL_COOLDOWN_MS = 45 * 60 * 1000L // 45 minutes cooldown after arrival at destination
+    private const val MAX_ON_FOOT_SPEED_MPS = 6.0f // ~13.4 mph / 21.6 km/h
+    private const val IN_TRANSIT_SPEED_THRESHOLD_MPS = 8.0f // ~18 mph / 29 km/h (train/vehicle speed)
+    private const val IN_TRANSIT_COOLDOWN_MS = 3 * 60 * 1000L // 3 minutes window after high-speed travel
     private val lastAutoUpdateTimes = java.util.concurrent.ConcurrentHashMap<Int, Long>()
     private val lastArrivalTimes = java.util.concurrent.ConcurrentHashMap<Int, Pair<String, Long>>()
     private val activeNotificationIds = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+    @Volatile
+    private var lastHighSpeedTimeMs: Long = 0L
+
+    fun recordLocationSpeed(location: android.location.Location?, nowMs: Long = System.currentTimeMillis()) {
+        if (location != null && location.hasSpeed()) {
+            recordSpeedMps(location.speed, nowMs)
+        }
+    }
+
+    internal fun recordSpeedMps(speedMps: Float, nowMs: Long = System.currentTimeMillis()) {
+        if (speedMps >= IN_TRANSIT_SPEED_THRESHOLD_MPS) {
+            lastHighSpeedTimeMs = nowMs
+        }
+    }
+
+    fun isInTransit(location: android.location.Location? = null, nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (location != null && location.hasSpeed()) {
+            recordSpeedMps(location.speed, nowMs)
+            if (location.speed > MAX_ON_FOOT_SPEED_MPS) {
+                return true
+            }
+        }
+        return lastHighSpeedTimeMs > 0L && (nowMs - lastHighSpeedTimeMs) < IN_TRANSIT_COOLDOWN_MS
+    }
+
+    internal fun resetTransitStateForTest() {
+        lastHighSpeedTimeMs = 0L
+        lastAutoUpdateTimes.clear()
+        lastArrivalTimes.clear()
+        activeNotificationIds.clear()
+    }
 
     fun isNotificationActive(appWidgetId: Int): Boolean {
         return activeNotificationIds.contains(appWidgetId)
@@ -173,16 +207,67 @@ object CommuteNotificationManager {
     }
 
     /**
+     * Resolves the effective (fromStation, toStation) pair for a commute notification.
+     */
+    internal fun resolveNotificationRoute(
+        config: WidgetConfiguration,
+        triggeringStation: String?,
+        fallbackNearestStation: String? = null
+    ): Pair<String, String> {
+        if (config.useNearestStationForReturn) {
+            val effectiveFrom = when {
+                !triggeringStation.isNullOrEmpty() -> triggeringStation
+                !fallbackNearestStation.isNullOrEmpty() -> fallbackNearestStation
+                else -> config.fromStation
+            }
+            if (config.toStation.isEmpty()) {
+                return Pair(effectiveFrom, "")
+            }
+            val scheduledDirection = WidgetUtils.determineDirection(config)
+            var effectiveTo = scheduledDirection.second.ifEmpty { config.toStation }
+            if (config.fromStation.isNotEmpty() &&
+                StationRepository.areSameOrSisterStations(effectiveFrom, effectiveTo, config.considerNearbyStations)
+            ) {
+                effectiveTo = if (StationRepository.areSameOrSisterStations(effectiveFrom, config.toStation, config.considerNearbyStations)) {
+                    config.fromStation
+                } else {
+                    config.toStation
+                }
+            }
+            return Pair(effectiveFrom, effectiveTo)
+        }
+
+        return when {
+            // If commutingMode is LOCATION and we know which station triggered the notification
+            (config.commutingMode == "LOCATION") && !triggeringStation.isNullOrEmpty() -> {
+                if (StationRepository.areSameOrSisterStations(triggeringStation, config.toStation, config.considerNearbyStations)) {
+                    Pair(config.toStation, config.fromStation)
+                } else {
+                    Pair(config.fromStation, config.toStation)
+                }
+            }
+            // Otherwise (TIME mode or no station override provided), follow the Time-based commute schedule
+            else -> {
+                WidgetUtils.determineDirection(config)
+            }
+        }
+    }
+
+    /**
      * Fetches fresh train departures asynchronously and updates the notification.
      * @param triggeringStation Optional station code that triggered the geofence/proximity.
      *                          If provided, departure direction is anchored to depart FROM this station.
+     * @param triggeringLocation Optional location associated with the trigger, used for speed/in-transit filtering.
      */
     fun fetchAndUpdateNotification(
         context: Context,
         appWidgetId: Int,
         isUserInitiated: Boolean = false,
-        triggeringStation: String? = null
+        triggeringStation: String? = null,
+        triggeringLocation: android.location.Location? = null
     ) {
+        recordLocationSpeed(triggeringLocation)
+
         val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: return
         if (!config.showCommuteNotifications && !config.forceShowNotification) {
             cancelNotification(context, appWidgetId)
@@ -192,7 +277,7 @@ object CommuteNotificationManager {
         // Check if entering a station is actually an ARRIVAL at the commute destination
         if (!config.forceShowNotification && !triggeringStation.isNullOrEmpty() && config.toStation.isNotEmpty()) {
             val scheduledDirection = WidgetUtils.determineDirection(config)
-            val scheduledDestination = scheduledDirection.second
+            val scheduledDestination = scheduledDirection.second.ifEmpty { config.toStation }
 
             // 1. Direct arrival check: The entered station matches the destination of the current commute leg
             if (StationRepository.areSameOrSisterStations(triggeringStation, scheduledDestination, config.considerNearbyStations)) {
@@ -214,6 +299,12 @@ object CommuteNotificationManager {
             }
         }
 
+        // In "Use nearest" mode, ignore intermediate stations when moving at train speed (in transit)
+        if (config.useNearestStationForReturn && !config.forceShowNotification && !isUserInitiated && isInTransit(triggeringLocation)) {
+            Log.d(TAG, "User is in transit (train speed); ignoring intermediate station $triggeringStation for widget $appWidgetId")
+            return
+        }
+
         val shouldBypassThrottle = isUserInitiated || !triggeringStation.isNullOrEmpty() || config.forceShowNotification
         if (!shouldBypassThrottle) {
             val now = System.currentTimeMillis()
@@ -233,21 +324,21 @@ object CommuteNotificationManager {
             return
         }
 
-        val (fromStation, toStation) = when {
-            // If commutingMode is LOCATION and we know which station triggered the notification
-            (config.commutingMode == "LOCATION") && !triggeringStation.isNullOrEmpty() -> {
-                if (StationRepository.areSameOrSisterStations(triggeringStation, config.toStation, config.considerNearbyStations)) {
-                    Pair(config.toStation, config.fromStation)
-                } else {
-                    Pair(config.fromStation, config.toStation)
-                }
-            }
-            // Otherwise (TIME mode or no station override provided), follow the Time-based commute schedule
-            else -> {
-                WidgetUtils.determineDirection(config)
-            }
+        val prefs = context.getSharedPreferences(TrainTimesWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
+        val cachedEffectiveFrom = prefs.getString(TrainTimesWidgetProvider.PREF_EFFECTIVE_FROM + appWidgetId, null)
+        val locationNearestCode = triggeringLocation?.let {
+            StationRepository.findNearestStation(context, it.latitude, it.longitude)?.code
         }
-        Log.d(TAG, "Fetching notification departures for widget $appWidgetId from $fromStation to $toStation (commutingMode=${config.commutingMode}, triggeredBy=$triggeringStation, considerNearby=${config.considerNearbyStations})")
+        val (fromStation, toStation) = resolveNotificationRoute(
+            config,
+            triggeringStation,
+            locationNearestCode ?: cachedEffectiveFrom
+        )
+        if (fromStation.isEmpty()) {
+            Log.w(TAG, "Cannot fetch departures for notification: fromStation is empty for widget $appWidgetId")
+            return
+        }
+        Log.d(TAG, "Fetching notification departures for widget $appWidgetId from $fromStation to $toStation (commutingMode=${config.commutingMode}, useNearest=${config.useNearestStationForReturn}, triggeredBy=$triggeringStation, considerNearby=${config.considerNearbyStations})")
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -267,10 +358,24 @@ object CommuteNotificationManager {
                         duration == null || duration <= config.maxJourneyDuration
                     }
                 }
+                prefs.edit()
+                    .putString(TrainTimesWidgetProvider.PREF_EFFECTIVE_FROM + appWidgetId, fromStation)
+                    .putString(TrainTimesWidgetProvider.PREF_EFFECTIVE_TO + appWidgetId, toStation)
+                    .apply()
                 WidgetCache.saveServices(context, appWidgetId, services)
                 withContext(Dispatchers.Main) {
-                    Log.d(TAG, "Received ${services.size} departures, updating notification and widget")
-                    showOrUpdateNotification(context, appWidgetId, config, services, fromStation, toStation)
+                    if (config.useNearestStationForReturn &&
+                        toStation.isNotEmpty() &&
+                        services.isEmpty() &&
+                        !config.forceShowNotification &&
+                        !isUserInitiated
+                    ) {
+                        Log.d(TAG, "Nearest station $fromStation has no upcoming trains to $toStation; suppressing automatic notification")
+                        cancelNotification(context, appWidgetId)
+                    } else {
+                        Log.d(TAG, "Received ${services.size} departures, updating notification and widget")
+                        showOrUpdateNotification(context, appWidgetId, config, services, fromStation, toStation)
+                    }
                     val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
                     TrainTimesWidgetProvider.updateAppWidget(context, appWidgetManager, appWidgetId, hasData = services.isNotEmpty())
                     appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)

@@ -26,8 +26,11 @@ class CommuteGeofenceReceiver : BroadcastReceiver() {
 
         val transition = geofencingEvent.geofenceTransition
         val triggeringGeofences = geofencingEvent.triggeringGeofences ?: return
+        val triggeringLocation = geofencingEvent.triggeringLocation
 
-        Log.d(TAG, "Geofence transition: $transition with ${triggeringGeofences.size} geofences")
+        CommuteNotificationManager.recordLocationSpeed(triggeringLocation)
+
+        Log.d(TAG, "Geofence transition: $transition with ${triggeringGeofences.size} geofences (speed=${triggeringLocation?.speed})")
 
         if (transition == Geofence.GEOFENCE_TRANSITION_ENTER || transition == Geofence.GEOFENCE_TRANSITION_DWELL) {
             for (geofence in triggeringGeofences) {
@@ -37,7 +40,13 @@ class CommuteGeofenceReceiver : BroadcastReceiver() {
                     val appWidgetId = parts[1].toIntOrNull() ?: continue
                     val stationCode = parts[3]
                     Log.d(TAG, "Triggering notification update for widget $appWidgetId due to geofence ${geofence.requestId} (station=$stationCode)")
-                    CommuteNotificationManager.fetchAndUpdateNotification(context, appWidgetId, isUserInitiated = true, triggeringStation = stationCode)
+                    CommuteNotificationManager.fetchAndUpdateNotification(
+                        context,
+                        appWidgetId,
+                        isUserInitiated = false,
+                        triggeringStation = stationCode,
+                        triggeringLocation = triggeringLocation
+                    )
                 }
             }
         } else if (transition == Geofence.GEOFENCE_TRANSITION_EXIT) {
@@ -45,8 +54,25 @@ class CommuteGeofenceReceiver : BroadcastReceiver() {
                 val parts = geofence.requestId.split("_")
                 if (parts.size >= 4 && parts[0] == "widget") {
                     val appWidgetId = parts[1].toIntOrNull() ?: continue
-                    val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId)
-                    if (config != null && !config.forceShowNotification) {
+                    val config = WidgetConfigurationStorage.loadConfiguration(context, appWidgetId) ?: continue
+                    if (config.forceShowNotification) continue
+
+                    val stillInsideStation = if (triggeringLocation != null) {
+                        CommuteGeofenceManager.findMatchedStationForLocation(context, config, triggeringLocation)
+                    } else {
+                        null
+                    }
+
+                    if (stillInsideStation != null) {
+                        Log.d(TAG, "Geofence exit for ${geofence.requestId}, but still inside radius of $stillInsideStation -> updating notification")
+                        CommuteNotificationManager.fetchAndUpdateNotification(
+                            context,
+                            appWidgetId,
+                            isUserInitiated = false,
+                            triggeringStation = stillInsideStation,
+                            triggeringLocation = triggeringLocation
+                        )
+                    } else {
                         Log.d(TAG, "Cancelling notification for widget $appWidgetId on geofence exit")
                         CommuteNotificationManager.cancelNotification(context, appWidgetId)
                     }

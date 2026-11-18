@@ -420,7 +420,11 @@
     <string name="use_nearest_format">Use nearest (%s)</string>
     <string name="use_nearest_station_return_summary">Use the nearest station of <i> all </i> stations (not just those specified) for outbound or return journeys</string>
 
-    <string name="fixed_station_required">Fixed station (required)</string>
+    <string name="fixed_station_label">Fixed station:</string>
+    <string name="fixed_station_required">Fixed station (not yet set)</string>
+    <string name="not_yet_set">Not yet set</string>
+    <string name="select_station_button">Select station</string>
+    <string name="change_station_button">Change station</string>
     <string name="fixed_station_format">Fixed station: %s</string>
 
     <string name="nearest_button_format">Nearest (currently %s)</string>

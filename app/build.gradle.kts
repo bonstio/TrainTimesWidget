@@ -9,7 +9,8 @@ plugins {
 val keystoreProps = Properties().apply {
     val propFiles = listOf(
         rootProject.file("keystore.properties"),
-        file("/mnt/nas/docs/Development/play-store-traintimes/keystore.properties")
+        file("/mnt/nas/docs/Development/play-store-traintimes/keystore.properties"),
+        file(System.getProperty("user.home") + "/.gemini/play-store/keystore-windows.properties")
     )
     propFiles.firstOrNull { it.exists() }?.inputStream()?.use { load(it) }
 }
@@ -26,7 +27,7 @@ android {
         applicationId = "net.bonstio.traintimes"
         minSdk = 33
         targetSdk = 36
-        versionCode = 53
+        versionCode = 54
         versionName = "3.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

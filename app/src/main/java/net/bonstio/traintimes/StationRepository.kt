@@ -132,22 +132,50 @@ object StationRepository {
      * @return The nearest [Station], or null if stations are not loaded.
      */
     fun findNearestStation(context: Context, lat: Double, lon: Double): Station? {
+        return findNearestStationWithDistance(context, lat, lon)?.first
+    }
+
+    /**
+     * Finds the nearest station to the given coordinates along with its distance in meters.
+     */
+    fun findNearestStationWithDistance(context: Context, lat: Double, lon: Double): Pair<Station, Float>? {
         val allStations = getStations(context)
         if (allStations.isEmpty()) return null
-        
+
         var nearestStation: Station? = null
         var minDistance = Float.MAX_VALUE
         val results = FloatArray(1)
-        
+
         for (station in allStations) {
+            if (station.lat == 0.0 && station.lon == 0.0) continue
             Location.distanceBetween(lat, lon, station.lat, station.lon, results)
             if (results[0] < minDistance) {
                 minDistance = results[0]
                 nearestStation = station
             }
         }
-        
-        return nearestStation
+
+        return nearestStation?.let { Pair(it, minDistance) }
+    }
+
+    /**
+     * Returns the closest [maxCount] stations to the given coordinates, sorted by ascending distance.
+     */
+    fun findNearestStations(context: Context, lat: Double, lon: Double, maxCount: Int): List<Pair<Station, Float>> {
+        val allStations = getStations(context)
+        if (allStations.isEmpty() || maxCount <= 0) return emptyList()
+
+        val results = FloatArray(1)
+        return allStations
+            .asSequence()
+            .filter { it.lat != 0.0 || it.lon != 0.0 }
+            .map { station ->
+                Location.distanceBetween(lat, lon, station.lat, station.lon, results)
+                Pair(station, results[0])
+            }
+            .sortedBy { it.second }
+            .take(maxCount)
+            .toList()
     }
 
     /**

@@ -137,6 +137,7 @@ class WidgetUpdateWorker(
         if (config.commutingMode == "LOCATION" || config.useNearestStationForReturn) {
             val locStart = System.currentTimeMillis()
             location = fetchLocation(context)
+            CommuteNotificationManager.recordLocationSpeed(location)
             Log.d(TAG, "Location fetch took ${System.currentTimeMillis() - locStart}ms. Location found: ${location != null} (Provider: ${location?.provider}, Accuracy: ${location?.accuracy})")
         }
 
@@ -154,26 +155,12 @@ class WidgetUpdateWorker(
 
                     Log.d(TAG, "Distances: To $originalFrom=${distFrom[0]}m, To $originalTo=${distTo[0]}m")
 
-                    val terminalVicinity = maxOf(config.geofenceRadius.toFloat(), 2000f)
-                    val nearFrom = distFrom[0] <= terminalVicinity
-                    val nearTo = distTo[0] <= terminalVicinity
-
-                    if (nearTo && !nearFrom) {
+                    if (distTo[0] < distFrom[0]) {
                         isReversed = true
-                        Log.d(TAG, "Reversing route based on proximity to destination $originalTo")
-                    } else if (nearFrom && !nearTo) {
-                        isReversed = false
-                        Log.d(TAG, "Setting outbound route based on proximity to origin $originalFrom")
+                        Log.d(TAG, "Reversing route based on location: closer to $originalTo (${distTo[0]}m) than $originalFrom (${distFrom[0]}m)")
                     } else {
-                        // User is en route or equidistant: check commute time window if configured
-                        val pair = WidgetUtils.determineDirection(config)
-                        if (pair.first == originalTo && originalTo.isNotEmpty()) {
-                            isReversed = true
-                            Log.d(TAG, "Reversing route based on time schedule while en route")
-                        } else if (distTo[0] < distFrom[0]) {
-                            isReversed = true
-                            Log.d(TAG, "Reversing route based on location midpoint fallback")
-                        }
+                        isReversed = false
+                        Log.d(TAG, "Setting outbound route based on location: closer to $originalFrom (${distFrom[0]}m) than $originalTo (${distTo[0]}m)")
                     }
                 }
             } else {
@@ -182,13 +169,13 @@ class WidgetUpdateWorker(
         } else {
             val pair = WidgetUtils.determineDirection(config)
             // If the start station is the 'To' station, it's reversed
-            if (pair.first == originalTo && originalTo.isNotEmpty()) {
+            if (pair.first == originalTo && originalFrom.isNotEmpty() && originalTo.isNotEmpty()) {
                 isReversed = true
                 Log.d(TAG, "Reversing route based on time")
             }
         }
 
-        if (isReversed) {
+        if (isReversed && originalFrom.isNotEmpty()) {
             effectiveFrom = originalTo
             effectiveTo = originalFrom
         }
@@ -208,7 +195,7 @@ class WidgetUpdateWorker(
                           // The destination must follow the active commute direction:
                           // When isReversed == true (heading home), destination is originalFrom (Home).
                           // When isReversed == false (heading to work), destination is originalTo (Work).
-                          effectiveTo = if (isReversed) originalFrom else originalTo
+                          effectiveTo = if (isReversed && originalFrom.isNotEmpty()) originalFrom else originalTo
                       }
                   }
              } else if (config.commutingMode != "LOCATION") {
@@ -216,7 +203,7 @@ class WidgetUpdateWorker(
              }
         }
 
-        if (originalTo.isNotEmpty() && StationRepository.areSameOrSisterStations(effectiveFrom, effectiveTo, config.considerNearbyStations)) {
+        if (originalFrom.isNotEmpty() && originalTo.isNotEmpty() && StationRepository.areSameOrSisterStations(effectiveFrom, effectiveTo, config.considerNearbyStations)) {
             effectiveTo = if (StationRepository.areSameOrSisterStations(effectiveFrom, originalTo, config.considerNearbyStations)) originalFrom else originalTo
         }
 
@@ -271,14 +258,20 @@ class WidgetUpdateWorker(
                 appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.departures_list)
 
                 if (config.showCommuteNotifications && CommuteNotificationManager.isNotificationActive(appWidgetId)) {
-                    CommuteNotificationManager.showOrUpdateNotification(
-                        context,
-                        appWidgetId,
-                        config,
-                        trainServices,
-                        effectiveFrom,
-                        effectiveTo
-                    )
+                    if (config.useNearestStationForReturn && effectiveTo.isNotEmpty() && trainServices.isEmpty() && !config.forceShowNotification) {
+                        CommuteNotificationManager.cancelNotification(context, appWidgetId)
+                    } else {
+                        CommuteNotificationManager.showOrUpdateNotification(
+                            context,
+                            appWidgetId,
+                            config,
+                            trainServices,
+                            effectiveFrom,
+                            effectiveTo
+                        )
+                    }
+                } else if (config.showCommuteNotifications && config.useNearestStationForReturn && location != null) {
+                    CommuteGeofenceManager.onLocationChanged(context, location)
                 }
             }
             Log.d(TAG, "Total update time: ${System.currentTimeMillis() - startTime}ms")

@@ -136,8 +136,9 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var sliderMaxJourneyDuration: Slider
     private lateinit var containerMaxJourneyDuration: View
     private lateinit var rowGlobalSettings: View
-    private lateinit var fromStationRadioGroup: android.widget.RadioGroup
+    private lateinit var fromStationRadioGroup: View
     private lateinit var radioFromSpecific: com.google.android.material.radiobutton.MaterialRadioButton
+    private lateinit var buttonSelectFromStation: com.google.android.material.button.MaterialButton
     private lateinit var radioFromNearest: com.google.android.material.radiobutton.MaterialRadioButton
 
     private lateinit var rowCommuteNotifications: View
@@ -181,6 +182,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var startTimeReverse = 960  // 16:00
     private var originalDurationTextColor: android.content.res.ColorStateList? = null
     private var originalFontSizeTextColor: android.content.res.ColorStateList? = null
+    private var defaultFromButtonTextColors: android.content.res.ColorStateList? = null
 
     private enum class ColorMode { TEXT, BACKGROUND }
 
@@ -227,6 +229,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     private var initialConsiderNearbyStations: Boolean = WidgetConfigurationDefaults.CONSIDER_NEARBY_STATIONS
 
     private var nearestStationCode: String? = null
+    private var lastKnownLocation: Location? = null
+    private var pendingDialogNearestCallback: (() -> Unit)? = null
 
     // Permission launcher
     private val locationPermissionRequest = registerForActivityResult(
@@ -235,11 +239,19 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         val granted = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) ||
                 permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
         if (granted) {
+            pendingDialogNearestCallback?.invoke()
+            pendingDialogNearestCallback = null
             if (useNearestStationForReturn) {
                 populateFromWithNearestStation()
             }
             updateRouteSummaries()
+            updateAdvancedSummaries()
             validateInputs()
+            if (addButton.isEnabled) {
+                triggerUpdate()
+            }
+        } else {
+            pendingDialogNearestCallback = null
         }
     }
 
@@ -289,6 +301,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         fromStationRadioGroup = findViewById(R.id.from_station_radio_group)
         radioFromSpecific = findViewById(R.id.radio_from_specific)
+        buttonSelectFromStation = findViewById(R.id.button_select_from_station)
+        defaultFromButtonTextColors = buttonSelectFromStation.textColors
         radioFromNearest = findViewById(R.id.radio_from_nearest)
 
         rowDepartingFrom = radioFromSpecific
@@ -348,6 +362,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         fromStationRadioGroup = findViewById(R.id.from_station_radio_group)
         radioFromSpecific = findViewById(R.id.radio_from_specific)
+        buttonSelectFromStation = findViewById(R.id.button_select_from_station)
+        defaultFromButtonTextColors = buttonSelectFromStation.textColors
         radioFromNearest = findViewById(R.id.radio_from_nearest)
 
         rowCommuteNotifications = findViewById(R.id.row_commute_notifications)
@@ -383,9 +399,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         stations = StationRepository.getStations(this)
 
-        setupRouteListeners()
-        setupLayoutListeners()
-        setupAdvancedListeners()
         setupDragToMove()
         setupBatteryOptimizationBanner()
         
@@ -569,10 +582,12 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         containerMaxJourneyDuration.visibility = durationVisible
 
         if (useNearestStationForReturn) {
+            radioFromSpecific.isChecked = false
             radioFromNearest.isChecked = true
             populateFromWithNearestStation()
         } else {
             radioFromSpecific.isChecked = true
+            radioFromNearest.isChecked = false
         }
 
         switchCommuteNotifications.isChecked = showCommuteNotifications
@@ -593,6 +608,10 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         updateAdvancedSummaries()
 
         validateInputs()
+
+        setupRouteListeners()
+        setupLayoutListeners()
+        setupAdvancedListeners()
         
         // Handle initial tab selection from intent
         val initialTab = intent.getIntExtra(EXTRA_OPEN_TAB, 0)
@@ -969,43 +988,58 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun setupRouteListeners() {
-        fromStationRadioGroup.setOnCheckedChangeListener { _, checkedId ->
-            val isNearest = checkedId == R.id.radio_from_nearest
+        fun selectNearestMode(isNearest: Boolean) {
             useNearestStationForReturn = isNearest
+            radioFromSpecific.isChecked = !isNearest
+            radioFromNearest.isChecked = isNearest
+            var awaitingLocPermission = false
             if (isNearest) {
-                if (showCommuteNotifications) {
-                    showCommuteNotifications = false
-                    switchCommuteNotifications.isChecked = false
-                    forceShowNotification = false
-                    switchForceShowNotification.isChecked = false
-                }
                 val hasLoc = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 if (!hasLoc) {
+                    awaitingLocPermission = true
                     locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                 } else {
                     populateFromWithNearestStation()
                 }
             }
             updateRouteSummaries()
+            updateAdvancedSummaries()
             validateInputs()
-            triggerUpdate()
+            if (!awaitingLocPermission && addButton.isEnabled) {
+                triggerUpdate()
+            }
         }
 
-        radioFromSpecific.setOnClickListener {
-            fromStationRadioGroup.check(R.id.radio_from_specific)
+        val openFromStationPicker = {
+            selectNearestMode(false)
             showRouteDialog(
                 R.string.route_departing_from,
                 fromStationCode
             ) { station ->
                 fromStationCode = station
-                updateRouteSummaries()
-                validateInputs()
+                selectNearestMode(false)
                 updateLayoutSummaries()
                 if (addButton.isEnabled) {
                     triggerUpdate()
                 }
             }
+        }
+
+        radioFromSpecific.setOnClickListener {
+            if (fromStationCode.isEmpty()) {
+                openFromStationPicker()
+            } else {
+                selectNearestMode(false)
+            }
+        }
+
+        buttonSelectFromStation.setOnClickListener {
+            openFromStationPicker()
+        }
+
+        radioFromNearest.setOnClickListener {
+            selectNearestMode(true)
         }
 
         rowDestination.setOnClickListener {
@@ -1072,45 +1106,73 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         setupInputListeners(stationInput)
 
         val dialogNearestBtn = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.button_use_nearest_in_dialog)
-        
+
         if (allowNearest) {
             dialogNearestBtn.visibility = View.VISIBLE
-            // Fetch location and label the nearest button
-            val hasLoc = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-            if (hasLoc) {
+            var resolvedNearest: Station? = nearestStationCode?.let { StationRepository.getStation(this, it) }
+            var populateWhenResolved = false
+
+            fun applyStationToDialog(station: Station, populateInput: Boolean) {
+                resolvedNearest = station
+                nearestStationCode = station.code
+                dialogNearestBtn.text = getString(R.string.nearest_button_format, station.name)
+                if (populateInput || populateWhenResolved) {
+                    populateWhenResolved = false
+                    stationInput.setText(station.toString(), false)
+                    stationInput.setSelection(stationInput.text?.length ?: 0)
+                    stationInput.dismissDropDown()
+                }
+            }
+
+            resolvedNearest?.let { applyStationToDialog(it, populateInput = false) }
+
+            fun fetchNearestForDialog(populateInput: Boolean) {
+                if (populateInput) {
+                    val cached = resolvedNearest
+                    if (cached != null) {
+                        applyStationToDialog(cached, populateInput = true)
+                    } else {
+                        populateWhenResolved = true
+                    }
+                }
+
+                val hasLoc = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                if (!hasLoc) {
+                    if (populateInput) {
+                        pendingDialogNearestCallback = { fetchNearestForDialog(populateInput = true) }
+                        locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    }
+                    return
+                }
+
                 val fusedClient = LocationServices.getFusedLocationProviderClient(this)
                 fusedClient.lastLocation.addOnSuccessListener { loc ->
-                    val targetLoc = loc
-                    if (targetLoc != null) {
-                        val nearest = StationRepository.findNearestStation(this, targetLoc.latitude, targetLoc.longitude)
+                    if (loc != null) {
+                        val nearest = StationRepository.findNearestStation(this, loc.latitude, loc.longitude)
                         if (nearest != null) {
-                            dialogNearestBtn.text = getString(R.string.nearest_button_format, nearest.name)
-                            dialogNearestBtn.setOnClickListener {
-                                stationInput.setText(nearest.toString(), false)
-                                stationInput.dismissDropDown()
-                            }
+                            applyStationToDialog(nearest, populateInput = populateInput)
                         }
                     } else {
-                        fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null).addOnSuccessListener { currLoc ->
-                            if (currLoc != null) {
-                                val nearest = StationRepository.findNearestStation(this, currLoc.latitude, currLoc.longitude)
-                                if (nearest != null) {
-                                    dialogNearestBtn.text = getString(R.string.nearest_button_format, nearest.name)
-                                    dialogNearestBtn.setOnClickListener {
-                                        stationInput.setText(nearest.toString(), false)
-                                        stationInput.dismissDropDown()
+                        fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                            .addOnSuccessListener { currLoc ->
+                                if (currLoc != null) {
+                                    val nearest = StationRepository.findNearestStation(this, currLoc.latitude, currLoc.longitude)
+                                    if (nearest != null) {
+                                        applyStationToDialog(nearest, populateInput = populateInput)
                                     }
                                 }
                             }
-                        }
                     }
                 }
-            } else {
-                dialogNearestBtn.setOnClickListener {
-                    locationPermissionRequest.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-                }
             }
+
+            dialogNearestBtn.setOnClickListener {
+                fetchNearestForDialog(populateInput = true)
+            }
+
+            // Pre-fetch nearest station as soon as dialog opens if permission is already granted
+            fetchNearestForDialog(populateInput = false)
         } else {
             dialogNearestBtn.visibility = View.GONE
         }
@@ -1119,12 +1181,17 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             .setCancelable(false)
             .setTitle(titleRes)
             .setView(view)
-            .setCancelable(false)
             .setPositiveButton(android.R.string.ok) { _, _ ->
+                pendingDialogNearestCallback = null
                 val stationCode = extractStationCode(stationInput.text.toString(), stations)
                 onConfirm(stationCode)
             }
-            .setNegativeButton(android.R.string.cancel, null)
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                pendingDialogNearestCallback = null
+            }
+            .setOnDismissListener {
+                pendingDialogNearestCallback = null
+            }
             .show()
             
         stationInput.post {
@@ -1257,12 +1324,24 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun updateRouteSummaries() {
-        val fromName = if (fromStationCode.isNotEmpty()) {
-            getString(R.string.fixed_station_format, StationRepository.getStationName(this, fromStationCode))
+        radioFromSpecific.text = getString(R.string.fixed_station_label)
+        buttonSelectFromStation.visibility = View.VISIBLE
+        buttonSelectFromStation.isEnabled = !useNearestStationForReturn
+        buttonSelectFromStation.alpha = if (useNearestStationForReturn) 0.5f else 1.0f
+        if (fromStationCode.isNotEmpty()) {
+            buttonSelectFromStation.text = StationRepository.getStationName(this, fromStationCode)
+            defaultFromButtonTextColors?.let { buttonSelectFromStation.setTextColor(it) }
         } else {
-            getString(R.string.fixed_station_required)
+            buttonSelectFromStation.text = getString(R.string.not_yet_set)
+            if (useNearestStationForReturn) {
+                defaultFromButtonTextColors?.let { buttonSelectFromStation.setTextColor(it) }
+            } else {
+                val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                        android.content.res.Configuration.UI_MODE_NIGHT_YES
+                val redColor = if (isNight) Color.parseColor("#FF5252") else Color.parseColor("#D32F2F")
+                buttonSelectFromStation.setTextColor(redColor)
+            }
         }
-        radioFromSpecific.text = fromName
 
         if (!useNearestStationForReturn) {
             radioFromNearest.text = getString(R.string.use_nearest_station_return)
@@ -1294,6 +1373,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
                     .addOnSuccessListener { location ->
                         if (location != null) {
+                            lastKnownLocation = location
                             val closestStation = findClosestStation(location, fromStationCode, toStationCode)
                             if (closestStation != null) {
                                 var displayCode = closestStation.code
@@ -1306,6 +1386,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                                 }
                                 summaryCommuteTimes.text = getString(R.string.location_closest_summary, displayCode)
                             }
+                            updateLayoutSummaries()
                         }
                     }
             }
@@ -1325,7 +1406,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         rowMaxJourneyDuration.alpha = if (hasToStation) 1.0f else 0.5f
 
         val hasFromStation = fromStationCode.isNotEmpty()
-        val canUseCommuteNotifications = hasFromStation && !useNearestStationForReturn
+        val canUseCommuteNotifications = hasFromStation || useNearestStationForReturn
         switchCommuteNotifications.isEnabled = canUseCommuteNotifications
         textCommuteNotifications.alpha = if (canUseCommuteNotifications) 1.0f else 0.5f
         summaryCommuteNotifications.alpha = if (canUseCommuteNotifications) 1.0f else 0.5f
@@ -1358,17 +1439,36 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun applyNearestStation(location: Location) {
+        lastKnownLocation = location
         val nearest = StationRepository.findNearestStation(this, location.latitude, location.longitude)
         if (nearest != null) {
             nearestStationCode = nearest.code
             if (useNearestStationForReturn) {
                 radioFromNearest.text = getString(R.string.use_nearest_format, nearest.name)
             }
-            if (fromStationCode.isEmpty()) {
-                fromStationCode = nearest.code
-            }
             updateLayoutSummaries()
         }
+    }
+
+    private fun isCurrentlyReversed(): Boolean {
+        if (toStationCode.isEmpty() || fromStationCode.isEmpty()) return false
+        if (selectedCommutingMode == "LOCATION") {
+            val loc = lastKnownLocation
+            if (loc != null) {
+                val closest = findClosestStation(loc, fromStationCode, toStationCode)
+                if (closest != null) {
+                    return closest.code.equals(toStationCode, ignoreCase = true)
+                }
+            }
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val ef = prefs.getString(TrainTimesWidgetProvider.PREF_EFFECTIVE_FROM + appWidgetId, null)
+            if (ef != null) {
+                return ef.equals(toStationCode, ignoreCase = true)
+            }
+        }
+        val calendar = Calendar.getInstance()
+        val currentMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        return WidgetUtils.isTimeReversed(currentMinutes, startTimeNormal, startTimeReverse)
     }
     
     private fun findClosestStation(location: Location, fromCode: String, toCode: String): Station? {
@@ -1427,13 +1527,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             val helperT = view.findViewById<TextView>(R.id.helper_T)
             val helperC = view.findViewById<TextView>(R.id.helper_C)
 
-            val calendar = Calendar.getInstance()
-            val currentMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-            val isReversed = if (toStationCode.isNotEmpty()) {
-                WidgetUtils.isTimeReversed(currentMinutes, startTimeNormal, startTimeReverse)
-            } else {
-                false
-            }
+            val isReversed = isCurrentlyReversed()
             val effectiveFromCode = if (useNearestStationForReturn) {
                 nearestStationCode ?: fromStationCode
             } else {
@@ -1802,10 +1896,6 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
 
         switchCommuteNotifications.setOnCheckedChangeListener { _, isChecked ->
             showCommuteNotifications = isChecked
-            if (isChecked && useNearestStationForReturn) {
-                useNearestStationForReturn = false
-                radioFromSpecific.isChecked = true
-            }
             if (!isChecked) {
                 forceShowNotification = false
                 switchForceShowNotification.isChecked = false
@@ -1825,6 +1915,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                 }
             }
             updateRouteSummaries()
+            updateAdvancedSummaries()
             triggerUpdate()
         }
 
@@ -1881,30 +1972,36 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
             .addOnSuccessListener { location ->
                 if (location != null) {
-                    val fromStation = StationRepository.getStation(this, fromStationCode)
-                    val toStation = StationRepository.getStation(this, toStationCode)
-
                     var minDistance = Float.MAX_VALUE
                     var closestStationName = ""
                     var closestStationCode = ""
 
-                    if (fromStation != null) {
-                        val dist = FloatArray(1)
-                        Location.distanceBetween(location.latitude, location.longitude, fromStation.lat, fromStation.lon, dist)
-                        if (dist[0] < minDistance) {
-                            minDistance = dist[0]
-                            closestStationName = fromStation.name
-                            closestStationCode = fromStation.code
+                    if (useNearestStationForReturn) {
+                        val nearestWithDist = StationRepository.findNearestStationWithDistance(this, location.latitude, location.longitude)
+                        if (nearestWithDist != null) {
+                            minDistance = nearestWithDist.second
+                            closestStationName = nearestWithDist.first.name
+                            closestStationCode = nearestWithDist.first.code
                         }
-                    }
-
-                    if (toStation != null) {
+                    } else {
+                        val candidateCodes = mutableListOf<String>()
+                        if (fromStationCode.isNotEmpty()) {
+                            candidateCodes.addAll(StationRepository.getEquivalentStations(fromStationCode, considerNearbyStations))
+                        }
+                        if (toStationCode.isNotEmpty()) {
+                            candidateCodes.addAll(StationRepository.getEquivalentStations(toStationCode, considerNearbyStations))
+                        }
                         val dist = FloatArray(1)
-                        Location.distanceBetween(location.latitude, location.longitude, toStation.lat, toStation.lon, dist)
-                        if (dist[0] < minDistance) {
-                            minDistance = dist[0]
-                            closestStationName = toStation.name
-                            closestStationCode = toStation.code
+                        for (code in candidateCodes.distinct()) {
+                            val st = StationRepository.getStation(this, code) ?: continue
+                            if (st.lat != 0.0 || st.lon != 0.0) {
+                                Location.distanceBetween(location.latitude, location.longitude, st.lat, st.lon, dist)
+                                if (dist[0] < minDistance) {
+                                    minDistance = dist[0]
+                                    closestStationName = st.name
+                                    closestStationCode = st.code
+                                }
+                            }
                         }
                     }
 
@@ -1918,13 +2015,14 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
                         }
 
                         // Synchronize commute notification immediately based on this exact calculation
-                        if (showCommuteNotifications && !useNearestStationForReturn) {
+                        if (showCommuteNotifications) {
                             if (isInside) {
                                 CommuteNotificationManager.fetchAndUpdateNotification(
                                     this@TrainTimesWidgetConfigureActivity,
                                     appWidgetId,
-                                    isUserInitiated = true,
-                                    triggeringStation = closestStationCode
+                                    isUserInitiated = false,
+                                    triggeringStation = closestStationCode,
+                                    triggeringLocation = location
                                 )
                             } else if (!forceShowNotification) {
                                 CommuteNotificationManager.cancelNotification(this@TrainTimesWidgetConfigureActivity, appWidgetId)
@@ -1952,13 +2050,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
     }
 
     private fun updateLayoutSummaries() {
-        val calendar = Calendar.getInstance()
-        val currentMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-        val isReversed = if (toStationCode.isNotEmpty()) {
-            WidgetUtils.isTimeReversed(currentMinutes, startTimeNormal, startTimeReverse)
-        } else {
-            false
-        }
+        val isReversed = isCurrentlyReversed()
 
         val effectiveFromCode = if (useNearestStationForReturn) {
             nearestStationCode ?: fromStationCode
@@ -1967,8 +2059,8 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
         }
 
         val displayFrom = if (useNearestStationForReturn) effectiveFromCode else if (isReversed) toStationCode else fromStationCode
-        var displayTo = if (useNearestStationForReturn) (if (isReversed) fromStationCode else toStationCode) else if (isReversed) fromStationCode else toStationCode
-        if (toStationCode.isNotEmpty() && displayFrom.equals(displayTo, ignoreCase = true)) {
+        var displayTo = if (useNearestStationForReturn) (if (isReversed && fromStationCode.isNotEmpty()) fromStationCode else toStationCode) else if (isReversed) fromStationCode else toStationCode
+        if (fromStationCode.isNotEmpty() && toStationCode.isNotEmpty() && displayFrom.equals(displayTo, ignoreCase = true)) {
             displayTo = if (displayFrom.equals(toStationCode, ignoreCase = true)) fromStationCode else toStationCode
         }
 
@@ -1978,7 +2070,7 @@ class TrainTimesWidgetConfigureActivity : AppCompatActivity() {
             if (customTitleText.isEmpty()) getString(R.string.default_from_only_title) else customTitleText,
             displayFrom,
             displayTo,
-            effectiveFromCode
+            fromStationCode.ifEmpty { effectiveFromCode }
         )
         summaryStyle.text = if (selectedTitleStyle == "EMPTY") getString(R.string.title_style_empty) else displayTitle
         
