@@ -293,7 +293,7 @@
     <string name="icon_launch">Launch web board</string>
 
     <!-- Label for opening the web board. -->
-    <string name="open_web_board">Open web board</string>
+    <string name="open_web_board">Open departure board</string>
 
     <!-- Header tap action strings -->
     <string name="header_tap_action_title">Header tap action</string>
@@ -339,8 +339,8 @@
     <string name="divider_option_line">Line</string>
     <string name="divider_option_card">Card</string>
 
-    <!-- Button text to add widget to home screen. Length: 18 chars. -->
-    <string name="add_to_home_screen">Add widget to home screen</string>
+    <!-- Button text to add widget to home screen. -->
+    <string name="add_to_home_screen">Add widget</string>
 
     <!-- Message shown when pinning is not supported. Length: 36 chars. -->
     <string name="pinning_not_supported">Pinning not supported on this device</string>

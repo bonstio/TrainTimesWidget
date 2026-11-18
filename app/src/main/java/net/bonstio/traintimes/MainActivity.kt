@@ -156,6 +156,8 @@ class MainActivity : AppCompatActivity() {
 
         val openWebBoardButton = findViewById<Button?>(R.id.open_web_board_button)
         openWebBoardButton?.setOnClickListener {
+            saveSettings()
+            updateWidgets()
             val intent = Intent(this, WebBoardActivity::class.java)
             startActivity(intent)
         }
@@ -224,45 +226,30 @@ class MainActivity : AppCompatActivity() {
     private fun setupAddToHomeButton() {
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val myProvider = ComponentName(this, TrainTimesWidgetProvider::class.java)
-        val widgetIds = appWidgetManager.getAppWidgetIds(myProvider)
-        val hasExistingWidget = widgetIds.any { id ->
-            WidgetConfigurationStorage.loadConfiguration(this, id) != null
-        }
 
-        if (hasExistingWidget) {
-            addToHomeButton.text = getString(R.string.done)
-            addToHomeButton.isEnabled = true
-            addToHomeButton.visibility = View.VISIBLE
-            addToHomeButton.setOnClickListener {
-                saveSettings()
-                updateWidgets()
-                finish()
-            }
-        } else {
-            addToHomeButton.text = getString(R.string.add_to_home_screen)
-            addToHomeButton.isEnabled = true
-            addToHomeButton.visibility = View.VISIBLE
-            addToHomeButton.setOnClickListener {
-                saveSettings()
-                updateWidgets()
-                if (appWidgetManager.isRequestPinAppWidgetSupported) {
-                    Log.d("TrainWidgetDebug", "Requesting pin widget...")
-                    val intent = Intent(this, TrainTimesWidgetProvider::class.java).apply {
-                        action = TrainTimesWidgetProvider.ACTION_WIDGET_PINNED
-                    }
-
-                    val successCallback = PendingIntent.getBroadcast(
-                        this,
-                        0,
-                        intent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-                    )
-
-                    appWidgetManager.requestPinAppWidget(myProvider, null, successCallback)
-                    finish()
-                } else {
-                    Toast.makeText(this, R.string.pinning_not_supported, Toast.LENGTH_LONG).show()
+        addToHomeButton.text = getString(R.string.add_to_home_screen)
+        addToHomeButton.isEnabled = true
+        addToHomeButton.visibility = View.VISIBLE
+        addToHomeButton.setOnClickListener {
+            saveSettings()
+            updateWidgets()
+            if (appWidgetManager.isRequestPinAppWidgetSupported) {
+                Log.d("TrainWidgetDebug", "Requesting pin widget...")
+                val intent = Intent(this, TrainTimesWidgetProvider::class.java).apply {
+                    action = TrainTimesWidgetProvider.ACTION_WIDGET_PINNED
                 }
+
+                val successCallback = PendingIntent.getBroadcast(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+
+                appWidgetManager.requestPinAppWidget(myProvider, null, successCallback)
+                finish()
+            } else {
+                Toast.makeText(this, R.string.pinning_not_supported, Toast.LENGTH_LONG).show()
             }
         }
     }
