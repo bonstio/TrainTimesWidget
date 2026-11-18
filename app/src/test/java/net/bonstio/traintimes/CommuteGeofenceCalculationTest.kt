@@ -298,4 +298,24 @@ class CommuteGeofenceCalculationTest {
         val isReversed = distTo < distFrom
         assertFalse("Route must NOT reverse when at home in Harpenden", isReversed)
     }
+
+    @Test
+    fun testNotificationFourMinuteDebounce() {
+        CommuteNotificationManager.resetTransitStateForTest()
+        val widgetId = 7
+        val t0 = 10_000_000L
+
+        assertFalse("Should not be debounced initially", CommuteNotificationManager.isNotificationDebounced(null, widgetId, nowMs = t0))
+
+        CommuteNotificationManager.recordNotificationTime(null, widgetId, nowMs = t0)
+        assertTrue("Should be debounced 1 minute later", CommuteNotificationManager.isNotificationDebounced(null, widgetId, nowMs = t0 + 60_000L))
+        assertTrue("Should still be debounced at 3m59s", CommuteNotificationManager.isNotificationDebounced(null, widgetId, nowMs = t0 + 239_999L))
+
+        // Dismissing the notification must NOT clear the 4-minute debounce
+        CommuteNotificationManager.onNotificationDismissed(widgetId)
+        assertTrue("Dismissing notification should preserve 4-minute debounce", CommuteNotificationManager.isNotificationDebounced(null, widgetId, nowMs = t0 + 120_000L))
+
+        // At 4 minutes (240,000 ms), debounce expires
+        assertFalse("Debounce should expire after 4 minutes", CommuteNotificationManager.isNotificationDebounced(null, widgetId, nowMs = t0 + 240_000L))
+    }
 }

@@ -81,10 +81,11 @@ object CommuteGeofenceManager {
             val config = WidgetConfigurationStorage.loadConfiguration(context, id) ?: continue
 
             if (config.forceShowNotification) {
-                // If forced, immediately update notification
+                // If forced, immediately update notification (user-initiated only when explicitly saving this widget's config)
                 CommuteNotificationManager.fetchAndUpdateNotification(
                     context,
                     id,
+                    isUserInitiated = (targetWidgetId == id),
                     triggeringLocation = effectiveCenterLocation
                 )
             } else if (!config.showCommuteNotifications) {

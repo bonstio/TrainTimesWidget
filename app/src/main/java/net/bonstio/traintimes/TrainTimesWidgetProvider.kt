@@ -38,6 +38,7 @@ class TrainTimesWidgetProvider : AppWidgetProvider() {
       prefs.remove(PREF_LAST_SUCCESSFUL_UPDATE + appWidgetId)
       prefs.remove(PREF_DISMISSED_SHARED_KEY_BANNER + appWidgetId)
       prefs.remove(PREF_DISMISSED_SHARED_KEY_BANNER_TIME + appWidgetId)
+      CommuteNotificationManager.recordNotificationTime(context, appWidgetId, 0L)
     }
     prefs.apply()
     LocationService.update(context)
